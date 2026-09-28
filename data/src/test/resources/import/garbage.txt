@@ -1,0 +1,3 @@
+Bonjour, ceci n'est pas une playlist.
+Juste du texte libre sans colonnes ni JSON.
+Rendez-vous demain à 14h30 !

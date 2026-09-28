@@ -1,0 +1,7 @@
+{
+  "name": "Ma sélection",
+  "tracks": [
+    {"titre": "Alors on danse", "artiste": "Stromae", "durée": 207},
+    {"titre": "Papaoutai", "artiste": "Stromae", "durée": 232}
+  ]
+}

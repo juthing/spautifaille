@@ -1,0 +1,33 @@
+{
+  "tracks": [
+    {
+      "artist": "Daft Punk",
+      "album": "Random Access Memories",
+      "track": "Get Lucky (feat. Pharrell Williams & Nile Rodgers)",
+      "uri": "spotify:track:69kOkLUCkxIZYexIgSG8rq"
+    },
+    {
+      "artist": "Angèle",
+      "album": "Brol",
+      "track": "Balance ton quoi",
+      "uri": "spotify:track:4gs6f2jvLQVyGdVEpfQj1z"
+    },
+    {
+      "artist": "Sans titre",
+      "album": "Rien",
+      "track": "",
+      "uri": "spotify:track:0000000000000000000001"
+    }
+  ],
+  "albums": [
+    { "artist": "Daft Punk", "album": "Discovery", "uri": "spotify:album:2noRn2Aes5aoNVsU6iWThc" }
+  ],
+  "shows": [],
+  "episodes": [],
+  "bannedTracks": [],
+  "artists": [
+    { "name": "Daft Punk", "uri": "spotify:artist:4tZwfgrHOc3mvqYlEYSvVi" }
+  ],
+  "bannedArtists": [],
+  "other": []
+}
