@@ -1,0 +1,88 @@
+{
+  "playlists": [
+    {
+      "name": "Road trip 🚗",
+      "lastModifiedDate": "2024-05-12",
+      "collaborators": [],
+      "items": [
+        {
+          "track": {
+            "trackName": "Bohemian Rhapsody - Remastered 2011",
+            "artistName": "Queen",
+            "albumName": "A Night at the Opera (Deluxe Remastered Version)",
+            "trackUri": "spotify:track:7tFiyTwD0nx5a1eklYtX2J"
+          },
+          "episode": null,
+          "localTrack": null,
+          "addedDate": "2024-01-03"
+        },
+        {
+          "track": {
+            "trackName": "Tyler, The Creator Interlude",
+            "artistName": "Tyler, The Creator",
+            "albumName": "IGOR",
+            "trackUri": "spotify:track:6habFhsOp2NvshLv26DqMb"
+          },
+          "episode": null,
+          "localTrack": null,
+          "addedDate": "2024-01-04"
+        },
+        {
+          "track": null,
+          "episode": {
+            "name": "Épisode 42 : L'histoire du rock",
+            "showName": "Podcast Rock FR",
+            "episodeUri": "spotify:episode:1234567890abcdef"
+          },
+          "localTrack": null,
+          "addedDate": "2024-01-05"
+        },
+        {
+          "track": null,
+          "episode": null,
+          "localTrack": {
+            "uri": "spotify:local:Mon+Groupe:Demo+2019:Chanson+maison:187"
+          },
+          "addedDate": "2024-01-06"
+        },
+        {
+          "track": null,
+          "episode": null,
+          "localTrack": {
+            "uri": "spotify:local:::::"
+          },
+          "addedDate": "2024-01-07"
+        }
+      ],
+      "description": null,
+      "numberOfFollowers": 0
+    },
+    {
+      "name": "Sélection 夜",
+      "lastModifiedDate": "2023-11-30",
+      "items": [
+        {
+          "track": {
+            "trackName": "夜に駆ける",
+            "artistName": "YOASOBI",
+            "albumName": "THE BOOK",
+            "trackUri": "spotify:track:7dGJo4pcD2V6oG8kP0tJRR"
+          },
+          "episode": null,
+          "localTrack": null,
+          "addedDate": "2023-11-30"
+        },
+        {
+          "track": {
+            "artistName": "Sans nom",
+            "albumName": "Album fantôme",
+            "trackUri": "spotify:track:0000000000000000000000"
+          },
+          "episode": null,
+          "localTrack": null,
+          "addedDate": "2023-11-30"
+        }
+      ]
+    }
+  ]
+}

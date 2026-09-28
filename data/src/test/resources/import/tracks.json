@@ -1,0 +1,8 @@
+[
+  {"title": "Alors on danse", "artist": "Stromae", "album": "Cheese", "durationMs": 207000, "isrc": "be-r10-9-01-1"},
+  {"Title": "Papaoutai", "artists": ["Stromae", "Autre Artiste"], "album": "Racine carrée", "durationMs": 232000},
+  {"trackName": "Formidable", "artistName": [{"name": "Stromae"}], "albumName": "Racine carrée", "length": "3:34"},
+  {"song": "Lien direct", "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=42s"},
+  {"note": "pas de titre"},
+  {"title": "   "}
+]
