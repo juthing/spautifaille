@@ -13,3 +13,6 @@ build/
 *.keystore
 *.jks
 keystore.properties
+
+# Worktrees des agents Claude Code
+.claude/worktrees/
