@@ -11,7 +11,6 @@ android {
 
 dependencies {
     api(project(":domain"))
-    implementation(project(":player"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)

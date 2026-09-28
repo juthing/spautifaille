@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Navigation -->
+    <string name="nav_home">Accueil</string>
+    <string name="nav_search">Rechercher</string>
+    <string name="nav_library">Bibliothèque</string>
+    <string name="nav_settings">Réglages</string>
+
+    <!-- TODO(integration) : titres des écrans provisoires -->
+    <string name="placeholder_screen">%1$s : bientôt disponible</string>
+    <string name="placeholder_playlist">Playlist</string>
+    <string name="placeholder_remote_playlist">Playlist en ligne</string>
+    <string name="placeholder_artist">Artiste</string>
+    <string name="placeholder_downloads">Téléchargements</string>
+    <string name="placeholder_import">Importer</string>
+
+    <!-- Actions communes -->
+    <string name="common_action_retry">Réessayer</string>
+    <string name="common_action_cancel">Annuler</string>
+    <string name="common_action_create">Créer</string>
+    <string name="common_action_back">Retour</string>
+    <string name="common_action_clear">Effacer</string>
+    <string name="common_action_clear_all">Tout effacer</string>
+    <string name="common_action_more">Plus d\'actions</string>
+    <string name="common_action_play">Lecture</string>
+    <string name="common_action_pause">Pause</string>
+    <string name="common_action_next">Titre suivant</string>
+    <string name="common_action_previous">Titre précédent</string>
+
+    <!-- Actions sur un titre -->
+    <string name="common_action_play_next">Lire ensuite</string>
+    <string name="common_action_add_to_queue">Ajouter à la file</string>
+    <string name="common_action_add_to_playlist">Ajouter à une playlist</string>
+    <string name="common_action_like">J\'aime</string>
+    <string name="common_action_unlike">Je n\'aime plus</string>
+    <string name="common_action_download">Télécharger</string>
+    <string name="common_action_cancel_download">Annuler le téléchargement</string>
+    <string name="common_action_delete_download">Supprimer le téléchargement</string>
+    <string name="common_action_go_to_artist">Aller à l\'artiste</string>
+    <string name="common_action_new_playlist">Nouvelle playlist</string>
+    <string name="common_add_to_playlist_title">Ajouter à une playlist</string>
+    <string name="common_playlist_name_label">Nom de la playlist</string>
+
+    <string name="common_track_subtitle">%1$s · %2$s</string>
+    <string name="common_artist_subscribers">%1$s abonnés</string>
+    <plurals name="common_track_count">
+        <item quantity="one">%d titre</item>
+        <item quantity="other">%d titres</item>
+    </plurals>
+
+    <!-- Retours (snackbar) -->
+    <string name="snack_play_next">Sera lu ensuite</string>
+    <string name="snack_added_to_queue">Ajouté à la file</string>
+    <string name="snack_added_to_playlist">Ajouté à « %1$s »</string>
+    <string name="snack_liked">Ajouté à vos titres likés</string>
+    <string name="snack_unliked">Retiré de vos titres likés</string>
+    <string name="snack_download_queued">Téléchargement en attente</string>
+    <string name="snack_download_cancelled">Téléchargement annulé</string>
+    <string name="snack_download_deleted">Téléchargement supprimé</string>
+    <string name="snack_track_skipped">« %1$s » ignoré : %2$s</string>
+    <string name="snack_sleep_timer_finished">Minuterie terminée, la lecture est en pause</string>
+
+    <!-- Erreurs (AppError) -->
+    <string name="apperror_unavailable">Ce contenu n\'est plus disponible.</string>
+    <string name="apperror_age_restricted">Ce contenu est soumis à une restriction d\'âge et ne peut pas être lu.</string>
+    <string name="apperror_geo_blocked">Ce contenu n\'est pas disponible dans votre pays.</string>
+    <string name="apperror_paid_content">Ce contenu est payant ou réservé aux abonnés.</string>
+    <string name="apperror_bot_detected">YouTube limite temporairement les requêtes. Réessayez dans quelques minutes.</string>
+    <string name="apperror_network">Connexion impossible. Vérifiez votre réseau et réessayez.</string>
+    <string name="apperror_stream_expired">Le lien de lecture a expiré. Réessayez.</string>
+    <string name="apperror_no_audio_stream">Aucun flux audio exploitable pour ce titre.</string>
+    <string name="apperror_extraction_broken">L\'extraction a échoué : YouTube a probablement changé. Mettez l\'application à jour.</string>
+    <string name="apperror_unknown">Une erreur inattendue s\'est produite.</string>
+
+    <!-- Accueil -->
+    <string name="home_greeting_morning">Bonjour</string>
+    <string name="home_greeting_afternoon">Bon après-midi</string>
+    <string name="home_greeting_evening">Bonsoir</string>
+    <string name="home_recent_title">Reprendre</string>
+    <string name="home_recent_empty_title">Rien écouté pour l\'instant</string>
+    <string name="home_recent_empty_message">Vos derniers titres apparaîtront ici.</string>
+    <string name="home_liked_title">Titres likés</string>
+    <string name="home_liked_subtitle">Vos coups de cœur au même endroit</string>
+    <string name="home_discover_title">Découverte</string>
+    <string name="home_discover_soon_title">Bientôt disponible</string>
+    <string name="home_discover_soon_message">Des suggestions basées sur ce que vous écoutez apparaîtront ici.</string>
+
+    <!-- Recherche -->
+    <string name="search_placeholder">Titres, artistes, albums…</string>
+    <string name="search_idle_title">Rechercher de la musique</string>
+    <string name="search_idle_message">Titres, vidéos, albums, playlists et artistes YouTube.</string>
+    <string name="search_no_results_title">Aucun résultat</string>
+    <string name="search_no_results_message">Rien trouvé pour « %1$s ». Essayez une autre recherche.</string>
+    <string name="search_recent_title">Recherches récentes</string>
+    <string name="search_use_suggestion">Utiliser cette suggestion</string>
+    <string name="search_filter_songs">Titres</string>
+    <string name="search_filter_videos">Vidéos</string>
+    <string name="search_filter_albums">Albums</string>
+    <string name="search_filter_playlists">Playlists</string>
+    <string name="search_filter_artists">Artistes</string>
+
+    <!-- Lecteur -->
+    <string name="player_collapse">Réduire le lecteur</string>
+    <string name="player_now_playing">En cours de lecture</string>
+    <string name="player_shuffle_on">Lecture aléatoire activée</string>
+    <string name="player_shuffle_off">Lecture aléatoire désactivée</string>
+    <string name="player_repeat_off">Répétition désactivée</string>
+    <string name="player_repeat_all">Répéter la file</string>
+    <string name="player_repeat_one">Répéter le titre</string>
+    <string name="player_queue">File</string>
+    <string name="player_playlist">Playlist</string>
+    <string name="player_speed_title">Vitesse de lecture</string>
+    <string name="player_sleep_title">Minuterie de sommeil</string>
+    <string name="player_sleep_short">Minuterie</string>
+    <string name="player_sleep_minutes">%1$d minutes</string>
+    <string name="player_sleep_end_of_track">Fin du titre</string>
+    <string name="player_sleep_end_of_track_short">Fin du titre</string>
+    <string name="player_sleep_cancel">Annuler la minuterie</string>
+    <string name="player_sleep_active_remaining">Arrêt de la lecture dans %1$s</string>
+    <string name="player_sleep_active_end_of_track">Arrêt à la fin du titre</string>
+
+    <!-- File de lecture -->
+    <string name="queue_title">File d\'attente</string>
+    <string name="queue_clear">Effacer la file</string>
+    <string name="queue_now_playing">En cours de lecture</string>
+    <string name="queue_up_next">À suivre</string>
+    <string name="queue_empty">Rien à suivre pour le moment.</string>
+    <string name="queue_reorder">Déplacer</string>
+    <string name="queue_remove">Retirer de la file</string>
+</resources>
