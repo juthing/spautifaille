@@ -7,6 +7,11 @@ plugins {
 
 android {
     namespace = "com.spautifaille.data"
+
+    sourceSets {
+        // Schémas Room exportés, lus par MigrationTestHelper dans les tests unitaires (Robolectric).
+        getByName("test").assets.directories += "$projectDir/schemas"
+    }
 }
 
 room {
