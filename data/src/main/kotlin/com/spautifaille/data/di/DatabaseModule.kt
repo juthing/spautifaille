@@ -8,7 +8,10 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.preferencesDataStoreFile
 import androidx.room.Room
+import com.spautifaille.data.local.DiscoveryDao
+import com.spautifaille.data.local.DownloadDao
 import com.spautifaille.data.local.HistoryDao
+import com.spautifaille.data.local.ImportDao
 import com.spautifaille.data.local.PlaylistDao
 import com.spautifaille.data.local.QueueDao
 import com.spautifaille.data.local.SpautifailleDatabase
@@ -52,6 +55,15 @@ object DatabaseModule {
 
     @Provides
     fun provideQueueDao(db: SpautifailleDatabase): QueueDao = db.queueDao()
+
+    @Provides
+    fun provideDownloadDao(db: SpautifailleDatabase): DownloadDao = db.downloadDao()
+
+    @Provides
+    fun provideImportDao(db: SpautifailleDatabase): ImportDao = db.importDao()
+
+    @Provides
+    fun provideDiscoveryDao(db: SpautifailleDatabase): DiscoveryDao = db.discoveryDao()
 
     /** Une seule instance par fichier : DataStore interdit deux instances actives sur le même fichier. */
     @Provides

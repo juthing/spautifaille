@@ -62,14 +62,54 @@ class MigrationTest {
 
     @Test
     fun allMigrationsRunAndValidateUpToLatestVersion() {
-        val latest = 1
+        val latest = 2
         helper.createDatabase(TEST_DB_MIGRATED, 1).close()
         // Sans migration déclarée, la validation reste sur la version 1 ; chaque future migration
         // sera enchaînée ici automatiquement.
         helper.runMigrationsAndValidate(TEST_DB_MIGRATED, latest, true, *ALL_MIGRATIONS).close()
     }
 
+    @Test
+    fun migrate1To2KeepsDataAndCreatesNewTables() {
+        helper.createDatabase(TEST_DB_1_2, 1).use { db ->
+            db.execSQL(
+                "INSERT INTO tracks (id, title, artist, artist_url, album, duration_ms, thumbnail_url, updated_at) " +
+                    "VALUES ('abc', 'Titre', 'Artiste', NULL, NULL, 1000, NULL, 1)",
+            )
+            db.execSQL(
+                "INSERT INTO playlists (id, name, is_system, created_at, updated_at, thumbnail_url) " +
+                    "VALUES (5, 'Ma playlist', 0, 1, 1, NULL)",
+            )
+            db.execSQL(
+                "INSERT INTO playlist_entries (playlist_id, track_id, position, added_at) VALUES (5, 'abc', 0, 1)",
+            )
+        }
+        helper.runMigrationsAndValidate(TEST_DB_1_2, 2, true, MIGRATION_1_2).use { db ->
+            db.query("SELECT COUNT(*) FROM playlist_entries WHERE playlist_id = 5").use { c ->
+                assertTrue(c.moveToFirst())
+                assertEquals(1, c.getInt(0))
+            }
+            db.execSQL(
+                "INSERT INTO downloads (track_id, state, downloaded_bytes, total_bytes, file_path, mime_type, error, " +
+                    "created_at, updated_at) VALUES ('abc', 'COMPLETED', 10, 10, '/f', 'audio/webm', NULL, 1, 1)",
+            )
+            db.execSQL(
+                "INSERT INTO import_jobs (playlist_name, format, state, total, processed, matched, needs_review, " +
+                    "not_found, target_playlist_id, error, created_at) VALUES ('x', 'EXPORTIFY_CSV', 'RUNNING', " +
+                    "1, 0, 0, 0, 0, 5, NULL, 1)",
+            )
+            // Suppression de la playlist cible : le job reste, target_playlist_id passe à NULL.
+            db.execSQL("PRAGMA foreign_keys = ON")
+            db.execSQL("DELETE FROM playlists WHERE id = 5")
+            db.query("SELECT target_playlist_id FROM import_jobs").use { c ->
+                assertTrue(c.moveToFirst())
+                assertTrue(c.isNull(0))
+            }
+        }
+    }
+
     private companion object {
+        const val TEST_DB_1_2 = "migration-1-2.db"
         const val TEST_DB = "migration-test.db"
         const val TEST_DB_MIGRATED = "migration-test-chain.db"
     }

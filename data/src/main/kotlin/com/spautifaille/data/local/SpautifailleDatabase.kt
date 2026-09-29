@@ -18,8 +18,12 @@ import com.spautifaille.domain.model.Playlist
         SubscriptionEntity::class,
         QueueItemEntity::class,
         QueueStateEntity::class,
+        DownloadEntity::class,
+        ImportJobEntity::class,
+        ImportItemEntity::class,
+        DiscoveryTrackEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 abstract class SpautifailleDatabase : RoomDatabase() {
@@ -28,6 +32,9 @@ abstract class SpautifailleDatabase : RoomDatabase() {
     abstract fun historyDao(): HistoryDao
     abstract fun subscriptionDao(): SubscriptionDao
     abstract fun queueDao(): QueueDao
+    abstract fun downloadDao(): DownloadDao
+    abstract fun importDao(): ImportDao
+    abstract fun discoveryDao(): DiscoveryDao
 
     companion object {
         const val NAME = "spautifaille.db"
