@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="player_notification_channel">Lecture en cours</string>
     <string name="player_like">Ajouter aux titres likés</string>
     <string name="player_unlike">Retirer des titres likés</string>
     <string name="player_browse_root">Spautifaille</string>

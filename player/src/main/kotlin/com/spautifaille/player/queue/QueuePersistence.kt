@@ -80,8 +80,35 @@ object QueueSnapshots {
 }
 
 /**
+ * Ce qui, hors index et position, décide de réécrire la file complète : identifiants des titres (dans l'ordre),
+ * mode aléatoire + ordre de lecture, mode de répétition.
+ */
+internal data class QueueSignature(
+    val mediaIds: List<String>,
+    val shuffleEnabled: Boolean,
+    val shuffleOrder: List<Int>,
+    val repeatMode: Int,
+) {
+    companion object {
+        /** Signature de la file du lecteur, ou null si elle est vide. */
+        fun of(player: Player): QueueSignature? {
+            val count = player.mediaItemCount
+            if (count == 0) return null
+            val shuffle = player.shuffleModeEnabled
+            return QueueSignature(
+                mediaIds = List(count) { player.getMediaItemAt(it).mediaId },
+                shuffleEnabled = shuffle,
+                shuffleOrder = if (shuffle) QueueSnapshots.shuffleOrder(player.currentTimeline) else emptyList(),
+                repeatMode = player.repeatMode,
+            )
+        }
+    }
+}
+
+/**
  * Sauvegarde la file via [QueueStateStore] :
- * - file complète, avec anti-rebond de [debounceMs], sur changement de timeline / d'élément / de shuffle / de repeat ;
+ * - file complète, avec anti-rebond de [debounceMs], sur changement de timeline / d'élément / de shuffle / de repeat
+ *   (seuls l'index et la position sont réécrits si la [QueueSignature] n'a pas changé) ;
  * - position toutes les [positionIntervalMs] pendant la lecture, et immédiatement à la pause / l'arrêt.
  *
  * Les lectures du lecteur se font sur [scope] (thread principal) ; les écritures partent sur [writeScope]
@@ -97,6 +124,10 @@ class QueuePersister(
 ) : Player.Listener {
 
     private var saveJob: Job? = null
+
+    /** Signature de la dernière file écrite avec succès ; écrite depuis [writeScope], d'où `@Volatile`. */
+    @Volatile
+    private var lastSaved: QueueSignature? = null
     private var tickerJob: Job? = null
 
     /**
@@ -149,12 +180,19 @@ class QueuePersister(
     }
 
     private fun writeSnapshot() {
-        val snapshot = QueueSnapshots.capture(player)
-        if (snapshot != null) armed = true
+        val signature = QueueSignature.of(player)
+        if (signature != null) armed = true
         if (!armed) return
+        if (signature != null && signature == lastSaved) {
+            // File, ordre aléatoire et répétition inchangés : inutile de réécrire toute la file.
+            savePositionNow()
+            return
+        }
+        val snapshot = QueueSnapshots.capture(player)
         writeScope.launch {
             withContext(NonCancellable) {
                 runCatching { if (snapshot == null) store.clear() else store.save(snapshot) }
+                    .onSuccess { lastSaved = signature }
             }
         }
     }

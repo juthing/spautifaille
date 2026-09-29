@@ -75,6 +75,16 @@ class SessionContractTest {
     }
 
     @Test
+    fun `play next arguments round trip`() {
+        val tracks = listOf(
+            Track("a", "A", "Art", artistUrl = "https://y/c/1", album = "Alb", durationMs = 12_000, thumbnailUrl = "https://i/1.jpg"),
+            Track("b", "B", "Art"),
+        )
+        assertEquals(tracks, SessionContract.decodePlayNextArgs(SessionContract.playNextArgs(tracks)))
+        assertEquals(emptyList<Track>(), SessionContract.decodePlayNextArgs(android.os.Bundle()))
+    }
+
+    @Test
     fun `sleep timer arguments`() {
         assertEquals(1_800_000L, SessionContract.sleepTimerArgs(1_800_000L).getLong(SessionContract.KEY_DURATION_MS))
         assertEquals(true, SessionContract.sleepTimerEndOfTrackArgs().getBoolean(SessionContract.KEY_END_OF_TRACK))

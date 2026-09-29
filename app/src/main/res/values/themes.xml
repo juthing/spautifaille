@@ -1,6 +1,10 @@
 <resources>
-    <style name="Theme.Spautifaille" parent="android:Theme.Material.NoActionBar">
+    <!-- Thème de démarrage à froid (avant que Compose n'affiche son thème Material 3) : clair par défaut,
+         sombre via values-night. Le fond de fenêtre suit le fond du thème système (?android:colorBackground). -->
+    <style name="Theme.Spautifaille" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowBackground">?android:colorBackground</item>
     </style>
 </resources>

@@ -2,15 +2,22 @@ package com.spautifaille.player.datasource
 
 import android.util.Log
 import com.spautifaille.domain.error.AppError
+import com.spautifaille.domain.di.ApplicationScope
 import com.spautifaille.domain.error.AppException
 import com.spautifaille.domain.model.AudioQuality
 import com.spautifaille.domain.model.ResolvedStream
 import com.spautifaille.domain.repository.SettingsRepository
 import com.spautifaille.domain.repository.StreamRepository
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeout
 import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
@@ -34,19 +41,27 @@ class StreamResolutionException(val appError: AppError, cause: Throwable? = null
 class StreamResolver internal constructor(
     private val streams: StreamRepository,
     private val settings: SettingsRepository,
+    scope: CoroutineScope,
     private val clock: () -> Long,
 ) {
     @Inject
-    constructor(streams: StreamRepository, settings: SettingsRepository) :
-        this(streams, settings, System::currentTimeMillis)
+    constructor(streams: StreamRepository, settings: SettingsRepository, @ApplicationScope scope: CoroutineScope) :
+        this(streams, settings, scope, System::currentTimeMillis)
 
     private class Entry(val stream: ResolvedStream, val quality: AudioQuality, val cachedAtMs: Long)
 
     private val cache = ConcurrentHashMap<String, Entry>()
     private val locks = ConcurrentHashMap<String, Mutex>()
 
+    /** Qualité audio courante, tenue à jour par la collecte des réglages (lancée dès la construction). */
     @Volatile
     private var lastKnownQuality: AudioQuality? = null
+
+    init {
+        scope.launch {
+            settings.settings.map { it.audioQuality }.distinctUntilChanged().collect { lastKnownQuality = it }
+        }
+    }
 
     suspend fun resolve(videoId: String): ResolvedStream {
         val quality = settings.current().audioQuality
@@ -72,9 +87,16 @@ class StreamResolver internal constructor(
         }
     }
 
-    /** Variante bloquante pour le thread de chargement. Une interruption devient une [java.io.InterruptedIOException]. */
-    fun resolveBlocking(videoId: String): ResolvedStream = try {
-        runBlocking { resolve(videoId) }
+    /**
+     * Variante bloquante pour le thread de chargement, bornée par [timeoutMs] : un dépassement devient une
+     * [StreamResolutionException] (réseau). Une interruption devient une [java.io.InterruptedIOException].
+     */
+    fun resolveBlocking(videoId: String): ResolvedStream = resolveBlocking(videoId, RESOLVE_TIMEOUT_MS)
+
+    internal fun resolveBlocking(videoId: String, timeoutMs: Long): ResolvedStream = try {
+        runBlocking { withTimeout(timeoutMs) { resolve(videoId) } }
+    } catch (e: TimeoutCancellationException) {
+        throw StreamResolutionException(AppError.Network, e)
     } catch (e: InterruptedException) {
         Thread.currentThread().interrupt()
         throw java.io.InterruptedIOException("Interrupted while resolving $videoId")
@@ -110,6 +132,9 @@ class StreamResolver internal constructor(
         private const val TAG = "StreamResolver"
 
         /** Durée de vie maximale d'une entrée, même si `expiresAtMs` est plus lointain. */
+        /** Durée maximale d'une résolution bloquante (attente du verrou comprise). */
+        const val RESOLVE_TIMEOUT_MS = 25_000L
+
         const val MAX_TTL_MS = 30 * 60_000L
 
         /** Marge de sécurité avant `expiresAtMs`. */

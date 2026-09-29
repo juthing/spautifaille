@@ -9,8 +9,16 @@ import com.spautifaille.domain.repository.SettingsRepository
 import com.spautifaille.domain.repository.StreamRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
@@ -20,14 +28,26 @@ import org.junit.Test
 class StreamResolverTest {
 
     private var now = 1_000_000L
-    private var quality = AudioQuality.BEST
+    private val settingsFlow = MutableStateFlow(AppSettings(audioQuality = AudioQuality.BEST))
+    private var quality: AudioQuality
+        get() = settingsFlow.value.audioQuality
+        set(value) {
+            settingsFlow.value = AppSettings(audioQuality = value)
+        }
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
     private var counter = 0
 
     private val streams = mockk<StreamRepository>()
     private val settings = mockk<SettingsRepository>().apply {
-        coEvery { current() } answers { AppSettings(audioQuality = quality) }
+        every { this@apply.settings } returns settingsFlow
+        coEvery { current() } answers { settingsFlow.value }
     }
-    private val resolver = StreamResolver(streams, settings) { now }
+    private val resolver = StreamResolver(streams, settings, scope) { now }
+
+    @After
+    fun tearDown() {
+        scope.cancel()
+    }
 
     private fun stream(id: String, expiresInMs: Long = 6 * 3_600_000L) = ResolvedStream(
         videoId = id,
@@ -136,5 +156,29 @@ class StreamResolverTest {
         val best = resolver.cacheKey("abc")
         assertEquals(best, resolver.cacheKey("abc"))
         assertEquals("abc#BEST", best)
+    }
+
+    @Test
+    fun `cache key follows a quality change immediately`() {
+        assertEquals("abc#BEST", resolver.cacheKey("abc"))
+        quality = AudioQuality.DATA_SAVER
+        assertEquals("abc#DATA_SAVER", resolver.cacheKey("abc"))
+    }
+
+    @Test
+    fun `blocking resolution times out with a network error`() {
+        coEvery { streams.resolveAudio(any(), any()) } coAnswers { awaitCancellation() }
+        try {
+            resolver.resolveBlocking("abc", timeoutMs = 50)
+            fail("expected exception")
+        } catch (e: StreamResolutionException) {
+            assertEquals(AppError.Network, e.appError)
+        }
+    }
+
+    @Test
+    fun `blocking resolution returns the stream when fast enough`() {
+        stubResolve()
+        assertEquals("abc", resolver.resolveBlocking("abc", timeoutMs = 5_000).videoId)
     }
 }

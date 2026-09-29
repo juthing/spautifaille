@@ -38,6 +38,7 @@ import com.spautifaille.player.error.ConnectivityObserver
 import com.spautifaille.player.error.PlaybackErrorHandler
 import com.spautifaille.player.history.PlayHistoryRecorder
 import com.spautifaille.player.library.LibraryBrowseTree
+import com.spautifaille.player.library.SiblingExpansion
 import com.spautifaille.player.queue.QueuePersister
 import com.spautifaille.player.queue.QueueSnapshots
 import com.spautifaille.player.queue.toPlayerRepeatMode
@@ -103,7 +104,10 @@ class PlaybackService : MediaLibraryService() {
         addSession(mediaSession)
 
         setMediaNotificationProvider(
-            DefaultMediaNotificationProvider.Builder(this).build().apply { setSmallIcon(R.drawable.ic_notification) },
+            DefaultMediaNotificationProvider.Builder(this)
+                .setChannelName(R.string.player_notification_channel)
+                .build()
+                .apply { setSmallIcon(R.drawable.ic_notification) },
         )
 
         val statePublisher = SessionStatePublisher(this, mediaSession, library, downloads, serviceScope)
@@ -285,6 +289,7 @@ class PlaybackService : MediaLibraryService() {
                 .add(SessionContract.setSleepTimerCommand)
                 .add(SessionContract.cancelSleepTimerCommand)
                 .add(SessionContract.eventCommand)
+                .add(SessionContract.playNextCommand)
                 .build()
             // Bouton like (media button preferences) et extras : repris automatiquement de la session.
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session, controller)
@@ -323,6 +328,15 @@ class PlaybackService : MediaLibraryService() {
                     else -> immediateResult(SessionError.ERROR_BAD_VALUE)
                 }
             }
+            SessionContract.ACTION_PLAY_NEXT -> {
+                val tracks = SessionContract.decodePlayNextArgs(args)
+                if (tracks.isEmpty()) {
+                    immediateResult(SessionError.ERROR_BAD_VALUE)
+                } else {
+                    QueueCommands.playNext(exo, MediaItemMapper.toMediaItems(tracks))
+                    immediateResult(SessionResult.RESULT_SUCCESS)
+                }
+            }
             SessionContract.ACTION_CANCEL_SLEEP_TIMER -> {
                 sleepTimer?.cancel()
                 immediateResult(SessionResult.RESULT_SUCCESS)
@@ -335,6 +349,25 @@ class PlaybackService : MediaLibraryService() {
             controller: MediaSession.ControllerInfo,
             mediaItems: MutableList<MediaItem>,
         ): ListenableFuture<MutableList<MediaItem>> = serviceScope.future { resolveMediaItems(tree, mediaItems).toMutableList() }
+
+        /**
+         * Android Auto & co : toucher un titre dans un dossier n'envoie que ce titre. S'il porte l'identifiant de son
+         * dossier d'origine, on charge tout le dossier et on démarre au titre touché.
+         */
+        override fun onSetMediaItems(
+            mediaSession: MediaSession,
+            controller: MediaSession.ControllerInfo,
+            mediaItems: MutableList<MediaItem>,
+            startIndex: Int,
+            startPositionMs: Long,
+        ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> = serviceScope.future {
+            val expanded = SiblingExpansion.expand(mediaItems, startPositionMs, tree::tracksFor)
+            expanded ?: MediaSession.MediaItemsWithStartPosition(
+                resolveMediaItems(tree, mediaItems),
+                startIndex,
+                startPositionMs,
+            )
+        }
 
         override fun onPlaybackResumption(
             mediaSession: MediaSession,

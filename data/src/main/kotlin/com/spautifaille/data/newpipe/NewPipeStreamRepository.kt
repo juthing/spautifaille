@@ -241,10 +241,11 @@ class NewPipeStreamRepository @Inject constructor(
         }
     }
 
-    private fun Throwable.isRetryable(): Boolean {
-        val error = NewPipeErrorMapper.mapToError(this)
-        return error is AppError.Network || error is AppError.BotDetected
-    }
+    /**
+     * Seules les erreurs réseau sont rejouées ici. `BotDetected` (429 / vérification anti-bot) est laissé aux
+     * appelants, qui appliquent un backoff plus long : rejouer immédiatement aggraverait le throttling de l'IP.
+     */
+    private fun Throwable.isRetryable(): Boolean = NewPipeErrorMapper.mapToError(this) is AppError.Network
 
     /** Un onglet de chaîne en échec ne doit pas faire échouer la page artiste. */
     private fun tabItems(handler: ListLinkHandler): List<org.schabi.newpipe.extractor.InfoItem> = try {
