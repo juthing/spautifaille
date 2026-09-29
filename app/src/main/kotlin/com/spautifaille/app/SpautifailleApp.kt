@@ -13,6 +13,7 @@ import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.crossfade
 import com.spautifaille.data.newpipe.NewPipeInitializer
 import com.spautifaille.domain.di.ApplicationScope
+import com.spautifaille.domain.repository.DownloadRepository
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
@@ -27,6 +28,9 @@ class SpautifailleApp : Application(), Configuration.Provider, SingletonImageLoa
     @Inject lateinit var newPipeInitializer: NewPipeInitializer
     @Inject lateinit var okHttpClient: OkHttpClient
     @Inject @ApplicationScope lateinit var appScope: CoroutineScope
+
+    // Injecté tôt : démarre l'index des fichiers hors ligne et la réconciliation des téléchargements.
+    @Inject lateinit var downloadRepository: DownloadRepository
 
     override fun onCreate() {
         super.onCreate()

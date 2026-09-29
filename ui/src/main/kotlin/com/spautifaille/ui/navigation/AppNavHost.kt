@@ -16,6 +16,7 @@ import com.spautifaille.ui.R
 import com.spautifaille.ui.artist.ArtistRoute as ArtistScreenRoute
 import com.spautifaille.ui.discovery.DiscoveryRoute
 import com.spautifaille.ui.discovery.DiscoveryScreenRoot
+import com.spautifaille.ui.downloads.DownloadsScreenRoot
 import com.spautifaille.ui.home.HomeScreenRoot
 import com.spautifaille.ui.library.LibraryRoute as LibraryScreenRoute
 import com.spautifaille.ui.playlist.PlaylistDetailRoute
@@ -84,8 +85,7 @@ private fun androidx.navigation.NavGraphBuilder.integrationDestinations(navContr
         SettingsScreenRoute(onBack = back, onOpenDownloads = { navController.navigate(DownloadsRoute) })
     }
     composable<DiscoveryRoute> { DiscoveryScreenRoot(onBack = back, onOpenArtist = openArtist) }
-    // TODO(integration J5) : écran de gestion des téléchargements
-    composable<DownloadsRoute> { PlaceholderScreen(title = stringResource(R.string.placeholder_downloads)) }
+    composable<DownloadsRoute> { DownloadsScreenRoot(onBack = back) }
     // TODO(integration J4b) : écran d'import
     composable<ImportRoute> { PlaceholderScreen(title = stringResource(R.string.placeholder_import)) }
 }
