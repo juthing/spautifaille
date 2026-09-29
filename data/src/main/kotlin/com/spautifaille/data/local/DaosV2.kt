@@ -2,6 +2,7 @@ package com.spautifaille.data.local
 
 import androidx.room.Dao
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Update
@@ -42,6 +43,52 @@ interface DownloadDao {
 
     @Query("DELETE FROM downloads")
     suspend fun deleteAll()
+
+    /** Insère la ligne si elle n'existe pas encore. Renvoie -1 si elle existait déjà. */
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertIgnore(download: DownloadEntity): Long
+
+    @Query("SELECT * FROM downloads")
+    suspend fun all(): List<DownloadEntity>
+
+    /** Titres dont le téléchargement n'est pas terminé et qui doivent avoir un travail WorkManager actif. */
+    @Query("SELECT * FROM downloads WHERE state IN ('QUEUED', 'RUNNING')")
+    suspend fun pending(): List<DownloadEntity>
+
+    /** Progression : sans effet si la ligne a été supprimée entre-temps (annulation). */
+    @Query(
+        """
+        UPDATE downloads SET state = 'RUNNING', downloaded_bytes = :downloadedBytes, total_bytes = :totalBytes,
+            error = NULL, updated_at = :now
+        WHERE track_id = :trackId
+        """,
+    )
+    suspend fun updateProgress(trackId: String, downloadedBytes: Long, totalBytes: Long?, now: Long): Int
+
+    @Query(
+        """
+        UPDATE downloads SET state = 'COMPLETED', downloaded_bytes = :sizeBytes, total_bytes = :sizeBytes,
+            file_path = :filePath, mime_type = :mimeType, error = NULL, updated_at = :now
+        WHERE track_id = :trackId
+        """,
+    )
+    suspend fun markCompleted(trackId: String, filePath: String, mimeType: String?, sizeBytes: Long, now: Long): Int
+
+    @Query(
+        """
+        UPDATE downloads SET state = 'FAILED', error = :error, file_path = NULL, updated_at = :now
+        WHERE track_id = :trackId
+        """,
+    )
+    suspend fun markFailed(trackId: String, error: String, now: Long): Int
+
+    /** Transition conditionnelle (ex. RUNNING -> QUEUED quand le système interrompt un worker). */
+    @Query("UPDATE downloads SET state = :to, updated_at = :now WHERE track_id = :trackId AND state = :from")
+    suspend fun changeState(trackId: String, from: String, to: String, now: Long): Int
+
+    /** Remet un téléchargement échoué en file : l'octet déjà reçu est conservé (reprise du `.part`). */
+    @Query("UPDATE downloads SET state = 'QUEUED', error = NULL, updated_at = :now WHERE track_id = :trackId AND state != 'COMPLETED'")
+    suspend fun requeue(trackId: String, now: Long): Int
 }
 
 @Dao
