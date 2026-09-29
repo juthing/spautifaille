@@ -11,4 +11,6 @@ import org.schabi.newpipe.extractor.Page
 class NewPipePageToken(
     val page: Page,
     val playlist: RemotePlaylist? = null,
+    /** Filtre de recherche NewPipe effectivement utilisé (peut différer du filtre demandé après repli). */
+    val contentFilter: String? = null,
 ) : PageToken

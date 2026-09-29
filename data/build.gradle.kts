@@ -22,6 +22,8 @@ dependencies {
     api(project(":domain"))
 
     implementation(libs.newpipe.extractor)
+    implementation(libs.nanojson)
+    compileOnly("com.google.code.findbugs:jsr305:3.0.2")
     implementation(libs.okhttp)
     implementation(libs.okhttp.brotli)
     implementation(libs.kotlinx.coroutines.android)

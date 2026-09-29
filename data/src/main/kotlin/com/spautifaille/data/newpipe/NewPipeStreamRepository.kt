@@ -20,6 +20,7 @@ import com.spautifaille.domain.repository.TrackCache
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
+import org.schabi.newpipe.extractor.InfoItem
 import org.schabi.newpipe.extractor.MediaFormat
 import org.schabi.newpipe.extractor.Page
 import org.schabi.newpipe.extractor.ServiceList
@@ -57,23 +58,69 @@ class NewPipeStreamRepository @Inject constructor(
 
     override suspend fun search(query: String, filter: SearchFilter, page: PageToken?): Paged<SearchResult> =
         call {
-            val handler = service.searchQHFactory.fromQuery(query, listOf(filter.contentFilter()), "")
             val token = page as? NewPipePageToken
-            val items: List<org.schabi.newpipe.extractor.InfoItem>
-            val nextPage: Page?
-            if (token == null) {
-                val info = SearchInfo.getInfo(service, handler)
-                items = info.relatedItems.orEmpty()
-                nextPage = info.nextPage
-            } else {
-                val more = SearchInfo.getMoreItems(service, handler, token.page)
-                items = more.items.orEmpty()
-                nextPage = more.nextPage
+            if (token != null) {
+                val contentFilter = token.contentFilter ?: filter.contentFilter()
+                val (items, nextPage) = searchPage(query, contentFilter, token.page)
+                return@call toPaged(items, nextPage, contentFilter)
             }
-            val results = items.mapNotNull(NewPipeMappers::toSearchResult)
-            cachePut(results.mapNotNull { (it as? SearchResult.TrackResult)?.track })
-            Paged(results, nextToken(nextPage))
+            // Repli : YouTube Music renvoie parfois « aucun résultat » pour Titres / Albums (selon l'IP ou la
+            // région) alors que Vidéos / Playlists fonctionnent.
+            var lastResult: Paged<SearchResult>? = null
+            for (contentFilter in searchFallbacks(filter)) {
+                val (items, nextPage) = searchPage(query, contentFilter, null)
+                val paged = toPaged(items, nextPage, contentFilter)
+                if (paged.items.isNotEmpty()) return@call paged
+                lastResult = paged
+            }
+            lastResult ?: Paged(emptyList(), null)
         }
+
+    private fun searchPage(query: String, contentFilter: String, page: Page?): Pair<List<InfoItem>, Page?> {
+        val handler = service.searchQHFactory.fromQuery(query, listOf(contentFilter), "")
+        // Filtres YouTube Music : extracteur patché (paramètres de filtre à jour), cf. PatchedYoutubeMusicSearchExtractor.
+        val musicExtractor = if (contentFilter.startsWith("music_")) {
+            PatchedYoutubeMusicSearchExtractor(service, handler)
+        } else {
+            null
+        }
+        return if (page == null) {
+            val info = if (musicExtractor != null) {
+                musicExtractor.fetchPage()
+                SearchInfo.getInfo(musicExtractor)
+            } else {
+                SearchInfo.getInfo(service, handler)
+            }
+            info.relatedItems.orEmpty() to info.nextPage
+        } else {
+            val more = musicExtractor?.getPage(page) ?: SearchInfo.getMoreItems(service, handler, page)
+            more.items.orEmpty() to more.nextPage
+        }
+    }
+
+    private suspend fun toPaged(items: List<InfoItem>, nextPage: Page?, contentFilter: String): Paged<SearchResult> {
+        val results = items.mapNotNull(NewPipeMappers::toSearchResult)
+        cachePut(results.mapNotNull { (it as? SearchResult.TrackResult)?.track })
+        val next = if (nextPage != null && Page.isValid(nextPage)) NewPipePageToken(nextPage, contentFilter = contentFilter) else null
+        return Paged(results, next)
+    }
+
+    private fun searchFallbacks(filter: SearchFilter): List<String> = when (filter) {
+        SearchFilter.SONGS -> listOf(
+            YoutubeSearchQueryHandlerFactory.MUSIC_SONGS,
+            YoutubeSearchQueryHandlerFactory.MUSIC_VIDEOS,
+            YoutubeSearchQueryHandlerFactory.VIDEOS,
+        )
+        SearchFilter.ALBUMS -> listOf(
+            YoutubeSearchQueryHandlerFactory.MUSIC_ALBUMS,
+            YoutubeSearchQueryHandlerFactory.MUSIC_PLAYLISTS,
+        )
+        SearchFilter.ARTISTS -> listOf(
+            YoutubeSearchQueryHandlerFactory.MUSIC_ARTISTS,
+            YoutubeSearchQueryHandlerFactory.CHANNELS,
+        )
+        else -> listOf(filter.contentFilter())
+    }
 
     override suspend fun track(videoId: String): Track {
         val cached = try {
@@ -230,7 +277,7 @@ class NewPipeStreamRepository @Inject constructor(
         SearchFilter.VIDEOS -> YoutubeSearchQueryHandlerFactory.VIDEOS
         SearchFilter.ALBUMS -> YoutubeSearchQueryHandlerFactory.MUSIC_ALBUMS
         SearchFilter.PLAYLISTS -> YoutubeSearchQueryHandlerFactory.MUSIC_PLAYLISTS
-        SearchFilter.ARTISTS -> YoutubeSearchQueryHandlerFactory.CHANNELS
+        SearchFilter.ARTISTS -> YoutubeSearchQueryHandlerFactory.MUSIC_ARTISTS
     }
 
     private fun AudioStream.toCandidate(index: Int) = AudioCandidate(
