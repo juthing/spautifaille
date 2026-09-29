@@ -7,12 +7,6 @@
     <string name="nav_settings">Réglages</string>
 
     <!-- TODO(integration) : titres des écrans provisoires -->
-    <string name="placeholder_screen">%1$s : bientôt disponible</string>
-    <string name="placeholder_playlist">Playlist</string>
-    <string name="placeholder_remote_playlist">Playlist en ligne</string>
-    <string name="placeholder_artist">Artiste</string>
-    <string name="placeholder_downloads">Téléchargements</string>
-    <string name="placeholder_import">Importer</string>
 
     <!-- Actions communes -->
     <string name="common_action_retry">Réessayer</string>

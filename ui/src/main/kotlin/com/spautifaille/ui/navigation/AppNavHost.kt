@@ -7,17 +7,18 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.spautifaille.domain.model.Playlist
-import com.spautifaille.ui.R
 import com.spautifaille.ui.artist.ArtistRoute as ArtistScreenRoute
 import com.spautifaille.ui.discovery.DiscoveryRoute
 import com.spautifaille.ui.discovery.DiscoveryScreenRoot
 import com.spautifaille.ui.downloads.DownloadsScreenRoot
 import com.spautifaille.ui.home.HomeScreenRoot
+import com.spautifaille.ui.importer.ImportReviewRoute
+import com.spautifaille.ui.importer.ImportReviewScreenRoot
+import com.spautifaille.ui.importer.ImportScreenRoot
 import com.spautifaille.ui.library.LibraryRoute as LibraryScreenRoute
 import com.spautifaille.ui.playlist.PlaylistDetailRoute
 import com.spautifaille.ui.remoteplaylist.RemotePlaylistRoute as RemotePlaylistScreenRoute
@@ -86,6 +87,12 @@ private fun androidx.navigation.NavGraphBuilder.integrationDestinations(navContr
     }
     composable<DiscoveryRoute> { DiscoveryScreenRoot(onBack = back, onOpenArtist = openArtist) }
     composable<DownloadsRoute> { DownloadsScreenRoot(onBack = back) }
-    // TODO(integration J4b) : écran d'import
-    composable<ImportRoute> { PlaceholderScreen(title = stringResource(R.string.placeholder_import)) }
+    composable<ImportRoute> {
+        ImportScreenRoot(
+            onBack = back,
+            onOpenPlaylist = openPlaylist,
+            onOpenReview = { jobId -> navController.navigate(ImportReviewRoute(jobId)) },
+        )
+    }
+    composable<ImportReviewRoute> { ImportReviewScreenRoot(onBack = back) }
 }
