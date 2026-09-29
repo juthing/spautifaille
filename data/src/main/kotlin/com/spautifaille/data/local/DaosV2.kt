@@ -80,10 +80,21 @@ interface ImportDao {
     fun observeItems(jobId: Long): Flow<List<ImportItemEntity>>
 }
 
+/** Entrée de découverte jointe aux métadonnées du titre. */
+data class DiscoveryWithTrack(
+    @androidx.room.Embedded val item: DiscoveryTrackEntity,
+    @androidx.room.Relation(parentColumn = "track_id", entityColumn = "id") val track: TrackEntity,
+)
+
 @Dao
 abstract class DiscoveryDao {
     @Query("SELECT * FROM discovery_tracks ORDER BY position")
     abstract fun observe(): Flow<List<DiscoveryTrackEntity>>
+
+    /** Découverte dans l'ordre d'affichage, avec les métadonnées des titres. */
+    @Transaction
+    @Query("SELECT * FROM discovery_tracks ORDER BY position")
+    abstract fun observeWithTracks(): Flow<List<DiscoveryWithTrack>>
 
     @Query("DELETE FROM discovery_tracks")
     protected abstract suspend fun clear()

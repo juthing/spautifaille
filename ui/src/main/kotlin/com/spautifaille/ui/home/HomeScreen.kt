@@ -16,7 +16,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Settings
@@ -32,6 +31,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -44,6 +44,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.spautifaille.domain.model.Track
 import com.spautifaille.ui.R
 import com.spautifaille.ui.components.Artwork
+import com.spautifaille.ui.discovery.DiscoveryActions
+import com.spautifaille.ui.discovery.DiscoveryUiState
+import com.spautifaille.ui.discovery.DiscoveryViewModel
 import com.spautifaille.ui.theme.SpautifailleTheme
 
 @Composable
@@ -51,15 +54,29 @@ fun HomeScreenRoot(
     onOpenSettings: () -> Unit,
     onOpenLiked: () -> Unit,
     modifier: Modifier = Modifier,
+    /** Ouvre la liste complète (`DiscoveryRoute`). */
+    onOpenDiscovery: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
+    discoveryViewModel: DiscoveryViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val discovery by discoveryViewModel.uiState.collectAsStateWithLifecycle()
+    val discoveryActions = remember(discoveryViewModel) {
+        DiscoveryActions(
+            onRefresh = discoveryViewModel::refresh,
+            onPlayAll = discoveryViewModel::playAll,
+            onPlayFrom = discoveryViewModel::playFrom,
+        )
+    }
     HomeScreen(
         state = state,
         onRecentClick = viewModel::onRecentClick,
         onOpenLiked = onOpenLiked,
         onOpenSettings = onOpenSettings,
         modifier = modifier,
+        discovery = discovery,
+        discoveryActions = discoveryActions,
+        onOpenDiscovery = onOpenDiscovery,
     )
 }
 
@@ -71,6 +88,9 @@ fun HomeScreen(
     onOpenLiked: () -> Unit,
     onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
+    discovery: DiscoveryUiState = DiscoveryUiState(isLoading = false),
+    discoveryActions: DiscoveryActions = DiscoveryActions(),
+    onOpenDiscovery: () -> Unit = {},
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     Scaffold(
@@ -117,15 +137,11 @@ fun HomeScreen(
                 }
             }
             item(key = "liked") { LikedCard(onClick = onOpenLiked) }
-            item(key = "discover-title") { SectionTitle(stringResource(R.string.home_discover_title)) }
-            // TODO(J7) : recommandations « Découverte » (RecommendationSource).
-            item(key = "discover") {
-                InlineHint(
-                    icon = { Icon(Icons.Filled.AutoAwesome, contentDescription = null) },
-                    title = stringResource(R.string.home_discover_soon_title),
-                    message = stringResource(R.string.home_discover_soon_message),
-                )
-            }
+            discoverySection(
+                state = discovery,
+                actions = discoveryActions,
+                onSeeAll = onOpenDiscovery,
+            )
         }
     }
 }
@@ -146,7 +162,7 @@ private fun SectionTitle(text: String) {
 }
 
 @Composable
-private fun RecentCard(track: Track, onClick: () -> Unit) {
+internal fun RecentCard(track: Track, onClick: () -> Unit) {
     Column(
         modifier = Modifier
             .width(144.dp)
@@ -206,10 +222,11 @@ private fun LikedCard(onClick: () -> Unit) {
 }
 
 @Composable
-private fun InlineHint(
+internal fun InlineHint(
     icon: @Composable () -> Unit,
     title: String,
     message: String,
+    action: (@Composable () -> Unit)? = null,
 ) {
     Card(
         modifier = Modifier
@@ -229,6 +246,7 @@ private fun InlineHint(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                action?.invoke()
             }
         }
     }
@@ -243,6 +261,7 @@ private fun HomeScreenPreview() {
         HomeScreen(
             state = HomeUiState(greeting = Greeting.EVENING, recent = PreviewRecent, isLoading = false),
             onRecentClick = {}, onOpenLiked = {}, onOpenSettings = {},
+            discovery = DiscoveryUiState(tracks = PreviewRecent.map { it.copy(id = "d${it.id}") }, isLoading = false),
         )
     }
 }
