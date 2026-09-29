@@ -1,0 +1,560 @@
+package com.spautifaille.ui.importer
+
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.spautifaille.domain.importer.ImportFormat
+import com.spautifaille.domain.importer.ImportItem
+import com.spautifaille.domain.importer.ImportJob
+import com.spautifaille.domain.importer.ImportJobState
+import com.spautifaille.domain.importer.ImportedTrack
+import com.spautifaille.domain.importer.MatchCandidate
+import com.spautifaille.domain.importer.MatchResult
+import com.spautifaille.domain.importer.MatchStatus
+import com.spautifaille.domain.model.Track
+import com.spautifaille.ui.R
+import com.spautifaille.ui.common.toMessage
+import com.spautifaille.ui.components.Artwork
+import com.spautifaille.ui.components.EmptyState
+import com.spautifaille.ui.components.TrackListPlaceholder
+import com.spautifaille.ui.components.formatDuration
+import com.spautifaille.ui.theme.SpautifailleTheme
+
+@Immutable
+data class ImportReviewActions(
+    val onBack: () -> Unit = {},
+    val onFilterChange: (ReviewFilter) -> Unit = {},
+    val onChoose: (itemId: Long, track: Track) -> Unit = { _, _ -> },
+    val onExclude: (itemId: Long) -> Unit = {},
+    val onToggleAlternatives: (itemId: Long) -> Unit = {},
+    val onStartSearch: (itemId: Long) -> Unit = {},
+    val onSearchQueryChange: (String) -> Unit = {},
+    val onSubmitSearch: () -> Unit = {},
+    val onCloseSearch: () -> Unit = {},
+)
+
+/** L'argument de navigation `jobId` est lu par le ViewModel dans son `SavedStateHandle`. */
+@Composable
+fun ImportReviewScreenRoot(
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+    viewModel: ImportReviewViewModel = hiltViewModel(),
+) {
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
+
+    LaunchedEffect(viewModel) {
+        viewModel.events.collect { event ->
+            when (event) {
+                is ImportReviewEvent.Failed -> {
+                    snackbarHostState.currentSnackbarData?.dismiss()
+                    snackbarHostState.showSnackbar(event.message.asString(context))
+                }
+            }
+        }
+    }
+
+    val actions = remember(viewModel, onBack) {
+        ImportReviewActions(
+            onBack = onBack,
+            onFilterChange = viewModel::setFilter,
+            onChoose = viewModel::choose,
+            onExclude = viewModel::exclude,
+            onToggleAlternatives = viewModel::toggleAlternatives,
+            onStartSearch = viewModel::startSearch,
+            onSearchQueryChange = viewModel::onSearchQueryChanged,
+            onSubmitSearch = viewModel::submitSearch,
+            onCloseSearch = viewModel::closeSearch,
+        )
+    }
+    ImportReviewScreen(state = state, actions = actions, snackbarHostState = snackbarHostState, modifier = modifier)
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ImportReviewScreen(
+    state: ImportReviewUiState,
+    actions: ImportReviewActions,
+    snackbarHostState: SnackbarHostState,
+    modifier: Modifier = Modifier,
+) {
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+    Scaffold(
+        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        topBar = {
+            Column {
+                TopAppBar(
+                    title = {
+                        Column {
+                            Text(stringResource(R.string.import_review_title))
+                            state.job?.let {
+                                Text(
+                                    text = it.playlistName,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = actions.onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.import_back))
+                        }
+                    },
+                    scrollBehavior = scrollBehavior,
+                )
+                if (state.job != null) FilterRow(state = state, onFilterChange = actions.onFilterChange)
+                if (state.job?.isRunning == true) {
+                    Text(
+                        text = stringResource(R.string.import_review_running, state.job.processed, state.job.total),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    )
+                    LinearProgressIndicator(progress = { state.job.progress }, modifier = Modifier.fillMaxWidth())
+                }
+            }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+    ) { padding ->
+        Box(Modifier.fillMaxSize().padding(top = padding.calculateTopPadding())) {
+            when {
+                state.isLoading -> TrackListPlaceholder()
+                state.isNotFound -> EmptyState(title = stringResource(R.string.import_review_not_found))
+                state.items.isEmpty() -> EmptyState(
+                    title = stringResource(
+                        when (state.filter) {
+                            ReviewFilter.NEEDS_REVIEW -> R.string.import_review_empty_review
+                            ReviewFilter.NOT_FOUND -> R.string.import_review_empty_not_found
+                            ReviewFilter.ALL -> R.string.import_review_empty_all
+                        },
+                    ),
+                    icon = Icons.Filled.Check,
+                )
+                else -> LazyColumn(
+                    contentPadding = PaddingValues(
+                        start = 16.dp,
+                        end = 16.dp,
+                        top = 8.dp,
+                        bottom = padding.calculateBottomPadding() + 24.dp,
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    items(state.items, key = { it.id }) { item ->
+                        ReviewItemCard(
+                            item = item,
+                            expanded = state.expandedItemId == item.id,
+                            search = state.search?.takeIf { it.itemId == item.id },
+                            actions = actions,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun FilterRow(state: ImportReviewUiState, onFilterChange: (ReviewFilter) -> Unit) {
+    FlowRow(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        FilterChipFor(ReviewFilter.NEEDS_REVIEW, R.string.import_review_filter_review, state.needsReviewCount, state, onFilterChange)
+        FilterChipFor(ReviewFilter.NOT_FOUND, R.string.import_review_filter_not_found, state.notFoundCount, state, onFilterChange)
+        FilterChipFor(ReviewFilter.ALL, R.string.import_review_filter_all, state.totalCount, state, onFilterChange)
+    }
+}
+
+@Composable
+private fun FilterChipFor(
+    filter: ReviewFilter,
+    label: Int,
+    count: Int,
+    state: ImportReviewUiState,
+    onFilterChange: (ReviewFilter) -> Unit,
+) {
+    FilterChip(
+        selected = state.filter == filter,
+        onClick = { onFilterChange(filter) },
+        label = { Text(stringResource(R.string.import_review_filter_count, stringResource(label), count)) },
+    )
+}
+
+@Composable
+private fun ReviewItemCard(
+    item: ImportItem,
+    expanded: Boolean,
+    search: ReviewSearchState?,
+    actions: ImportReviewActions,
+    modifier: Modifier = Modifier,
+) {
+    val result = item.result
+    val best = result.best
+    val choices = listOfNotNull(best) + result.alternatives
+    val canResolve = result.status != MatchStatus.PENDING
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+    ) {
+        Column(Modifier.padding(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            // Titre tel que lu dans la source.
+            Column(Modifier.padding(horizontal = 16.dp)) {
+                Text(
+                    text = stringResource(R.string.import_review_source_label),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(item.source.title, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                item.source.subtitle().takeIf { it.isNotEmpty() }?.let {
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            HorizontalDivider(Modifier.padding(vertical = 4.dp))
+
+            // Candidat retenu.
+            if (best != null) {
+                CandidateRow(candidate = best, status = result.status)
+            } else {
+                Text(
+                    text = stringResource(
+                        if (result.status == MatchStatus.PENDING) R.string.import_review_pending else {
+                            if (choices.isEmpty()) R.string.import_review_no_candidate else R.string.import_review_excluded
+                        },
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            }
+
+            if (canResolve) {
+                FlowRow(
+                    modifier = Modifier.padding(horizontal = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    if (best != null && result.status == MatchStatus.NEEDS_REVIEW) {
+                        TextButton(onClick = { actions.onChoose(item.id, best.track) }) {
+                            Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.size(6.dp))
+                            Text(stringResource(R.string.import_review_validate))
+                        }
+                    }
+                    if (choices.size > 1 || (best == null && choices.isNotEmpty())) {
+                        TextButton(onClick = { actions.onToggleAlternatives(item.id) }) {
+                            Icon(
+                                if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Spacer(Modifier.size(6.dp))
+                            Text(stringResource(if (expanded) R.string.import_review_alternatives_hide else R.string.import_review_alternatives))
+                        }
+                    }
+                    TextButton(onClick = { actions.onStartSearch(item.id) }) {
+                        Icon(Icons.Filled.Search, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.size(6.dp))
+                        Text(stringResource(R.string.import_review_search))
+                    }
+                    if (best != null) {
+                        TextButton(onClick = { actions.onExclude(item.id) }) {
+                            Icon(Icons.Filled.Block, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.size(6.dp))
+                            Text(stringResource(R.string.import_review_exclude))
+                        }
+                    }
+                }
+            }
+
+            AnimatedVisibility(visible = expanded) {
+                Column(Modifier.padding(top = 4.dp)) {
+                    HorizontalDivider()
+                    choices.forEach { candidate ->
+                        val selected = candidate.track.id == best?.track?.id
+                        CandidateRow(
+                            candidate = candidate,
+                            status = null,
+                            modifier = Modifier.selectable(
+                                selected = selected,
+                                role = Role.RadioButton,
+                                onClick = { if (!selected) actions.onChoose(item.id, candidate.track) },
+                            ),
+                            leading = {
+                                RadioButton(selected = selected, onClick = null)
+                            },
+                        )
+                    }
+                }
+            }
+
+            AnimatedVisibility(visible = search != null) {
+                if (search != null) SearchPanel(search = search, actions = actions, itemId = item.id)
+            }
+        }
+    }
+}
+
+/** Ligne de candidat : pochette, titre, artiste · durée et score. [leading] remplace la pochette-seule (bouton radio). */
+@Composable
+private fun CandidateRow(
+    candidate: MatchCandidate,
+    status: MatchStatus?,
+    modifier: Modifier = Modifier,
+    leading: (@Composable () -> Unit)? = null,
+) {
+    val track = candidate.track
+    val subtitle = track.durationMs?.let { stringResource(R.string.common_track_subtitle, track.artist, formatDuration(it)) }
+        ?: track.artist
+    ListItem(
+        modifier = modifier,
+        colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
+        leadingContent = {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                leading?.invoke()
+                Artwork(url = track.thumbnailUrl, modifier = Modifier.size(48.dp))
+            }
+        },
+        headlineContent = { Text(track.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        supportingContent = { Text(subtitle, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        trailingContent = {
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = stringResource(R.string.import_review_score, scorePercent(candidate.score)),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = scoreColor(candidate.score),
+                )
+                if (status != null) {
+                    Text(
+                        text = stringResource(status.labelRes()),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        },
+    )
+}
+
+@Composable
+private fun scoreColor(score: Double) = when {
+    score >= 0.85 -> MaterialTheme.colorScheme.primary
+    score >= 0.6 -> MaterialTheme.colorScheme.tertiary
+    else -> MaterialTheme.colorScheme.error
+}
+
+private fun MatchStatus.labelRes(): Int = when (this) {
+    MatchStatus.MATCHED -> R.string.import_review_status_matched
+    MatchStatus.NEEDS_REVIEW -> R.string.import_review_status_review
+    MatchStatus.NOT_FOUND -> R.string.import_review_status_not_found
+    MatchStatus.PENDING -> R.string.import_review_status_pending
+}
+
+@Composable
+private fun SearchPanel(search: ReviewSearchState, itemId: Long, actions: ImportReviewActions) {
+    Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        HorizontalDivider()
+        OutlinedTextField(
+            value = search.query,
+            onValueChange = actions.onSearchQueryChange,
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text(stringResource(R.string.import_review_search_label)) },
+            singleLine = true,
+            trailingIcon = {
+                Row {
+                    IconButton(onClick = actions.onSubmitSearch, enabled = search.query.isNotBlank() && !search.isSearching) {
+                        Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.import_review_search_submit))
+                    }
+                    IconButton(onClick = actions.onCloseSearch) {
+                        Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.import_review_search_close))
+                    }
+                }
+            },
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = { actions.onSubmitSearch() }),
+        )
+        when {
+            search.isSearching -> Box(Modifier.fillMaxWidth().padding(8.dp), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(Modifier.size(28.dp), strokeWidth = 3.dp)
+            }
+            search.error != null -> Text(
+                text = stringResource(search.error.toMessage()),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+            )
+            search.hasSearched && search.results.isEmpty() -> Text(
+                text = stringResource(R.string.import_review_search_empty),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            else -> Column {
+                search.results.forEach { track ->
+                    val subtitle = track.durationMs?.let { stringResource(R.string.common_track_subtitle, track.artist, formatDuration(it)) }
+                        ?: track.artist
+                    ListItem(
+                        modifier = Modifier.clickable(role = Role.Button, onClick = { actions.onChoose(itemId, track) }),
+                        colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
+                        leadingContent = { Artwork(url = track.thumbnailUrl, modifier = Modifier.size(48.dp)) },
+                        headlineContent = { Text(track.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        supportingContent = { Text(subtitle, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+// region Previews
+
+private fun pt(id: String, title: String, artist: String, durationMs: Long = 215_000L) =
+    Track(id = id, title = title, artist = artist, durationMs = durationMs)
+
+private val PreviewItems = listOf(
+    ImportItem(
+        1, 1, 0,
+        ImportedTrack("Blinding Lights", listOf("The Weeknd"), durationMs = 200_000L),
+        MatchResult(
+            MatchStatus.NEEDS_REVIEW,
+            MatchCandidate(pt("a", "Blinding Lights (Live)", "The Weeknd"), 0.72),
+            listOf(MatchCandidate(pt("b", "Blinding Lights", "The Weeknd Topic", 201_000L), 0.68), MatchCandidate(pt("c", "Blinding Lights - Karaoke", "Karaoke Hits"), 0.41)),
+        ),
+    ),
+    ImportItem(
+        2, 1, 1,
+        ImportedTrack("Un titre très rare avec un nom vraiment très long pour tester le débordement", listOf("Artiste inconnu", "Second artiste")),
+        MatchResult(MatchStatus.NOT_FOUND, null, emptyList()),
+    ),
+    ImportItem(
+        3, 1, 2,
+        ImportedTrack("Levitating", listOf("Dua Lipa"), durationMs = 203_000L),
+        MatchResult(MatchStatus.MATCHED, MatchCandidate(pt("d", "Levitating", "Dua Lipa", 203_000L), 0.98), emptyList()),
+    ),
+)
+
+private val PreviewJob = ImportJob(1, "Road trip", ImportFormat.EXPORTIFY_CSV, ImportJobState.RUNNING, 120, 45, 40, 1, 1, 1, null, 0L)
+
+@Preview(showBackground = true, heightDp = 900)
+@Composable
+private fun ImportReviewPreview() {
+    SpautifailleTheme(dynamicColor = false) {
+        ImportReviewScreen(
+            state = ImportReviewUiState(
+                isLoading = false,
+                job = PreviewJob,
+                filter = ReviewFilter.ALL,
+                items = PreviewItems,
+                needsReviewCount = 1,
+                notFoundCount = 1,
+                totalCount = 3,
+                expandedItemId = 1,
+            ),
+            actions = ImportReviewActions(),
+            snackbarHostState = remember { SnackbarHostState() },
+        )
+    }
+}
+
+@Preview(showBackground = true, heightDp = 700)
+@Composable
+private fun ImportReviewSearchPreview() {
+    SpautifailleTheme(dynamicColor = false) {
+        ImportReviewScreen(
+            state = ImportReviewUiState(
+                isLoading = false,
+                job = PreviewJob.copy(state = ImportJobState.COMPLETED, processed = 120),
+                filter = ReviewFilter.NOT_FOUND,
+                items = PreviewItems.filter { it.result.status == MatchStatus.NOT_FOUND },
+                needsReviewCount = 1,
+                notFoundCount = 1,
+                totalCount = 3,
+                search = ReviewSearchState(
+                    itemId = 2,
+                    query = "Artiste inconnu Un titre très rare",
+                    hasSearched = true,
+                    results = listOf(pt("s1", "Un titre très rare", "Artiste inconnu"), pt("s2", "Un titre très rare (Remix)", "DJ Autre")),
+                ),
+            ),
+            actions = ImportReviewActions(),
+            snackbarHostState = remember { SnackbarHostState() },
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun ImportReviewEmptyPreview() {
+    SpautifailleTheme(dynamicColor = false) {
+        ImportReviewScreen(
+            state = ImportReviewUiState(isLoading = false, job = PreviewJob.copy(state = ImportJobState.COMPLETED), totalCount = 3),
+            actions = ImportReviewActions(),
+            snackbarHostState = remember { SnackbarHostState() },
+        )
+    }
+}
+
+// endregion
