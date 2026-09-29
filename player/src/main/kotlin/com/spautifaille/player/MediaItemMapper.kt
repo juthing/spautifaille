@@ -1,0 +1,75 @@
+package com.spautifaille.player
+
+import android.net.Uri
+import android.os.Bundle
+import androidx.media3.common.C
+import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
+import com.spautifaille.domain.model.Track
+import com.spautifaille.player.datasource.TrackUri
+import java.util.UUID
+
+/**
+ * Conversion [Track] ⇄ [MediaItem].
+ *
+ * - `mediaId` = identifiant vidéo, `uri` = URI stable `spautifaille://track/<videoId>` (jamais d'URL de flux :
+ *   elle est résolue au dernier moment par la chaîne de data sources).
+ * - Les extras des métadonnées portent l'URL de la chaîne et un `uid` unique par occurrence dans la file
+ *   (un même titre peut apparaître plusieurs fois).
+ */
+object MediaItemMapper {
+    const val EXTRA_ARTIST_URL = "com.spautifaille.player.ARTIST_URL"
+    const val EXTRA_QUEUE_UID = "com.spautifaille.player.QUEUE_UID"
+
+    fun newUid(): String = UUID.randomUUID().toString()
+
+    fun toMediaItem(track: Track, uid: String = newUid()): MediaItem {
+        val extras = Bundle().apply {
+            track.artistUrl?.let { putString(EXTRA_ARTIST_URL, it) }
+            putString(EXTRA_QUEUE_UID, uid)
+        }
+        val metadata = MediaMetadata.Builder()
+            .setTitle(track.title)
+            .setArtist(track.artist)
+            .setAlbumTitle(track.album)
+            .setArtworkUri(track.thumbnailUrl?.let(Uri::parse))
+            .setDurationMs(track.durationMs)
+            .setIsPlayable(true)
+            .setIsBrowsable(false)
+            .setMediaType(MediaMetadata.MEDIA_TYPE_MUSIC)
+            .setExtras(extras)
+            .build()
+        return MediaItem.Builder()
+            .setMediaId(track.id)
+            .setUri(TrackUri.build(track.id))
+            .setMediaMetadata(metadata)
+            .build()
+    }
+
+    fun toMediaItems(tracks: List<Track>): List<MediaItem> = tracks.map { toMediaItem(it) }
+
+    fun toTrack(item: MediaItem): Track {
+        val metadata = item.mediaMetadata
+        return Track(
+            id = item.mediaId,
+            title = metadata.title?.toString().orEmpty(),
+            artist = (metadata.artist ?: metadata.subtitle)?.toString().orEmpty(),
+            artistUrl = metadata.extras?.getString(EXTRA_ARTIST_URL),
+            album = metadata.albumTitle?.toString(),
+            durationMs = metadata.durationMs?.takeIf { it != C.TIME_UNSET && it > 0 },
+            thumbnailUrl = metadata.artworkUri?.toString(),
+        )
+    }
+
+    /** Identifiant unique de l'occurrence dans la file, ou null pour un item créé hors de ce mapper. */
+    fun queueUid(item: MediaItem): String? = item.mediaMetadata.extras?.getString(EXTRA_QUEUE_UID)
+
+    /** Garantit la présence d'un `uid` (items reçus de contrôleurs externes). */
+    fun ensureUid(item: MediaItem): MediaItem {
+        if (queueUid(item) != null) return item
+        val extras = Bundle(item.mediaMetadata.extras ?: Bundle.EMPTY).apply { putString(EXTRA_QUEUE_UID, newUid()) }
+        return item.buildUpon()
+            .setMediaMetadata(item.mediaMetadata.buildUpon().setExtras(extras).build())
+            .build()
+    }
+}
