@@ -25,7 +25,7 @@ class SpotifyJsonParser : PlaylistFileParser {
 
     override fun canParse(fileName: String?, content: String): Boolean {
         if (!ImportFileNames.extensionNotIn(fileName, "csv", "tsv")) return false
-        if (!content.trimStart('﻿', ' ', '\n', '\r', '\t').startsWith("{")) return false
+        if (!content.trimStart('\uFEFF', ' ', '\n', '\r', '\t').startsWith("{")) return false
         val root = ImportJson.parseOrNull(content) as? JsonObject ?: return false
         return hasPlaylists(root) || hasLikedTracks(root)
     }

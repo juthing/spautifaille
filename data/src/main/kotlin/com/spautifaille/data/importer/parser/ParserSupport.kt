@@ -22,9 +22,9 @@ internal object CsvRows {
             .setIgnoreSurroundingSpaces(false)
             .get()
         return try {
-            CSVParser.parse(StringReader(content.removePrefix("﻿")), format).use { parser ->
+            CSVParser.parse(StringReader(content.removePrefix("\uFEFF")), format).use { parser ->
                 parser.records
-                    .map { record -> record.map { it.replace("﻿", "").trim() } }
+                    .map { record -> record.map { it.replace("\uFEFF", "").trim() } }
                     .filter { row -> row.any { it.isNotEmpty() } }
             }
         } catch (e: Exception) {
@@ -49,13 +49,13 @@ internal object ImportJson {
     }
 
     fun parseOrNull(content: String): JsonElement? = try {
-        json.parseToJsonElement(content.removePrefix("﻿").trim())
+        json.parseToJsonElement(content.removePrefix("\uFEFF").trim())
     } catch (_: Exception) {
         null
     }
 
     fun parse(content: String): JsonElement = try {
-        json.parseToJsonElement(content.removePrefix("﻿").trim())
+        json.parseToJsonElement(content.removePrefix("\uFEFF").trim())
     } catch (e: Exception) {
         throw ImportParseException("Le fichier JSON est mal formé ou corrompu.", e)
     }

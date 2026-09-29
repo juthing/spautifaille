@@ -22,7 +22,7 @@ class GenericJsonParser : PlaylistFileParser {
 
     override fun canParse(fileName: String?, content: String): Boolean {
         if (!ImportFileNames.extensionNotIn(fileName, "csv", "tsv")) return false
-        val start = content.trimStart('﻿', ' ', '\n', '\r', '\t')
+        val start = content.trimStart('\uFEFF', ' ', '\n', '\r', '\t')
         if (!start.startsWith("{") && !start.startsWith("[")) return false
         val root = ImportJson.parseOrNull(content) ?: return false
         return extractPlaylists(root, defaultName = "x").any { it.tracks.isNotEmpty() }

@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Écran d'import -->
+    <string name="import_title">Importer une playlist</string>
+    <string name="import_back">Retour</string>
+
+    <string name="import_file_title">Depuis un fichier</string>
+    <string name="import_file_description">Formats pris en charge : export Exportify (CSV), export de données Spotify (JSON), playlist Google Takeout YouTube (CSV), ou CSV générique avec les colonnes titre, artiste, album et durée.</string>
+    <string name="import_file_button">Choisir un fichier</string>
+
+    <string name="import_youtube_title">Depuis YouTube / YouTube Music</string>
+    <string name="import_youtube_description">Collez le lien d\'une playlist publique ou non répertoriée.</string>
+    <string name="import_url_label">Lien de la playlist</string>
+    <string name="import_url_invalid">Ce lien n\'est pas celui d\'une playlist YouTube.</string>
+    <string name="import_url_paste">Coller</string>
+    <string name="import_url_clear">Effacer le lien</string>
+    <string name="import_youtube_button">Importer</string>
+    <string name="import_reading">Lecture de la source…</string>
+
+    <plurals name="import_started">
+        <item quantity="one">Import lancé : %d playlist</item>
+        <item quantity="other">Import lancé : %d playlists</item>
+    </plurals>
+
+    <!-- Liste des imports -->
+    <string name="import_jobs_title">Imports</string>
+    <string name="import_jobs_empty">Aucun import pour le moment.</string>
+    <string name="import_job_running">En cours : %1$d / %2$d titres</string>
+    <string name="import_job_completed">Terminé : %1$d titres</string>
+    <string name="import_job_failed">Import interrompu</string>
+    <string name="import_job_failed_default">L\'import a échoué.</string>
+    <string name="import_chip_matched">%d trouvés</string>
+    <string name="import_chip_review">%d à vérifier</string>
+    <string name="import_chip_not_found">%d introuvables</string>
+    <string name="import_action_open_playlist">Ouvrir la playlist</string>
+    <string name="import_action_review">Vérifier</string>
+    <string name="import_action_delete">Supprimer</string>
+    <string name="import_error_generic">L\'import a échoué. Réessayez.</string>
+
+    <!-- Revue -->
+    <string name="import_review_title">Vérifier l\'import</string>
+    <string name="import_review_filter_review">À vérifier</string>
+    <string name="import_review_filter_not_found">Introuvables</string>
+    <string name="import_review_filter_all">Tous</string>
+    <string name="import_review_filter_count">%1$s (%2$d)</string>
+    <string name="import_review_empty_review">Aucun titre à vérifier.</string>
+    <string name="import_review_empty_not_found">Aucun titre introuvable.</string>
+    <string name="import_review_empty_all">Aucun titre.</string>
+    <string name="import_review_source_label">Titre importé</string>
+    <string name="import_review_no_candidate">Aucune correspondance trouvée</string>
+    <string name="import_review_pending">En attente de traitement</string>
+    <string name="import_review_excluded">Exclu de la playlist</string>
+    <string name="import_review_score">%d %%</string>
+    <string name="import_review_validate">Valider</string>
+    <string name="import_review_exclude">Exclure</string>
+    <string name="import_review_alternatives">Alternatives</string>
+    <string name="import_review_alternatives_hide">Masquer les alternatives</string>
+    <string name="import_review_search">Rechercher</string>
+    <string name="import_review_search_label">Rechercher un titre</string>
+    <string name="import_review_search_submit">Lancer la recherche</string>
+    <string name="import_review_search_close">Fermer la recherche</string>
+    <string name="import_review_search_empty">Aucun résultat.</string>
+    <string name="import_review_not_found">Import introuvable.</string>
+    <string name="import_review_running">Import en cours : %1$d / %2$d titres</string>
+    <string name="import_review_status_matched">Trouvé</string>
+    <string name="import_review_status_review">À vérifier</string>
+    <string name="import_review_status_not_found">Introuvable</string>
+    <string name="import_review_status_pending">En attente</string>
+</resources>

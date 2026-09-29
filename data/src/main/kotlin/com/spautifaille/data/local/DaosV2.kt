@@ -78,6 +78,40 @@ interface ImportDao {
 
     @Query("SELECT * FROM import_items WHERE job_id = :jobId ORDER BY position")
     fun observeItems(jobId: Long): Flow<List<ImportItemEntity>>
+
+    /** Titres restant à traiter (reprise après interruption : seuls les `PENDING` sont retraités). */
+    @Query("SELECT * FROM import_items WHERE job_id = :jobId AND status = 'PENDING' ORDER BY position")
+    suspend fun pendingItems(jobId: Long): List<ImportItemEntity>
+
+    @Query("SELECT COUNT(*) FROM import_items WHERE job_id = :jobId AND status = :status")
+    suspend fun countByStatus(jobId: Long, status: String): Int
+
+    /** Ajoute directement une entrée de playlist (l'appelant garantit l'existence du titre et des positions). */
+    @Insert
+    suspend fun insertEntry(entry: PlaylistEntryEntity): Long
+
+    /**
+     * Position (dans la playlist cible) de l'entrée du dernier titre importé situé avant [position] et encore
+     * présent dans la playlist, ou `null`.
+     */
+    @Query(
+        """
+        SELECT e.position FROM import_items i JOIN playlist_entries e ON e.entry_id = i.entry_id
+        WHERE i.job_id = :jobId AND i.position < :position AND e.playlist_id = :playlistId
+        ORDER BY i.position DESC LIMIT 1
+        """,
+    )
+    suspend fun positionOfPrecedingEntry(jobId: Long, playlistId: Long, position: Int): Int?
+
+    /** Idem pour le premier titre importé situé après [position]. */
+    @Query(
+        """
+        SELECT e.position FROM import_items i JOIN playlist_entries e ON e.entry_id = i.entry_id
+        WHERE i.job_id = :jobId AND i.position > :position AND e.playlist_id = :playlistId
+        ORDER BY i.position ASC LIMIT 1
+        """,
+    )
+    suspend fun positionOfFollowingEntry(jobId: Long, playlistId: Long, position: Int): Int?
 }
 
 @Dao

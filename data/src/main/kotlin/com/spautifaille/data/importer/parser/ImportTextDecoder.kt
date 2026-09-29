@@ -24,7 +24,7 @@ object ImportTextDecoder {
             looksLikeUtf16WithoutBom(bytes, littleEndian = false) -> String(bytes, Charsets.UTF_16BE)
             else -> decodeUtf8OrWindows1252(bytes)
         }
-        return text.removePrefix("﻿")
+        return text.removePrefix("\uFEFF")
     }
 
     private fun decodeUtf8OrWindows1252(bytes: ByteArray): String = try {
@@ -61,7 +61,7 @@ object ImportTextDecoder {
      * La virgule l'emporte en cas d'égalité ou d'absence de séparateur.
      */
     fun sniffDelimiter(content: String): Char {
-        val line = content.removePrefix("﻿").lineSequence().firstOrNull { it.isNotBlank() } ?: return ','
+        val line = content.removePrefix("\uFEFF").lineSequence().firstOrNull { it.isNotBlank() } ?: return ','
         var commas = 0
         var semicolons = 0
         var tabs = 0
