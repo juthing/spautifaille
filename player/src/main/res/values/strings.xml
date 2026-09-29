@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="player_like">Ajouter aux titres likés</string>
+    <string name="player_unlike">Retirer des titres likés</string>
+    <string name="player_browse_root">Spautifaille</string>
+    <string name="player_browse_liked">Titres likés</string>
+    <string name="player_browse_playlists">Playlists</string>
+    <string name="player_browse_recent">Récemment écoutés</string>
+    <plurals name="player_track_count">
+        <item quantity="one">%d titre</item>
+        <item quantity="other">%d titres</item>
+    </plurals>
+</resources>
