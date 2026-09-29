@@ -10,6 +10,7 @@ import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.os.Build
 import androidx.work.ForegroundInfo
+import com.spautifaille.data.R
 import com.spautifaille.data.local.ImportJobEntity
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -24,8 +25,12 @@ class ImportNotifier @Inject constructor(
         val nm = manager ?: return
         if (nm.getNotificationChannel(CHANNEL_ID) == null) {
             nm.createNotificationChannel(
-                NotificationChannel(CHANNEL_ID, "Imports de playlists", NotificationManager.IMPORTANCE_LOW).apply {
-                    description = "Progression et résultat de l'import de playlists"
+                NotificationChannel(
+                    CHANNEL_ID,
+                    context.getString(R.string.data_import_channel_name),
+                    NotificationManager.IMPORTANCE_LOW,
+                ).apply {
+                    description = context.getString(R.string.data_import_channel_description)
                     setShowBadge(false)
                 },
             )
@@ -54,7 +59,7 @@ class ImportNotifier @Inject constructor(
     fun showCompleted(job: ImportJobEntity) {
         if (!canNotify()) return
         ensureChannel()
-        val text = "Import terminé : ${job.matched} titres, ${job.needsReview} à vérifier, ${job.notFound} introuvables"
+        val text = context.getString(R.string.data_import_completed, job.matched, job.needsReview, job.notFound)
         val notification = builder()
             .setSmallIcon(android.R.drawable.stat_sys_download_done)
             .setContentTitle(job.playlistName)
@@ -69,15 +74,15 @@ class ImportNotifier @Inject constructor(
     private fun progressNotification(job: ImportJobEntity?): Notification {
         val builder = builder()
             .setSmallIcon(android.R.drawable.stat_sys_download)
-            .setContentTitle(job?.playlistName ?: "Import de playlist")
+            .setContentTitle(job?.playlistName ?: context.getString(R.string.data_import_notification_title))
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setContentIntent(launchIntent())
         if (job != null && job.total > 0) {
-            builder.setContentText("${job.processed} / ${job.total} titres")
+            builder.setContentText(context.getString(R.string.data_import_progress, job.processed, job.total))
                 .setProgress(job.total, job.processed, false)
         } else {
-            builder.setContentText("Préparation…").setProgress(0, 0, true)
+            builder.setContentText(context.getString(R.string.data_import_preparing)).setProgress(0, 0, true)
         }
         return builder.build()
     }

@@ -46,8 +46,8 @@
     <string name="snack_play_next">Sera lu ensuite</string>
     <string name="snack_added_to_queue">Ajouté à la file</string>
     <string name="snack_added_to_playlist">Ajouté à « %1$s »</string>
-    <string name="snack_liked">Ajouté à vos titres likés</string>
-    <string name="snack_unliked">Retiré de vos titres likés</string>
+    <string name="snack_liked">Ajouté aux Titres likés</string>
+    <string name="snack_unliked">Retiré des Titres likés</string>
     <string name="snack_download_queued">Téléchargement en attente</string>
     <string name="snack_download_cancelled">Téléchargement annulé</string>
     <string name="snack_download_deleted">Téléchargement supprimé</string>
@@ -84,6 +84,8 @@
     <string name="search_no_results_title">Aucun résultat</string>
     <string name="search_no_results_message">Rien trouvé pour « %1$s ». Essayez une autre recherche.</string>
     <string name="search_recent_title">Recherches récentes</string>
+    <string name="search_clear_history">Effacer l\'historique</string>
+    <string name="search_remove_recent">Retirer de l\'historique</string>
     <string name="search_use_suggestion">Utiliser cette suggestion</string>
     <string name="search_filter_songs">Titres</string>
     <string name="search_filter_videos">Vidéos</string>
@@ -116,6 +118,7 @@
     <string name="queue_clear">Effacer la file</string>
     <string name="queue_now_playing">En cours de lecture</string>
     <string name="queue_up_next">À suivre</string>
+    <string name="queue_shuffle_note">Lecture aléatoire : ordre de la liste</string>
     <string name="queue_empty">Rien à suivre pour le moment.</string>
     <string name="queue_reorder">Déplacer</string>
     <string name="queue_remove">Retirer de la file</string>

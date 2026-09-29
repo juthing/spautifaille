@@ -10,12 +10,10 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.work.ForegroundInfo
 import androidx.work.WorkManager
+import com.spautifaille.data.R
 import java.util.UUID
 
-/**
- * Notification de premier plan d'un téléchargement (titre, progression, action « Annuler »).
- * Libellés en dur (français) : `:data` n'a pas de ressources.
- */
+/** Notification de premier plan d'un téléchargement (titre, progression, action « Annuler »). Libellés : `data_download_*`. */
 internal class DownloadNotifications(private val context: Context) {
 
     fun foregroundInfo(
@@ -45,7 +43,13 @@ internal class DownloadNotifications(private val context: Context) {
         return NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_sys_download)
             .setContentTitle(title)
-            .setContentText(if (percent != null) "Téléchargement · $percent %" else "Téléchargement…")
+            .setContentText(
+                if (percent != null) {
+                    context.getString(R.string.data_download_progress, percent)
+                } else {
+                    context.getString(R.string.data_download_progress_indeterminate)
+                },
+            )
             .setProgress(100, percent ?: 0, percent == null)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
@@ -53,7 +57,7 @@ internal class DownloadNotifications(private val context: Context) {
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .setContentIntent(launchIntent())
-            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Annuler", cancelIntent)
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, context.getString(R.string.data_download_action_cancel), cancelIntent)
             .build()
     }
 
@@ -64,8 +68,8 @@ internal class DownloadNotifications(private val context: Context) {
 
     private fun ensureChannel() {
         val channel = NotificationChannelCompat.Builder(CHANNEL_ID, NotificationManagerCompat.IMPORTANCE_LOW)
-            .setName("Téléchargements")
-            .setDescription("Progression des titres téléchargés pour l'écoute hors ligne")
+            .setName(context.getString(R.string.data_download_channel_name))
+            .setDescription(context.getString(R.string.data_download_channel_description))
             .setShowBadge(false)
             .build()
         NotificationManagerCompat.from(context).createNotificationChannel(channel)

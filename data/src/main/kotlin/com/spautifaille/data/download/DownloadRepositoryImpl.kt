@@ -27,10 +27,14 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -57,11 +61,23 @@ class DownloadRepositoryImpl @Inject constructor(
     @IoDispatcher private val io: CoroutineDispatcher,
 ) : DownloadRepository {
 
+    private val messages = DownloadMessages(context)
     private val downloadsDir: File get() = File(context.filesDir, DownloadFiles.DIRECTORY)
     private val playerCacheDir: File get() = File(context.cacheDir, DownloadFiles.PLAYER_CACHE_DIRECTORY)
 
     /** trackId -> chemin absolu, pour les téléchargements COMPLETED uniquement. */
     private val completedFiles = ConcurrentHashMap<String, String>()
+
+    /**
+     * Unique observateur Room de la table, partagé par tous les collecteurs (écran Téléchargements, feuilles d'actions,
+     * stockage, index des fichiers). Chaque mise à jour de progression réécrit la ligne : la liste du domaine est
+     * dédoublonnée pour ne rien réémettre quand seul un champ non exposé (`updated_at`) change.
+     */
+    private val sharedDownloads: SharedFlow<List<Download>> = downloadDao.observeAll()
+        .map { rows -> rows.map(DownloadWithTrack::toDomain) }
+        .distinctUntilChanged()
+        .catch { Log.w(TAG, "Downloads observer failed", it) }
+        .shareIn(scope, SharingStarted.WhileSubscribed(SHARE_STOP_TIMEOUT_MS), replay = 1)
 
     init {
         launchGuarded("index") { keepIndexInSync() }
@@ -84,23 +100,22 @@ class DownloadRepositoryImpl @Inject constructor(
 
     // region Observation
 
-    override fun observeDownloads(): Flow<List<Download>> =
-        downloadDao.observeAll().map { rows -> rows.map(DownloadWithTrack::toDomain) }
+    override fun observeDownloads(): Flow<List<Download>> = sharedDownloads
 
     override fun observeDownload(trackId: String): Flow<Download?> =
-        downloadDao.observe(trackId).map { it?.toDomain() }
+        sharedDownloads.map { downloads -> downloads.firstOrNull { it.track.id == trackId } }.distinctUntilChanged()
 
     override fun observeStorageUsage(): Flow<StorageUsage> =
-        downloadDao.observeAll()
+        sharedDownloads
             // Recalcul quand un titre change d'état ou grossit d'environ un Mo (pas à chaque mise à jour de progression).
-            .map { rows -> rows.map { Triple(it.download.trackId, it.download.state, it.download.downloadedBytes shr 20) } }
+            .map { downloads -> downloads.map { Triple(it.track.id, it.state, it.downloadedBytes shr 20) } }
             .distinctUntilChanged()
             .map { keys ->
                 withContext(io) {
                     StorageUsage(
                         downloadsBytes = DownloadFiles.sizeOf(downloadsDir),
                         cacheBytes = DownloadFiles.sizeOf(playerCacheDir),
-                        downloadCount = keys.count { it.second == DownloadState.COMPLETED.name },
+                        downloadCount = keys.count { it.second == DownloadState.COMPLETED },
                     )
                 }
             }
@@ -179,17 +194,16 @@ class DownloadRepositoryImpl @Inject constructor(
         // Fichier disparu (effacé hors de l'app, stockage nettoyé) : le titre redevient à télécharger.
         completedFiles.remove(trackId, path)
         launchGuarded("mark-missing") {
-            downloadDao.markFailed(trackId, DownloadMessages.FILE_MISSING, System.currentTimeMillis())
+            downloadDao.markFailed(trackId, messages.fileMissing, System.currentTimeMillis())
         }
         return null
     }
 
     private suspend fun keepIndexInSync() {
-        downloadDao.observeAll().collect { rows ->
-            val completed = rows.asSequence()
-                .map { it.download }
-                .filter { it.state == DownloadState.COMPLETED.name && it.filePath != null }
-                .associate { it.trackId to it.filePath!! }
+        sharedDownloads.collect { downloads ->
+            val completed = downloads.asSequence()
+                .filter { it.state == DownloadState.COMPLETED && it.filePath != null }
+                .associate { it.track.id to it.filePath!! }
             completedFiles.keys.retainAll(completed.keys)
             completedFiles.putAll(completed)
         }
@@ -258,6 +272,7 @@ class DownloadRepositoryImpl @Inject constructor(
 
     private companion object {
         const val TAG = "DownloadRepository"
+        const val SHARE_STOP_TIMEOUT_MS = 5_000L
         val PENDING_STATES = setOf(DownloadState.QUEUED.name, DownloadState.RUNNING.name)
     }
 }

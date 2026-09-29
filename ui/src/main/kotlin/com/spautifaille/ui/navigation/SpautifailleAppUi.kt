@@ -110,6 +110,8 @@ private fun AppShell(
     val navController = rememberNavController()
     val playerState by playerViewModel.state.collectAsStateWithLifecycle()
     val positionState = playerViewModel.position.collectAsStateWithLifecycle()
+    // Non lu ici : seuls les composables qui affichent la minuterie se recomposent à chaque seconde.
+    val sleepRemainingState = playerViewModel.sleepTimerRemaining.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     var playerExpanded by rememberSaveable { mutableStateOf(false) }
     var backProgress by remember { mutableStateOf(0f) }
@@ -232,6 +234,7 @@ private fun AppShell(
                 FullPlayerScreen(
                     state = playerState,
                     positionProvider = { positionState.value },
+                    sleepRemainingProvider = { sleepRemainingState.value },
                     actions = playerActions,
                     onCollapse = { playerExpanded = false },
                     onOpenArtist = { url ->

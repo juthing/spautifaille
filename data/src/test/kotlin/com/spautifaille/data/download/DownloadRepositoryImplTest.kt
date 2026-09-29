@@ -9,6 +9,7 @@ import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.testing.SynchronousExecutor
 import androidx.work.testing.WorkManagerTestInitHelper
+import app.cash.turbine.ReceiveTurbine
 import app.cash.turbine.test
 import com.spautifaille.data.local.DownloadEntity
 import com.spautifaille.data.local.SpautifailleDatabase
@@ -18,6 +19,7 @@ import com.spautifaille.data.local.toEntity
 import com.spautifaille.data.local.track
 import com.spautifaille.domain.model.AppSettings
 import com.spautifaille.domain.model.AudioQuality
+import com.spautifaille.domain.model.Download
 import com.spautifaille.domain.model.DownloadState
 import com.spautifaille.domain.model.StorageUsage
 import com.spautifaille.domain.model.ThemeMode
@@ -104,6 +106,13 @@ class DownloadRepositoryImplTest {
         scope = scope,
         io = Dispatchers.IO,
     )
+
+    /** Le flux partagé rejoue le dernier instantané, éventuellement antérieur aux lignes insérées par le test. */
+    private suspend fun ReceiveTurbine<List<Download>>.awaitNonEmpty(): List<Download> {
+        var item = awaitItem()
+        while (item.isEmpty()) item = awaitItem()
+        return item
+    }
 
     private fun workInfos(trackId: String): List<WorkInfo> =
         workManager.getWorkInfosForUniqueWork("download-$trackId").get()
@@ -402,7 +411,8 @@ class DownloadRepositoryImplTest {
         seed("unknown", DownloadState.RUNNING, downloaded = 25, total = null)
         seed("done", DownloadState.COMPLETED, 100, 100, completedFile("done").absolutePath)
 
-        val downloads = repo.observeDownloads().first().associateBy { it.track.id }
+        // Flux partagé (avec rejeu du dernier instantané) : on attend l'instantané contenant les trois lignes.
+        val downloads = repo.observeDownloads().first { it.size == 3 }.associateBy { it.track.id }
 
         assertEquals(0.25f, downloads.getValue("running").progress!!, 0.0001f)
         assertNull(downloads.getValue("unknown").progress)
@@ -424,16 +434,19 @@ class DownloadRepositoryImplTest {
 
     @Test
     fun storageUsageSumsDownloadsDirCacheDirAndCompletedCount() = runTest {
-        seed("a", DownloadState.COMPLETED, 100, 100, completedFile("a", 100).absolutePath)
-        seed("b", DownloadState.COMPLETED, 50, 50, completedFile("b", 50).absolutePath)
-        seed("c", DownloadState.RUNNING, 10, 100)
+        // Tous les fichiers existent avant la première ligne : le flux partagé peut émettre à tout moment.
+        val fileA = completedFile("a", 100)
+        val fileB = completedFile("b", 50)
         File(downloadsDir, "c.m4a.part").writeBytes(ByteArray(10))
         playerCacheDir.mkdirs()
         File(playerCacheDir, "0.v3.exo").writeBytes(ByteArray(300))
         File(playerCacheDir, "sub").mkdirs()
         File(playerCacheDir, "sub/1.v3.exo").writeBytes(ByteArray(20))
+        seed("a", DownloadState.COMPLETED, 100, 100, fileA.absolutePath)
+        seed("b", DownloadState.COMPLETED, 50, 50, fileB.absolutePath)
+        seed("c", DownloadState.RUNNING, 10, 100)
 
-        val usage = repo.observeStorageUsage().first()
+        val usage = repo.observeStorageUsage().first { it.downloadCount == 2 }
 
         assertEquals(StorageUsage(downloadsBytes = 160, cacheBytes = 320, downloadCount = 2), usage)
     }
@@ -441,6 +454,41 @@ class DownloadRepositoryImplTest {
     @Test
     fun storageUsageIsZeroWhenNothingExists() = runTest {
         assertEquals(StorageUsage(0, 0, 0), repo.observeStorageUsage().first())
+    }
+
+    @Test
+    fun observeDownloadsDoesNotReEmitWhenOnlyHiddenColumnsChange() = runTest {
+        seed("running", DownloadState.RUNNING, downloaded = 25, total = 100)
+        repo.observeDownloads().test {
+            assertEquals(0.25f, awaitNonEmpty().single().progress!!, 0.0001f)
+
+            // Même octets, même état : seul `updated_at` change -> aucune réémission.
+            db.downloadDao().updateProgress("running", 25, 100, now = 5_000)
+            db.downloadDao().updateProgress("running", 50, 100, now = 5_001)
+
+            // Le premier élément reçu est déjà celui à 50 % : la mise à jour intermédiaire a été filtrée.
+            assertEquals(0.5f, awaitItem().single().progress!!, 0.0001f)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun severalCollectorsShareTheSameSnapshots() = runTest {
+        seed("a", DownloadState.QUEUED)
+        val first = repo.observeDownloads()
+        val second = repo.observeDownloads()
+
+        first.test {
+            assertEquals(listOf("a"), awaitNonEmpty().map { it.track.id })
+            second.test {
+                assertEquals(listOf("a"), awaitNonEmpty().map { it.track.id })
+                seed("b", DownloadState.QUEUED)
+                assertEquals(setOf("a", "b"), awaitItem().map { it.track.id }.toSet())
+                cancelAndIgnoreRemainingEvents()
+            }
+            assertEquals(setOf("a", "b"), awaitItem().map { it.track.id }.toSet())
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 
     // endregion

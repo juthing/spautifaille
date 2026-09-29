@@ -1,23 +1,28 @@
 package com.spautifaille.ui.downloads
 
 import app.cash.turbine.test
+import com.spautifaille.domain.model.AppSettings
 import com.spautifaille.domain.model.Download
 import com.spautifaille.domain.model.DownloadState
 import com.spautifaille.domain.model.StorageUsage
 import com.spautifaille.domain.player.PlaybackController
 import com.spautifaille.domain.repository.DownloadRepository
+import com.spautifaille.domain.repository.SettingsRepository
 import com.spautifaille.ui.R
 import com.spautifaille.ui.common.UiMessenger
 import com.spautifaille.ui.common.UiText
 import com.spautifaille.ui.library.MainDispatcherRule
 import com.spautifaille.ui.library.collectInBackground
 import com.spautifaille.ui.library.track
+import com.spautifaille.ui.network.NetworkMonitor
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -39,7 +44,18 @@ class DownloadsViewModelTest {
     private val playback = mockk<PlaybackController>(relaxed = true)
     private val messenger = UiMessenger()
 
-    private fun viewModel() = DownloadsViewModel(repository, playback, messenger)
+    private val settings = mockk<SettingsRepository>(relaxed = true)
+    private val wifiOnly = MutableStateFlow(true)
+    private val unmetered = MutableStateFlow(true)
+    private val network = object : NetworkMonitor {
+        override val isUnmetered: Flow<Boolean> = unmetered
+    }
+
+    init {
+        every { settings.settings } answers { wifiOnly.map { AppSettings(downloadOverWifiOnly = it) } }
+    }
+
+    private fun viewModel() = DownloadsViewModel(repository, playback, messenger, settings, network)
 
     private fun download(index: Int, state: DownloadState, createdAt: Long = index.toLong(), error: String? = null) =
         Download(
@@ -201,6 +217,63 @@ class DownloadsViewModelTest {
             assertEquals(UiText.of(R.string.dl_all_deleted), awaitItem())
         }
     }
+
+    // region Attente du Wi-Fi
+
+    @Test
+    fun `queued downloads on a metered network with wifi only show the waiting banner`() = runTest {
+        downloads.value = listOf(download(1, DownloadState.QUEUED))
+        unmetered.value = false
+        val vm = viewModel()
+        collectInBackground(vm.uiState)
+
+        assertTrue(vm.uiState.value.waitingForWifi)
+    }
+
+    @Test
+    fun `no banner on wifi, without the wifi only setting, or without queued downloads`() = runTest {
+        downloads.value = listOf(download(1, DownloadState.QUEUED))
+        val vm = viewModel()
+        collectInBackground(vm.uiState)
+
+        // Réseau non facturé : les téléchargements peuvent avancer.
+        assertFalse(vm.uiState.value.waitingForWifi)
+
+        // Réseau mobile mais réglage désactivé.
+        unmetered.value = false
+        wifiOnly.value = false
+        assertFalse(vm.uiState.value.waitingForWifi)
+
+        // Réglage actif, réseau mobile, mais plus rien en attente (en cours ou en échec seulement).
+        wifiOnly.value = true
+        assertTrue(vm.uiState.value.waitingForWifi)
+        downloads.value = listOf(download(1, DownloadState.RUNNING), download(2, DownloadState.FAILED))
+        assertFalse(vm.uiState.value.waitingForWifi)
+    }
+
+    @Test
+    fun `the banner disappears when wifi comes back`() = runTest {
+        downloads.value = listOf(download(1, DownloadState.QUEUED))
+        unmetered.value = false
+        val vm = viewModel()
+        collectInBackground(vm.uiState)
+        assertTrue(vm.uiState.value.waitingForWifi)
+
+        unmetered.value = true
+
+        assertFalse(vm.uiState.value.waitingForWifi)
+    }
+
+    @Test
+    fun `allowing mobile data turns the wifi only setting off`() = runTest {
+        val vm = viewModel()
+
+        vm.allowMobileData()
+
+        coVerify(exactly = 1) { settings.setDownloadOverWifiOnly(false) }
+    }
+
+    // endregion
 
     @Test
     fun `a failing repository call shows an error message instead of crashing`() = runTest {

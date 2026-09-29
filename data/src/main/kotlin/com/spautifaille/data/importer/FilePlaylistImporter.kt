@@ -2,6 +2,7 @@ package com.spautifaille.data.importer
 
 import android.content.Context
 import android.net.Uri
+import com.spautifaille.data.R
 import com.spautifaille.data.importer.parser.ImportParseException
 import com.spautifaille.data.importer.parser.PlaylistFileParsers
 import com.spautifaille.domain.di.IoDispatcher
@@ -32,7 +33,8 @@ class FilePlaylistImporter internal constructor(
     override fun canHandle(source: ImportSource): Boolean = source is ImportSource.File
 
     override suspend fun read(source: ImportSource): List<ImportedPlaylist> {
-        val file = source as? ImportSource.File ?: throw ImportException("Source non prise en charge.")
+        val file = source as? ImportSource.File
+            ?: throw ImportException(context.getString(R.string.data_import_error_unsupported_source))
         return withContext(io) {
             val uri = Uri.parse(file.uri)
             val bytes = readBytes(uri)
@@ -48,14 +50,14 @@ class FilePlaylistImporter internal constructor(
     private fun readBytes(uri: Uri): ByteArray {
         try {
             val input = context.contentResolver.openInputStream(uri)
-                ?: throw ImportException("Impossible d'ouvrir ce fichier.")
+                ?: throw ImportException(context.getString(R.string.data_import_error_cannot_open))
             return input.use { readLimited(it) }
         } catch (e: ImportException) {
             throw e
         } catch (e: SecurityException) {
-            throw ImportException("Accès au fichier refusé. Choisissez-le de nouveau.", e)
+            throw ImportException(context.getString(R.string.data_import_error_access_denied), e)
         } catch (e: IOException) {
-            throw ImportException("Impossible de lire ce fichier.", e)
+            throw ImportException(context.getString(R.string.data_import_error_cannot_read), e)
         }
     }
 
@@ -67,15 +69,15 @@ class FilePlaylistImporter internal constructor(
             val n = input.read(buffer)
             if (n < 0) break
             total += n
-            if (total > MAX_FILE_BYTES) throw ImportException(TOO_LARGE)
+            if (total > MAX_FILE_BYTES) throw ImportException(context.getString(R.string.data_import_error_file_too_large))
             out.write(buffer, 0, n)
         }
         return out.toByteArray()
     }
 
     companion object {
+        /** Le message « trop volumineux » (`data_import_error_file_too_large`) annonce 20 Mo : à garder synchronisé. */
         const val MAX_FILE_BYTES = 20L * 1024 * 1024
-        const val TOO_LARGE = "Ce fichier est trop volumineux (20 Mo maximum)."
         private const val BUFFER_SIZE = 64 * 1024
     }
 }

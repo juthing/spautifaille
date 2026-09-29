@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.DownloadDone
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -91,6 +92,7 @@ data class DownloadsActions(
     val onDelete: (trackId: String) -> Unit = {},
     val onDeleteAll: () -> Unit = {},
     val onTrackMore: (Track) -> Unit = {},
+    val onAllowMobileData: () -> Unit = {},
 )
 
 /** Écran de gestion des téléchargements (à brancher sur `DownloadsRoute`). */
@@ -112,6 +114,7 @@ fun DownloadsScreenRoot(
             onDelete = viewModel::delete,
             onDeleteAll = viewModel::deleteAll,
             onTrackMore = { actionsTrack = it },
+            onAllowMobileData = viewModel::allowMobileData,
         )
     }
     DownloadsScreen(state = state, actions = actions, modifier = modifier)
@@ -216,6 +219,14 @@ private fun DownloadsList(state: DownloadsUiState, actions: DownloadsActions) {
             .fillMaxWidth(),
         contentPadding = PaddingValues(bottom = 24.dp),
     ) {
+        if (state.waitingForWifi) {
+            item(key = "wifi-waiting") {
+                WifiWaitingBanner(
+                    onAllowMobileData = actions.onAllowMobileData,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            }
+        }
         state.storage?.let { storage ->
             item(key = "storage") { StorageCard(storage, Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) }
         }
@@ -246,6 +257,36 @@ private fun DownloadsList(state: DownloadsUiState, actions: DownloadsActions) {
                     onMore = { actions.onTrackMore(download.track) },
                     onDelete = { actions.onDelete(download.track.id) },
                 )
+            }
+        }
+    }
+}
+
+/** Explique pourquoi la file n'avance pas (réglage « Wi-Fi uniquement » sans Wi-Fi) et permet de lever la restriction. */
+@Composable
+private fun WifiWaitingBanner(onAllowMobileData: () -> Unit, modifier: Modifier = Modifier) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        ),
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.WifiOff, contentDescription = null)
+                Spacer(Modifier.width(12.dp))
+                Text(
+                    text = stringResource(R.string.dl_wifi_waiting_title),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+            }
+            Text(
+                text = stringResource(R.string.dl_wifi_waiting_message),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            TextButton(onClick = onAllowMobileData, modifier = Modifier.align(Alignment.End)) {
+                Text(stringResource(R.string.dl_wifi_allow_mobile))
             }
         }
     }
@@ -504,6 +545,7 @@ private val previewState = DownloadsUiState(
     ),
     completed = (4..7).map { previewDownload(it, DownloadState.COMPLETED, 5_000_000, 5_000_000) },
     storage = StorageUsage(downloadsBytes = 20_000_000, cacheBytes = 45_000_000, downloadCount = 4),
+    waitingForWifi = true,
 )
 
 @Preview(showBackground = true)

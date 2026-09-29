@@ -7,9 +7,11 @@ import com.spautifaille.domain.importer.ImportJobState
 import com.spautifaille.domain.importer.ImportSource
 import com.spautifaille.domain.repository.StreamRepository
 import com.spautifaille.ui.R
+import com.spautifaille.ui.common.NotificationPermissionRequester
 import com.spautifaille.ui.common.UiText
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -32,7 +34,9 @@ class ImportViewModelTest {
         override suspend fun describe(uri: String) = fileInfo
     }
 
-    private fun viewModel() = ImportViewModel(repository, stream, fileInfoProvider)
+    private val notificationPermission = mockk<NotificationPermissionRequester>(relaxed = true)
+
+    private fun viewModel() = ImportViewModel(repository, stream, fileInfoProvider, notificationPermission)
 
     private val validUrl = "https://music.youtube.com/playlist?list=PL123"
 
@@ -43,6 +47,28 @@ class ImportViewModelTest {
         collectInBackground(vm.uiState)
         assertFalse(vm.uiState.value.isLoadingJobs)
         assertTrue(vm.uiState.value.jobs.isEmpty())
+    }
+
+    @Test
+    fun `starting an import asks for the notification permission`() = runTest {
+        repository.onStart = { listOf(1L) }
+        val vm = viewModel()
+        collectInBackground(vm.uiState)
+
+        vm.onFilePicked("content://export.csv")
+
+        verify(exactly = 1) { notificationPermission.requestIfNeeded() }
+    }
+
+    @Test
+    fun `an invalid url does not ask for the notification permission`() = runTest {
+        val vm = viewModel()
+        collectInBackground(vm.uiState)
+        vm.onUrlChanged("https://exemple.fr/page")
+
+        vm.importUrl()
+
+        verify(exactly = 0) { notificationPermission.requestIfNeeded() }
     }
 
     @Test

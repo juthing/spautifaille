@@ -44,6 +44,7 @@ class SearchViewModelTest {
     private val playback = mockk<PlaybackController>(relaxed = true) {
         every { state } returns MutableStateFlow(PlayerState())
     }
+    private val history = FakeSearchHistoryRepository()
     private lateinit var viewModel: SearchViewModel
 
     private fun track(i: Int) = Track(id = "id$i", title = "Titre $i", artist = "Artiste")
@@ -51,7 +52,7 @@ class SearchViewModelTest {
 
     @Before
     fun setUp() {
-        viewModel = SearchViewModel(stream, playback)
+        viewModel = SearchViewModel(stream, playback, history)
     }
 
     /** `uiState` est en WhileSubscribed : on le collecte pendant le test. */
@@ -235,6 +236,52 @@ class SearchViewModelTest {
         assertEquals(SearchViewModel.MAX_RECENT_QUERIES, recents.size)
         assertEquals("Q5", recents.first())
         assertEquals(1, recents.count { it.equals("q5", ignoreCase = true) })
+    }
+
+    @Test
+    fun `l historique persiste expose les recherches deja enregistrees`() = runTest {
+        val persisted = FakeSearchHistoryRepository(listOf("ancienne", "vieille"))
+        viewModel = SearchViewModel(stream, playback, persisted)
+        collectState()
+        advanceUntilIdle()
+
+        assertEquals(listOf("ancienne", "vieille"), viewModel.uiState.value.recentQueries)
+
+        coEvery { stream.search(any(), any(), any()) } returns Paged(emptyList(), next = null)
+        viewModel.onSearch("nouvelle")
+        advanceUntilIdle()
+
+        assertEquals(listOf("nouvelle", "ancienne", "vieille"), viewModel.uiState.value.recentQueries)
+        assertEquals(listOf("nouvelle", "ancienne", "vieille"), persisted.current)
+    }
+
+    @Test
+    fun `retirer une recherche recente ne touche pas les autres`() = runTest {
+        collectState()
+        coEvery { stream.search(any(), any(), any()) } returns Paged(emptyList(), next = null)
+        viewModel.onSearch("a")
+        viewModel.onSearch("b")
+        advanceUntilIdle()
+
+        viewModel.onRemoveRecent("A")
+        advanceUntilIdle()
+
+        assertEquals(listOf("b"), viewModel.uiState.value.recentQueries)
+    }
+
+    @Test
+    fun `effacer l historique vide la liste`() = runTest {
+        collectState()
+        coEvery { stream.search(any(), any(), any()) } returns Paged(emptyList(), next = null)
+        viewModel.onSearch("a")
+        advanceUntilIdle()
+        assertEquals(listOf("a"), viewModel.uiState.value.recentQueries)
+
+        viewModel.onClearRecent()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.recentQueries.isEmpty())
+        assertTrue(history.current.isEmpty())
     }
 
     @Test

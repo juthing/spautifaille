@@ -63,6 +63,7 @@ data class SearchUiState(
 class SearchViewModel @Inject constructor(
     private val streamRepository: StreamRepository,
     private val playbackController: PlaybackController,
+    private val searchHistory: SearchHistoryRepository,
 ) : ViewModel() {
 
     private val internal = MutableStateFlow(SearchUiState())
@@ -73,7 +74,8 @@ class SearchViewModel @Inject constructor(
     val uiState: StateFlow<SearchUiState> = combine(
         internal,
         playbackController.state.map { it.currentTrack?.id }.distinctUntilChanged(),
-    ) { state, nowPlayingId -> state.copy(nowPlayingId = nowPlayingId) }
+        searchHistory.queries,
+    ) { state, nowPlayingId, recents -> state.copy(nowPlayingId = nowPlayingId, recentQueries = recents) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SearchUiState())
 
     init {
@@ -113,11 +115,10 @@ class SearchViewModel @Inject constructor(
             it.copy(
                 query = trimmed,
                 submittedQuery = trimmed,
-                recentQueries = (listOf(trimmed) + it.recentQueries.filterNot { r -> r.equals(trimmed, ignoreCase = true) })
-                    .take(MAX_RECENT_QUERIES),
                 suggestions = emptyList(),
             )
         }
+        viewModelScope.launch { searchHistory.add(trimmed) }
         queryInput.value = trimmed
         runSearch()
     }
@@ -128,8 +129,14 @@ class SearchViewModel @Inject constructor(
         if (internal.value.submittedQuery != null) runSearch()
     }
 
+    /** « Effacer l'historique ». */
     fun onClearRecent() {
-        internal.update { it.copy(recentQueries = emptyList()) }
+        viewModelScope.launch { searchHistory.clear() }
+    }
+
+    /** Retire une seule recherche récente. */
+    fun onRemoveRecent(query: String) {
+        viewModelScope.launch { searchHistory.remove(query) }
     }
 
     fun onLoadMore() {
@@ -214,6 +221,6 @@ class SearchViewModel @Inject constructor(
 
     companion object {
         const val SUGGESTIONS_DEBOUNCE_MS = 250L
-        const val MAX_RECENT_QUERIES = 10
+        const val MAX_RECENT_QUERIES = SearchHistoryRepository.MAX_QUERIES
     }
 }

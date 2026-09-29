@@ -98,6 +98,7 @@ fun SearchScreenRoot(
         onLoadMore = viewModel::onLoadMore,
         onRetry = viewModel::onRetry,
         onClearRecent = viewModel::onClearRecent,
+        onRemoveRecent = viewModel::onRemoveRecent,
         onOpenPlaylist = onOpenPlaylist,
         onOpenArtist = onOpenArtist,
         modifier = modifier,
@@ -118,6 +119,7 @@ fun SearchScreen(
     onOpenPlaylist: (String) -> Unit,
     onOpenArtist: (String) -> Unit,
     modifier: Modifier = Modifier,
+    onRemoveRecent: (String) -> Unit = {},
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     var actionsTrack by remember { mutableStateOf<Track?>(null) }
@@ -191,6 +193,7 @@ fun SearchScreen(
                 },
                 onFill = onQueryChange,
                 onClearRecent = onClearRecent,
+                onRemoveRecent = onRemoveRecent,
             )
         }
     }
@@ -384,6 +387,7 @@ private fun SuggestionsContent(
     onPick: (String) -> Unit,
     onFill: (String) -> Unit,
     onClearRecent: () -> Unit,
+    onRemoveRecent: (String) -> Unit,
 ) {
     val showRecents = query.isBlank()
     val entries = if (showRecents) recents else suggestions
@@ -400,7 +404,7 @@ private fun SuggestionsContent(
                         style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    TextButton(onClick = onClearRecent) { Text(stringResource(R.string.common_action_clear_all)) }
+                    TextButton(onClick = onClearRecent) { Text(stringResource(R.string.search_clear_history)) }
                 }
             }
         }
@@ -413,8 +417,15 @@ private fun SuggestionsContent(
                 },
                 headlineContent = { Text(entry, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 trailingContent = {
-                    IconButton(onClick = { onFill(entry) }) {
-                        Icon(Icons.AutoMirrored.Filled.CallMade, contentDescription = stringResource(R.string.search_use_suggestion))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = { onFill(entry) }) {
+                            Icon(Icons.AutoMirrored.Filled.CallMade, contentDescription = stringResource(R.string.search_use_suggestion))
+                        }
+                        if (showRecents) {
+                            IconButton(onClick = { onRemoveRecent(entry) }) {
+                                Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.search_remove_recent))
+                            }
+                        }
                     }
                 },
             )

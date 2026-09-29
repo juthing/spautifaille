@@ -73,6 +73,7 @@ fun SpeedSheet(
 @Composable
 fun SleepTimerSheet(
     timer: SleepTimer,
+    remainingProvider: () -> Long?,
     onSelectMinutes: (Int) -> Unit,
     onEndOfTrack: () -> Unit,
     onCancel: () -> Unit,
@@ -96,7 +97,11 @@ fun SleepTimerSheet(
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
                 )
                 is SleepTimer.At -> Text(
-                    text = stringResource(R.string.player_sleep_active_remaining, formatDuration(timer.remainingMs)),
+                    // Le ViewModel recalcule le temps restant chaque seconde ; `remainingMs` n'est qu'un repli.
+                    text = stringResource(
+                        R.string.player_sleep_active_remaining,
+                        formatDuration(remainingProvider() ?: timer.remainingMs),
+                    ),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),

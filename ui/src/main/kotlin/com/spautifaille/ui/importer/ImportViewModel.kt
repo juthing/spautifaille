@@ -7,6 +7,7 @@ import com.spautifaille.domain.importer.ImportJob
 import com.spautifaille.domain.importer.ImportRepository
 import com.spautifaille.domain.importer.ImportSource
 import com.spautifaille.domain.repository.StreamRepository
+import com.spautifaille.ui.common.NotificationPermissionRequester
 import com.spautifaille.ui.common.UiText
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -46,6 +47,7 @@ class ImportViewModel @Inject constructor(
     private val importRepository: ImportRepository,
     private val streamRepository: StreamRepository,
     private val fileInfo: ImportFileInfoProvider,
+    private val notificationPermission: NotificationPermissionRequester,
 ) : ViewModel() {
 
     private data class Local(val url: String = "", val isStarting: Boolean = false)
@@ -100,6 +102,7 @@ class ImportViewModel @Inject constructor(
 
     private fun start(onSuccess: () -> Unit = {}, source: suspend () -> ImportSource) {
         if (local.value.isStarting) return
+        notificationPermission.requestIfNeeded()
         local.update { it.copy(isStarting = true) }
         viewModelScope.launch {
             try {

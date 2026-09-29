@@ -26,6 +26,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -93,17 +95,30 @@ class ImportReviewViewModel @Inject constructor(
     private val _events = Channel<ImportReviewEvent>(Channel.BUFFERED)
     val events: Flow<ImportReviewEvent> = _events.receiveAsFlow()
 
+    /** Compteurs d'une liste d'items, recalculés seulement quand la liste change (pas à chaque mise à jour du job). */
+    private data class Summary(val items: List<ImportItem>, val needsReview: Int, val notFound: Int)
+
+    // Dernière liste filtrée : réutilisée telle quelle (même instance) tant que ni les items ni le filtre ne changent,
+    // pour que les lignes inchangées ne soient ni recalculées ni recomposées lors d'une mise à jour d'une seule ligne.
+    private var lastFilteredSource: List<ImportItem>? = null
+    private var lastFilteredBy: ReviewFilter? = null
+    private var lastFiltered: List<ImportItem> = emptyList()
+
     val uiState: StateFlow<ImportReviewUiState> = combine(
-        importRepository.observeJob(jobId),
-        importRepository.observeItems(jobId),
+        importRepository.observeJob(jobId).distinctUntilChanged(),
+        importRepository.observeItems(jobId).distinctUntilChanged().map { items ->
+            Summary(
+                items = items,
+                needsReview = items.count { it.result.status == MatchStatus.NEEDS_REVIEW },
+                notFound = items.count { it.result.status == MatchStatus.NOT_FOUND },
+            )
+        },
         ui,
-    ) { job, items, ui ->
-        val needsReview = items.count { it.result.status == MatchStatus.NEEDS_REVIEW }
-        val notFound = items.count { it.result.status == MatchStatus.NOT_FOUND }
+    ) { job, summary, ui ->
         if (initialFilter == null && job != null) {
             initialFilter = when {
-                needsReview > 0 -> ReviewFilter.NEEDS_REVIEW
-                notFound > 0 -> ReviewFilter.NOT_FOUND
+                summary.needsReview > 0 -> ReviewFilter.NEEDS_REVIEW
+                summary.notFound > 0 -> ReviewFilter.NOT_FOUND
                 else -> ReviewFilter.ALL
             }
         }
@@ -112,14 +127,23 @@ class ImportReviewViewModel @Inject constructor(
             isLoading = false,
             job = job,
             filter = filter,
-            items = items.filter { it.matches(filter) },
-            needsReviewCount = needsReview,
-            notFoundCount = notFound,
-            totalCount = items.size,
+            items = filtered(summary.items, filter),
+            needsReviewCount = summary.needsReview,
+            notFoundCount = summary.notFound,
+            totalCount = summary.items.size,
             expandedItemId = ui.expandedItemId,
             search = ui.search,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), ImportReviewUiState())
+
+    private fun filtered(items: List<ImportItem>, filter: ReviewFilter): List<ImportItem> {
+        if (lastFilteredSource === items && lastFilteredBy == filter) return lastFiltered
+        return items.filter { it.matches(filter) }.also {
+            lastFilteredSource = items
+            lastFilteredBy = filter
+            lastFiltered = it
+        }
+    }
 
     fun setFilter(filter: ReviewFilter) {
         closeSearch()

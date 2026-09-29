@@ -85,6 +85,7 @@ fun FullPlayerScreen(
     onOpenArtist: (artistUrl: String) -> Unit,
     modifier: Modifier = Modifier,
     transition: PlayerTransition? = null,
+    sleepRemainingProvider: () -> Long? = { null },
 ) {
     val track = state.currentTrack ?: return
     var sheet by rememberSaveable { mutableStateOf(PlayerSheet.None) }
@@ -124,7 +125,9 @@ fun FullPlayerScreen(
                             modifier = Modifier.weight(1f),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            PlayerBody(state, track, positionProvider, actions, onOpenArtist, transition) { sheet = it }
+                            PlayerBody(
+                                state, track, positionProvider, sleepRemainingProvider, actions, onOpenArtist, transition,
+                            ) { sheet = it }
                         }
                     }
                 } else {
@@ -134,7 +137,9 @@ fun FullPlayerScreen(
                         modifier = Modifier.weight(1f).fillMaxWidth().padding(vertical = 8.dp),
                     )
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        PlayerBody(state, track, positionProvider, actions, onOpenArtist, transition) { sheet = it }
+                        PlayerBody(
+                            state, track, positionProvider, sleepRemainingProvider, actions, onOpenArtist, transition,
+                        ) { sheet = it }
                     }
                 }
                 Spacer(Modifier.height(16.dp))
@@ -152,6 +157,7 @@ fun FullPlayerScreen(
         )
         PlayerSheet.Sleep -> SleepTimerSheet(
             timer = state.sleepTimer,
+            remainingProvider = sleepRemainingProvider,
             onSelectMinutes = actions.onSleepMinutes,
             onEndOfTrack = actions.onSleepEndOfTrack,
             onCancel = actions.onCancelSleep,
@@ -166,6 +172,7 @@ private fun PlayerBody(
     state: PlayerState,
     track: Track,
     positionProvider: () -> PlaybackPosition,
+    sleepRemainingProvider: () -> Long?,
     actions: PlayerActions,
     onOpenArtist: (String) -> Unit,
     transition: PlayerTransition?,
@@ -186,6 +193,7 @@ private fun PlayerBody(
     PlayerControls(state = state, actions = actions)
     SecondaryActions(
         state = state,
+        sleepRemainingProvider = sleepRemainingProvider,
         onSpeed = { openSheet(PlayerSheet.Speed) },
         onSleep = { openSheet(PlayerSheet.Sleep) },
         onQueue = { openSheet(PlayerSheet.Queue) },
@@ -379,6 +387,7 @@ private fun PlayerControls(state: PlayerState, actions: PlayerActions) {
 @Composable
 private fun SecondaryActions(
     state: PlayerState,
+    sleepRemainingProvider: () -> Long?,
     onSpeed: () -> Unit,
     onSleep: () -> Unit,
     onQueue: () -> Unit,
@@ -387,7 +396,8 @@ private fun SecondaryActions(
     val sleepLabel = when (val timer = state.sleepTimer) {
         SleepTimer.Off -> stringResource(R.string.player_sleep_short)
         SleepTimer.EndOfTrack -> stringResource(R.string.player_sleep_end_of_track_short)
-        is SleepTimer.At -> formatDuration(timer.remainingMs)
+        // Lu ici (et non plus haut) : seul ce bloc se recompose à chaque tick de la minuterie.
+        is SleepTimer.At -> formatDuration(sleepRemainingProvider() ?: timer.remainingMs)
     }
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
         ToolButton(Icons.Filled.Speed, formatSpeed(state.speed), active = state.speed != 1f, onClick = onSpeed)

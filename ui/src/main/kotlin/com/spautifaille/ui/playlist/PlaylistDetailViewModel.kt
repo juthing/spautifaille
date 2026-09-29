@@ -10,6 +10,7 @@ import com.spautifaille.domain.model.Track
 import com.spautifaille.domain.player.PlaybackController
 import com.spautifaille.domain.repository.DownloadRepository
 import com.spautifaille.domain.repository.PlaylistRepository
+import com.spautifaille.ui.common.NotificationPermissionRequester
 import com.spautifaille.ui.library.PlaylistNameValidator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -55,6 +56,7 @@ class PlaylistDetailViewModel @Inject constructor(
     private val playlistRepository: PlaylistRepository,
     private val downloadRepository: DownloadRepository,
     private val playbackController: PlaybackController,
+    private val notificationPermission: NotificationPermissionRequester,
 ) : ViewModel() {
 
     /** Argument de navigation `id` (Long). `-1` si absent → état « introuvable ». */
@@ -127,6 +129,7 @@ class PlaylistDetailViewModel @Inject constructor(
     fun downloadAll() {
         val tracks = currentTracks()
         if (tracks.isEmpty()) return
+        notificationPermission.requestIfNeeded()
         viewModelScope.launch {
             downloadRepository.enqueue(tracks)
             _events.send(PlaylistDetailEvent.DownloadsQueued(tracks.size))

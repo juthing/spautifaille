@@ -148,6 +148,28 @@ class ImportRepositoryImplTest {
         assertTrue(item.result.alternatives.all { it.track.id != "best" })
     }
 
+    @Test
+    fun `observeItems keeps unchanged rows as the same instances when another row is updated`() = runTest {
+        val (repo, jobId, _) = processedJob()
+        repo.observeItems(jobId).test {
+            val before = awaitItem()
+            val review = before[1]
+
+            val alt = review.result.alternatives.firstOrNull()?.track ?: Track("a1", "T1", "Aaaa Bbbb", durationMs = 50_000L)
+            repo.resolveItem(review.id, alt)
+
+            var after = awaitItem()
+            while (after[1].result.status != MatchStatus.MATCHED) after = awaitItem()
+            assertEquals(4, after.size)
+            // Seule la ligne résolue est reconstruite ; les autres gardent leur instance (pas de recomposition inutile).
+            assertTrue(before[0] === after[0])
+            assertTrue(before[2] === after[2])
+            assertTrue(before[3] === after[3])
+            assertFalse(before[1] === after[1])
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
     // --- resolveItem --------------------------------------------------------------------------------
 
     /** Job de 4 titres traités : 0 MATCHED (m0), 1 NEEDS_REVIEW (r1, alt a1), 2 NOT_FOUND, 3 MATCHED (m3). */

@@ -5,6 +5,7 @@ import app.cash.turbine.test
 import com.spautifaille.domain.model.Playlist
 import com.spautifaille.domain.player.PlaybackController
 import com.spautifaille.domain.repository.DownloadRepository
+import com.spautifaille.ui.common.NotificationPermissionRequester
 import com.spautifaille.ui.library.FakePlaylistRepository
 import com.spautifaille.ui.library.MainDispatcherRule
 import com.spautifaille.ui.library.collectInBackground
@@ -28,13 +29,14 @@ class PlaylistDetailViewModelTest {
     private val repository = FakePlaylistRepository()
     private val downloads = mockk<DownloadRepository>(relaxed = true)
     private val playback = mockk<PlaybackController>(relaxed = true)
+    private val notificationPermission = mockk<NotificationPermissionRequester>(relaxed = true)
     private val tracks = (1..4).map { track(it, durationMs = 60_000L * it) }
 
     private fun userPlaylist() = Playlist(PLAYLIST_ID, "Road trip", 4, "https://img/1.jpg", false, 0, 0)
 
     private fun viewModel(id: Long? = PLAYLIST_ID): PlaylistDetailViewModel {
         val args = if (id != null) mapOf(PlaylistDetailViewModel.ARG_ID to id) else emptyMap()
-        return PlaylistDetailViewModel(SavedStateHandle(args), repository, downloads, playback)
+        return PlaylistDetailViewModel(SavedStateHandle(args), repository, downloads, playback, notificationPermission)
     }
 
     private fun ids(vm: PlaylistDetailViewModel) = vm.uiState.value.entries.map { it.track.id }
@@ -114,6 +116,7 @@ class PlaylistDetailViewModelTest {
             assertEquals(PlaylistDetailEvent.DownloadsQueued(4), awaitItem())
         }
         coVerify { downloads.enqueue(tracks) }
+        verify(exactly = 1) { notificationPermission.requestIfNeeded() }
     }
 
     @Test

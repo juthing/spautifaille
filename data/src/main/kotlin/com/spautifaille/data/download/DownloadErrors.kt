@@ -1,31 +1,34 @@
 package com.spautifaille.data.download
 
+import android.content.Context
+import com.spautifaille.data.R
 import com.spautifaille.domain.error.AppError
 import com.spautifaille.domain.error.AppException
 import java.io.IOException
 
 /**
- * Messages français stockés dans `downloads.error` (affichés tels quels par l'écran Téléchargements).
- * Le module `:data` n'a pas de ressources : les libellés vivent ici.
+ * Messages (français, depuis les ressources `data_download_error_*`) stockés dans `downloads.error` et affichés tels
+ * quels par l'écran Téléchargements : le texte est résolu au moment de l'écriture en base.
  */
-internal object DownloadMessages {
-    const val NOT_DOWNLOADABLE = "Format non téléchargeable"
-    const val NO_SPACE = "Espace de stockage insuffisant"
-    const val FILE_MISSING = "Fichier introuvable"
-    const val INCOMPLETE = "Téléchargement incomplet"
+internal class DownloadMessages(private val context: Context) {
+    val notDownloadable: String get() = context.getString(R.string.data_download_error_not_downloadable)
+    val noSpace: String get() = context.getString(R.string.data_download_error_no_space)
+    val fileMissing: String get() = context.getString(R.string.data_download_error_file_missing)
 
-    fun forError(error: AppError): String = when (error) {
-        AppError.Unavailable -> "Contenu indisponible"
-        AppError.AgeRestricted -> "Contenu soumis à une restriction d'âge"
-        AppError.GeoBlocked -> "Indisponible dans votre pays"
-        AppError.PaidContent -> "Contenu payant ou réservé aux abonnés"
-        AppError.BotDetected -> "YouTube limite temporairement les requêtes"
-        AppError.Network -> "Connexion impossible"
-        AppError.StreamExpired -> "Le lien de téléchargement a expiré"
-        AppError.NoAudioStream -> "Aucun flux audio disponible"
-        is AppError.ExtractionBroken -> "Extraction impossible : mettez l'application à jour"
-        is AppError.Unknown -> "Erreur inattendue"
-    }
+    fun forError(error: AppError): String = context.getString(
+        when (error) {
+            AppError.Unavailable -> R.string.data_download_error_unavailable
+            AppError.AgeRestricted -> R.string.data_download_error_age_restricted
+            AppError.GeoBlocked -> R.string.data_download_error_geo_blocked
+            AppError.PaidContent -> R.string.data_download_error_paid
+            AppError.BotDetected -> R.string.data_download_error_bot
+            AppError.Network -> R.string.data_download_error_network
+            AppError.StreamExpired -> R.string.data_download_error_stream_expired
+            AppError.NoAudioStream -> R.string.data_download_error_no_audio
+            is AppError.ExtractionBroken -> R.string.data_download_error_extraction
+            is AppError.Unknown -> R.string.data_download_error_unknown
+        },
+    )
 }
 
 /** Erreurs qui ne disparaîtront pas en réessayant : le téléchargement est abandonné (FAILED). */

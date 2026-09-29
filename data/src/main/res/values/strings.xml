@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Téléchargements : notification -->
+    <string name="data_download_channel_name">Téléchargements</string>
+    <string name="data_download_channel_description">Progression des titres téléchargés pour l\'écoute hors ligne</string>
+    <string name="data_download_notification_title">Téléchargement</string>
+    <string name="data_download_progress">Téléchargement · %1$d %%</string>
+    <string name="data_download_progress_indeterminate">Téléchargement…</string>
+    <string name="data_download_action_cancel">Annuler</string>
+
+    <!-- Téléchargements : messages d'erreur stockés dans downloads.error (texte français écrit à l'échec) -->
+    <string name="data_download_error_not_downloadable">Format non téléchargeable</string>
+    <string name="data_download_error_no_space">Espace de stockage insuffisant</string>
+    <string name="data_download_error_file_missing">Fichier introuvable</string>
+    <string name="data_download_error_unavailable">Contenu indisponible</string>
+    <string name="data_download_error_age_restricted">Contenu soumis à une restriction d\'âge</string>
+    <string name="data_download_error_geo_blocked">Indisponible dans votre pays</string>
+    <string name="data_download_error_paid">Contenu payant ou réservé aux abonnés</string>
+    <string name="data_download_error_bot">YouTube limite temporairement les requêtes</string>
+    <string name="data_download_error_network">Connexion impossible</string>
+    <string name="data_download_error_stream_expired">Le lien de téléchargement a expiré</string>
+    <string name="data_download_error_no_audio">Aucun flux audio disponible</string>
+    <string name="data_download_error_extraction">Extraction impossible : mettez l\'application à jour</string>
+    <string name="data_download_error_unknown">Erreur inattendue</string>
+
+    <!-- Imports : notifications -->
+    <string name="data_import_channel_name">Imports de playlists</string>
+    <string name="data_import_channel_description">Progression et résultat de l\'import de playlists</string>
+    <string name="data_import_notification_title">Import de playlist</string>
+    <string name="data_import_preparing">Préparation…</string>
+    <string name="data_import_progress">%1$d / %2$d titres</string>
+    <string name="data_import_completed">Import terminé : %1$d titres, %2$d à vérifier, %3$d introuvables</string>
+
+    <!-- Imports : erreurs (stockées dans import_jobs.error ou remontées à l'UI) et noms par défaut -->
+    <string name="data_import_error_interrupted">L\'import a été interrompu (réseau ou limitation de YouTube). Supprimez-le et relancez-le.</string>
+    <string name="data_import_error_unsupported_source">Source non prise en charge.</string>
+    <string name="data_import_error_source_not_handled">Cette source n\'est pas prise en charge.</string>
+    <string name="data_import_error_playlist_empty">Cette playlist est vide ou n\'est pas accessible.</string>
+    <string name="data_import_error_nothing_to_import">Aucune playlist à importer.</string>
+    <string name="data_import_error_cannot_open">Impossible d\'ouvrir ce fichier.</string>
+    <string name="data_import_error_access_denied">Accès au fichier refusé. Choisissez-le de nouveau.</string>
+    <string name="data_import_error_cannot_read">Impossible de lire ce fichier.</string>
+    <string name="data_import_error_file_too_large">Ce fichier est trop volumineux (20 Mo maximum).</string>
+    <string name="data_import_default_playlist_youtube">Playlist YouTube</string>
+    <string name="data_import_default_playlist">Playlist importée</string>
+</resources>

@@ -16,7 +16,8 @@ import kotlinx.coroutines.flow.first
 /** Base Room en mémoire + repositories réels, réseau simulé. */
 internal class ImportEnv {
     var now = 1_000L
-    val db: SpautifailleDatabase = createInMemoryDatabase(ApplicationProvider.getApplicationContext<Context>())
+    val context: Context = ApplicationProvider.getApplicationContext()
+    val db: SpautifailleDatabase = createInMemoryDatabase(context)
     val playlists = PlaylistRepositoryImpl(db, db.playlistDao(), db.trackDao()) { ++now }
     val trackCache = TrackCacheImpl(db.trackDao()) { ++now }
     val stream = FakeStreamRepository()
@@ -28,7 +29,7 @@ internal class ImportEnv {
         ImportProcessor(store, db.importDao(), stream, trackCache, matcher, throttleMs, botBackoffMs)
 
     fun repository(importers: List<com.spautifaille.domain.importer.PlaylistImporter>, io: CoroutineDispatcher) =
-        ImportRepositoryImpl(db, db.importDao(), db.trackDao(), playlists, PlaylistImporters(importers), store, scheduler, io)
+        ImportRepositoryImpl(context, db, db.importDao(), db.trackDao(), playlists, PlaylistImporters(importers), store, scheduler, io)
 
     /** Crée une playlist cible vide et un job PENDING pour [tracks]. Renvoie (jobId, playlistId). */
     suspend fun newJob(tracks: List<ImportedTrack>, name: String = "Import"): Pair<Long, Long> {

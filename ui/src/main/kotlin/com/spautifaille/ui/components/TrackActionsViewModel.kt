@@ -12,6 +12,7 @@ import com.spautifaille.domain.repository.DownloadRepository
 import com.spautifaille.domain.repository.LibraryRepository
 import com.spautifaille.domain.repository.PlaylistRepository
 import com.spautifaille.ui.R
+import com.spautifaille.ui.common.NotificationPermissionRequester
 import com.spautifaille.ui.common.UiMessenger
 import com.spautifaille.ui.common.UiText
 import com.spautifaille.ui.common.toAppError
@@ -56,6 +57,7 @@ class TrackActionsViewModel @Inject constructor(
     private val playlistRepository: PlaylistRepository,
     private val downloadRepository: DownloadRepository,
     private val messenger: UiMessenger,
+    private val notificationPermission: NotificationPermissionRequester,
 ) : ViewModel() {
 
     private val selectedTrackId = MutableStateFlow<String?>(null)
@@ -104,6 +106,7 @@ class TrackActionsViewModel @Inject constructor(
                 if (state.value.download?.state == DownloadState.FAILED) {
                     downloadRepository.retry(track.id)
                 } else {
+                    notificationPermission.requestIfNeeded()
                     downloadRepository.enqueue(listOf(track))
                 }
                 messenger.show(UiText.of(R.string.snack_download_queued))

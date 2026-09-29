@@ -7,6 +7,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import com.spautifaille.data.R
 import com.spautifaille.data.local.DownloadDao
 import com.spautifaille.data.local.TrackDao
 import com.spautifaille.domain.di.IoDispatcher
@@ -51,11 +52,13 @@ class DownloadWorker @AssistedInject constructor(
 ) : CoroutineWorker(context, params) {
 
     private val notifications = DownloadNotifications(applicationContext)
+    private val messages = DownloadMessages(applicationContext)
     private val downloadsDir: File get() = File(applicationContext.filesDir, DownloadFiles.DIRECTORY)
 
     override suspend fun getForegroundInfo(): ForegroundInfo {
         val trackId = inputData.getString(DownloadWork.KEY_TRACK_ID).orEmpty()
-        return notifications.foregroundInfo(trackId, id, title = "Téléchargement", downloadedBytes = 0, totalBytes = null)
+        val title = applicationContext.getString(R.string.data_download_notification_title)
+        return notifications.foregroundInfo(trackId, id, title = title, downloadedBytes = 0, totalBytes = null)
     }
 
     override suspend fun doWork(): Result {
@@ -91,7 +94,7 @@ class DownloadWorker @AssistedInject constructor(
     private suspend fun perform(trackId: String, title: String): Result {
         val quality = settingsRepository.current().audioQuality
         val stream = streamRepository.resolveAudio(trackId, quality)
-        if (stream.dashManifest != null) return fail(trackId, DownloadMessages.NOT_DOWNLOADABLE, deleteParts = true)
+        if (stream.dashManifest != null) return fail(trackId, messages.notDownloadable, deleteParts = true)
 
         val extension = DownloadFiles.extensionFor(stream.mimeType)
         val dir = downloadsDir.apply { mkdirs() }
@@ -168,14 +171,14 @@ class DownloadWorker @AssistedInject constructor(
     }
 
     private suspend fun handleFailure(trackId: String, error: Exception): Result {
-        if (error.isOutOfSpace()) return fail(trackId, DownloadMessages.NO_SPACE, deleteParts = false)
+        if (error.isOutOfSpace()) return fail(trackId, messages.noSpace, deleteParts = false)
         val appError = error.toDownloadError()
         if (appError.isPermanent() || appError is AppError.ExtractionBroken || appError is AppError.Unknown) {
-            return fail(trackId, DownloadMessages.forError(appError), deleteParts = true)
+            return fail(trackId, messages.forError(appError), deleteParts = true)
         }
         // Réseau / anti-bot / lien expiré : on réessaie avec backoff, en gardant le `.part`.
         if (runAttemptCount + 1 >= MAX_ATTEMPTS) {
-            return fail(trackId, DownloadMessages.forError(appError), deleteParts = false)
+            return fail(trackId, messages.forError(appError), deleteParts = false)
         }
         downloadDao.changeState(trackId, DownloadState.RUNNING.name, DownloadState.QUEUED.name, System.currentTimeMillis())
         return Result.retry()

@@ -7,6 +7,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import com.spautifaille.data.R
 import com.spautifaille.data.local.ImportDao
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -54,7 +55,7 @@ class ImportWorker @AssistedInject constructor(
             }
             is ImportOutcome.Retry ->
                 if (runAttemptCount >= MAX_ATTEMPTS) {
-                    store.fail(jobId, "L'import a été interrompu (réseau ou limitation de YouTube). Supprimez-le et relancez-le.")
+                    store.fail(jobId, applicationContext.getString(R.string.data_import_error_interrupted))
                     Result.failure()
                 } else {
                     Result.retry()

@@ -8,15 +8,19 @@ import com.spautifaille.domain.model.DownloadState
 import com.spautifaille.domain.model.StorageUsage
 import com.spautifaille.domain.player.PlaybackController
 import com.spautifaille.domain.repository.DownloadRepository
+import com.spautifaille.domain.repository.SettingsRepository
 import com.spautifaille.ui.R
 import com.spautifaille.ui.common.UiMessenger
 import com.spautifaille.ui.common.UiText
+import com.spautifaille.ui.network.NetworkMonitor
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
@@ -31,6 +35,8 @@ data class DownloadsUiState(
     val completed: List<Download> = emptyList(),
     /** `null` tant que le calcul n'est pas terminé. */
     val storage: StorageUsage? = null,
+    /** Des téléchargements attendent, le réglage « Wi-Fi uniquement » est actif et le réseau est facturé à l'usage. */
+    val waitingForWifi: Boolean = false,
 ) {
     val isEmpty: Boolean get() = !isLoading && active.isEmpty() && completed.isEmpty()
     val failedCount: Int get() = active.count { it.state == DownloadState.FAILED }
@@ -41,19 +47,30 @@ class DownloadsViewModel @Inject constructor(
     private val downloadRepository: DownloadRepository,
     private val playbackController: PlaybackController,
     private val messenger: UiMessenger,
+    private val settingsRepository: SettingsRepository,
+    networkMonitor: NetworkMonitor,
 ) : ViewModel() {
+
+    private val wifiOnly: Flow<Boolean> = settingsRepository.settings.map { it.downloadOverWifiOnly }.distinctUntilChanged()
 
     val uiState: StateFlow<DownloadsUiState> = combine(
         downloadRepository.observeDownloads(),
         downloadRepository.observeStorageUsage().map<StorageUsage, StorageUsage?> { it }.onStart { emit(null) },
-    ) { downloads, storage ->
+        wifiOnly,
+        networkMonitor.isUnmetered,
+    ) { downloads, storage, restrictedToWifi, unmetered ->
+        val active = downloads.filter { it.state != DownloadState.COMPLETED }.sortedWith(ActiveOrder)
         DownloadsUiState(
             isLoading = false,
-            active = downloads.filter { it.state != DownloadState.COMPLETED }.sortedWith(ActiveOrder),
+            active = active,
             completed = downloads.filter { it.state == DownloadState.COMPLETED }.sortedByDescending { it.createdAt },
             storage = storage,
+            waitingForWifi = restrictedToWifi && !unmetered && active.any { it.state == DownloadState.QUEUED },
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), DownloadsUiState())
+
+    /** Désactive « Wi-Fi uniquement » : les téléchargements en attente repartent sur données mobiles. */
+    fun allowMobileData() = launchAction { settingsRepository.setDownloadOverWifiOnly(false) }
 
     /** Lance la lecture de tous les titres terminés, à partir de l'élément [index] de la section « Terminés ». */
     fun play(index: Int) {

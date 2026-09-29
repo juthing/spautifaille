@@ -39,6 +39,11 @@
     <string name="dl_status_failed">Échec du téléchargement</string>
     <string name="dl_status_failed_reason">Échec · %1$s</string>
 
+    <!-- Attente du Wi-Fi -->
+    <string name="dl_wifi_waiting_title">En attente du Wi-Fi</string>
+    <string name="dl_wifi_waiting_message">Les téléchargements reprendront dès que vous serez connecté à un réseau Wi-Fi.</string>
+    <string name="dl_wifi_allow_mobile">Autoriser les données mobiles</string>
+
     <!-- Vide -->
     <string name="dl_empty_title">Aucun téléchargement</string>
     <string name="dl_empty_message">Téléchargez des titres depuis une playlist ou le menu d\'un titre pour les écouter hors ligne.</string>

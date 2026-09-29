@@ -38,7 +38,7 @@ class PlaylistImportersTest {
     @Test
     fun `youtube importer only handles playlist urls`() {
         val stream = FakeStreamRepository()
-        val importer = YouTubePlaylistImporter(stream)
+        val importer = YouTubePlaylistImporter(context, stream)
         assertTrue(importer.canHandle(ImportSource.Url("  $url ")))
         assertFalse(importer.canHandle(ImportSource.Url("https://example.com/")))
         assertFalse(importer.canHandle(ImportSource.File("content://x", null, null)))
@@ -55,7 +55,7 @@ class PlaylistImportersTest {
             }
         }
 
-        val playlists = YouTubePlaylistImporter(stream).read(ImportSource.Url(url))
+        val playlists = YouTubePlaylistImporter(context, stream).read(ImportSource.Url(url))
 
         val playlist = playlists.single()
         assertEquals("Ma playlist", playlist.name)
@@ -77,7 +77,7 @@ class PlaylistImportersTest {
             remotePage("Énorme", List(100) { ytTrack("t${page * 100 + it}") }, IntToken(page + 1))
         }
 
-        val playlist = YouTubePlaylistImporter(stream).read(ImportSource.Url(url)).single()
+        val playlist = YouTubePlaylistImporter(context, stream).read(ImportSource.Url(url)).single()
 
         assertEquals(YouTubePlaylistImporter.MAX_TRACKS, playlist.tracks.size)
         assertEquals(50, stream.playlistRequests.size)
@@ -89,7 +89,7 @@ class PlaylistImportersTest {
         stream.playlistHandler = { remotePage("Vide", emptyList(), IntToken(1)) }
 
         try {
-            YouTubePlaylistImporter(stream).read(ImportSource.Url(url))
+            YouTubePlaylistImporter(context, stream).read(ImportSource.Url(url))
             fail("exception attendue")
         } catch (e: ImportException) {
             assertTrue(e.message!!.contains("vide"))
@@ -102,7 +102,7 @@ class PlaylistImportersTest {
         val stream = FakeStreamRepository()
         stream.playlistHandler = { throw AppException(AppError.Network) }
         try {
-            YouTubePlaylistImporter(stream).read(ImportSource.Url(url))
+            YouTubePlaylistImporter(context, stream).read(ImportSource.Url(url))
             fail("exception attendue")
         } catch (e: AppException) {
             assertEquals(AppError.Network, e.error)
@@ -158,7 +158,8 @@ class PlaylistImportersTest {
             fileImporter().read(ImportSource.File(uri, "gros.csv", "text/csv"))
             fail("exception attendue")
         } catch (e: ImportException) {
-            assertEquals(FilePlaylistImporter.TOO_LARGE, e.message)
+            assertEquals(context.getString(com.spautifaille.data.R.string.data_import_error_file_too_large), e.message)
+            assertEquals("Ce fichier est trop volumineux (20 Mo maximum).", e.message)
         }
     }
 
@@ -171,7 +172,7 @@ class PlaylistImportersTest {
             fail("exception attendue")
         } catch (e: ImportException) {
             // Refusé pour son contenu (que des zéros), pas pour sa taille.
-            assertTrue(e.message != FilePlaylistImporter.TOO_LARGE)
+            assertTrue(e.message != context.getString(com.spautifaille.data.R.string.data_import_error_file_too_large))
         }
     }
 

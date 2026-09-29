@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ClearAll
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DragHandle
+import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
@@ -109,6 +110,26 @@ fun QueueSheet(
                 ) {
                     Icon(Icons.Filled.ClearAll, contentDescription = null, modifier = Modifier.size(18.dp))
                     Text(stringResource(R.string.queue_clear), modifier = Modifier.padding(start = 8.dp))
+                }
+            }
+            if (state.shuffleEnabled) {
+                // La liste montre l'ordre de la file, pas l'ordre réel de lecture.
+                Row(
+                    modifier = Modifier.padding(horizontal = 24.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        Icons.Filled.Shuffle,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Text(
+                        text = stringResource(R.string.queue_shuffle_note),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 8.dp),
+                    )
                 }
             }
             LazyColumn(

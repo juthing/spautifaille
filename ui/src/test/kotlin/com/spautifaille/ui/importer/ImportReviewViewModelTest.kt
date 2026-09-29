@@ -18,6 +18,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -101,6 +102,23 @@ class ImportReviewViewModelTest {
 
         assertEquals(ReviewFilter.NEEDS_REVIEW, vm.uiState.value.filter)
         assertTrue(vm.uiState.value.items.isEmpty())
+    }
+
+    @Test
+    fun `job progress updates and identical item lists keep the very same filtered list`() = runTest {
+        seed(review, missing, matched)
+        val vm = viewModel()
+        collectInBackground(vm.uiState)
+        val before = vm.uiState.value.items
+
+        // Le job progresse (compteurs) mais les items ne changent pas : la liste affichée n'est pas recalculée.
+        repository.jobs.value = listOf(job(1, processed = 5))
+        assertSame(before, vm.uiState.value.items)
+        assertEquals(5, vm.uiState.value.job?.processed)
+
+        // Même contenu réémis (nouvelle liste égale) : aucune nouvelle liste non plus.
+        repository.items.value = mapOf(1L to listOf(review, missing, matched))
+        assertSame(before, vm.uiState.value.items)
     }
 
     @Test
