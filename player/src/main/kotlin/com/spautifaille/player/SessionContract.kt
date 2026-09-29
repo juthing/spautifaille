@@ -1,6 +1,7 @@
 package com.spautifaille.player
 
 import android.os.Bundle
+import androidx.core.os.BundleCompat
 import androidx.media3.session.SessionCommand
 import com.spautifaille.domain.error.AppError
 import com.spautifaille.domain.model.Track
@@ -18,6 +19,12 @@ object SessionContract {
     const val ACTION_TOGGLE_LIKE = PREFIX + "TOGGLE_LIKE"
     const val ACTION_SET_SLEEP_TIMER = PREFIX + "SET_SLEEP_TIMER"
     const val ACTION_CANCEL_SLEEP_TIMER = PREFIX + "CANCEL_SLEEP_TIMER"
+
+    /** « Lire ensuite » : insère les titres passés en argument juste après le titre courant, même en mode aléatoire. */
+    const val ACTION_PLAY_NEXT = PREFIX + "PLAY_NEXT"
+
+    // Arguments de ACTION_PLAY_NEXT
+    const val KEY_TRACKS = "tracks"
 
     /** Commande diffusée du service vers les contrôleurs pour signaler un événement ([encodeEvent]). */
     const val ACTION_EVENT = PREFIX + "EVENT"
@@ -42,6 +49,9 @@ object SessionContract {
     const val KEY_MEDIA_ID = "media_id"
     const val KEY_TITLE = "title"
     const val KEY_ARTIST = "artist"
+    const val KEY_ARTIST_URL = "artist_url"
+    const val KEY_ALBUM = "album"
+    const val KEY_THUMBNAIL_URL = "thumbnail_url"
 
     const val EVENT_TRACK_SKIPPED = "track_skipped"
     const val EVENT_ERROR = "error"
@@ -51,6 +61,37 @@ object SessionContract {
     val setSleepTimerCommand: SessionCommand get() = SessionCommand(ACTION_SET_SLEEP_TIMER, Bundle.EMPTY)
     val cancelSleepTimerCommand: SessionCommand get() = SessionCommand(ACTION_CANCEL_SLEEP_TIMER, Bundle.EMPTY)
     val eventCommand: SessionCommand get() = SessionCommand(ACTION_EVENT, Bundle.EMPTY)
+    val playNextCommand: SessionCommand get() = SessionCommand(ACTION_PLAY_NEXT, Bundle.EMPTY)
+
+    fun playNextArgs(tracks: List<Track>): Bundle = Bundle().apply {
+        putParcelableArrayList(KEY_TRACKS, ArrayList(tracks.map(::trackToBundle)))
+    }
+
+    fun decodePlayNextArgs(args: Bundle): List<Track> =
+        BundleCompat.getParcelableArrayList(args, KEY_TRACKS, Bundle::class.java).orEmpty().mapNotNull(::bundleToTrack)
+
+    private fun trackToBundle(track: Track): Bundle = Bundle().apply {
+        putString(KEY_MEDIA_ID, track.id)
+        putString(KEY_TITLE, track.title)
+        putString(KEY_ARTIST, track.artist)
+        track.artistUrl?.let { putString(KEY_ARTIST_URL, it) }
+        track.album?.let { putString(KEY_ALBUM, it) }
+        track.durationMs?.let { putLong(KEY_DURATION_MS, it) }
+        track.thumbnailUrl?.let { putString(KEY_THUMBNAIL_URL, it) }
+    }
+
+    private fun bundleToTrack(bundle: Bundle): Track? {
+        val id = bundle.getString(KEY_MEDIA_ID) ?: return null
+        return Track(
+            id = id,
+            title = bundle.getString(KEY_TITLE).orEmpty(),
+            artist = bundle.getString(KEY_ARTIST).orEmpty(),
+            artistUrl = bundle.getString(KEY_ARTIST_URL),
+            album = bundle.getString(KEY_ALBUM),
+            durationMs = if (bundle.containsKey(KEY_DURATION_MS)) bundle.getLong(KEY_DURATION_MS) else null,
+            thumbnailUrl = bundle.getString(KEY_THUMBNAIL_URL),
+        )
+    }
 
     fun sleepTimerArgs(durationMs: Long): Bundle = Bundle().apply { putLong(KEY_DURATION_MS, durationMs) }
     fun sleepTimerEndOfTrackArgs(): Bundle = Bundle().apply { putBoolean(KEY_END_OF_TRACK, true) }

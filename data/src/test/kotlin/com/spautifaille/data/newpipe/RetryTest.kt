@@ -9,14 +9,14 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.schabi.newpipe.extractor.exceptions.ContentNotAvailableException
+import org.schabi.newpipe.extractor.exceptions.ReCaptchaException
 import java.io.IOException
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class RetryTest {
 
-    private val retryable: (Throwable) -> Boolean = {
-        NewPipeErrorMapper.mapToError(it).let { e -> e is AppError.Network || e is AppError.BotDetected }
-    }
+    // Même politique que NewPipeStreamRepository.call : réseau seulement (BotDetected est laissé aux appelants).
+    private val retryable: (Throwable) -> Boolean = { NewPipeErrorMapper.mapToError(it) is AppError.Network }
 
     @Test
     fun retriesOnNetworkThenSucceeds() = runTest {
@@ -72,6 +72,21 @@ class RetryTest {
             throw AssertionError("should have thrown")
         } catch (e: ContentNotAvailableException) {
             assertTrue(e.message!!.contains("gone"))
+        }
+        assertEquals(1, calls)
+        assertEquals(0L, currentTime)
+    }
+
+    @Test
+    fun doesNotRetryBotDetection() = runTest {
+        var calls = 0
+        try {
+            retryWithBackoff(shouldRetry = retryable) {
+                calls++
+                throw ReCaptchaException("captcha", "https://youtube.com")
+            }
+            throw AssertionError("should have thrown")
+        } catch (_: ReCaptchaException) {
         }
         assertEquals(1, calls)
         assertEquals(0L, currentTime)

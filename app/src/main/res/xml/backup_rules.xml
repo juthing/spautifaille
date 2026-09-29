@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Sauvegarde automatique (Android 6 à 11) : on garde la base Room (spautifaille.db et ses -wal/-shm) et le
+     DataStore `settings` (files/datastore/), mais pas les fichiers téléchargés (gros, re-téléchargeables).
+     Le cache de streaming (cacheDir/media) et les pochettes (cacheDir/artwork) ne sont jamais sauvegardés :
+     Android exclut cacheDir d'office. -->
+<full-backup-content>
+    <exclude domain="file" path="downloads" />
+</full-backup-content>

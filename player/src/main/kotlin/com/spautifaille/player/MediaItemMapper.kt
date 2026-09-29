@@ -21,10 +21,14 @@ object MediaItemMapper {
     const val EXTRA_ARTIST_URL = "com.spautifaille.player.ARTIST_URL"
     const val EXTRA_QUEUE_UID = "com.spautifaille.player.QUEUE_UID"
 
+    /** Identifiant du dossier de navigation (likés, playlist, récents) d'où provient un titre de l'arbre Android Auto. */
+    const val EXTRA_PARENT_ID = "com.spautifaille.player.PARENT_ID"
+
     fun newUid(): String = UUID.randomUUID().toString()
 
-    fun toMediaItem(track: Track, uid: String = newUid()): MediaItem {
+    fun toMediaItem(track: Track, uid: String = newUid(), parentId: String? = null): MediaItem {
         val extras = Bundle().apply {
+            parentId?.let { putString(EXTRA_PARENT_ID, it) }
             track.artistUrl?.let { putString(EXTRA_ARTIST_URL, it) }
             putString(EXTRA_QUEUE_UID, uid)
         }
@@ -63,6 +67,9 @@ object MediaItemMapper {
 
     /** Identifiant unique de l'occurrence dans la file, ou null pour un item créé hors de ce mapper. */
     fun queueUid(item: MediaItem): String? = item.mediaMetadata.extras?.getString(EXTRA_QUEUE_UID)
+
+    /** Dossier de navigation d'origine du titre (arbre de bibliothèque), ou null. */
+    fun parentId(item: MediaItem): String? = item.mediaMetadata.extras?.getString(EXTRA_PARENT_ID)
 
     /** Garantit la présence d'un `uid` (items reçus de contrôleurs externes). */
     fun ensureUid(item: MediaItem): MediaItem {

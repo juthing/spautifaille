@@ -266,11 +266,7 @@ class PlaybackControllerImpl @Inject constructor(
         if (tracks.isEmpty()) return
         val items = MediaItemMapper.toMediaItems(tracks)
         withController { c ->
-            c.shuffleModeEnabled = shuffle
-            // Lecture aléatoire depuis le début : laisser ExoPlayer choisir le premier titre de l'ordre mélangé
-            // (sinon les titres placés avant l'index dans l'ordre mélangé ne seraient jamais joués).
-            val start = if (shuffle && startIndex == 0) C.INDEX_UNSET else startIndex.coerceIn(0, items.lastIndex)
-            c.setMediaItems(items, start, C.TIME_UNSET)
+            QueueCommands.setQueue(c, items, startIndex, shuffle)
             c.prepare()
             c.play()
         }
@@ -278,14 +274,15 @@ class PlaybackControllerImpl @Inject constructor(
 
     override fun playNext(tracks: List<Track>) {
         if (tracks.isEmpty()) return
-        val items = MediaItemMapper.toMediaItems(tracks)
         withController { c ->
             if (c.mediaItemCount == 0) {
-                c.setMediaItems(items)
+                c.setMediaItems(MediaItemMapper.toMediaItems(tracks))
                 c.prepare()
                 c.play()
             } else {
-                c.addMediaItems(c.currentMediaItemIndex + 1, items)
+                // Commande dédiée : en mode aléatoire, addMediaItems placerait les titres à des positions
+                // aléatoires de l'ordre mélangé ; le service recalcule l'ordre pour les mettre juste après le courant.
+                c.sendCustomCommand(SessionContract.playNextCommand, SessionContract.playNextArgs(tracks))
             }
         }
     }

@@ -69,7 +69,7 @@ class LibraryBrowseTree(
             recentItem,
         )
         parentId == PLAYLISTS_ID -> playlists.observePlaylists().first().filterNot { it.isSystem }.map(::playlistItem)
-        else -> tracksFor(parentId)?.map { MediaItemMapper.toMediaItem(it) }
+        else -> tracksFor(parentId)?.map { MediaItemMapper.toMediaItem(it, parentId = parentId) }
     }
 
     /** Titres contenus dans un nœud jouable (likés, playlist, récents), ou null si [mediaId] n'en est pas un. */
