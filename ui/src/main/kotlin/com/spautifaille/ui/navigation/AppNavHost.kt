@@ -14,6 +14,8 @@ import androidx.navigation.compose.composable
 import com.spautifaille.domain.model.Playlist
 import com.spautifaille.ui.R
 import com.spautifaille.ui.artist.ArtistRoute as ArtistScreenRoute
+import com.spautifaille.ui.discovery.DiscoveryRoute
+import com.spautifaille.ui.discovery.DiscoveryScreenRoot
 import com.spautifaille.ui.home.HomeScreenRoot
 import com.spautifaille.ui.library.LibraryRoute as LibraryScreenRoute
 import com.spautifaille.ui.playlist.PlaylistDetailRoute
@@ -45,6 +47,7 @@ fun AppNavHost(
             HomeScreenRoot(
                 onOpenSettings = { navController.navigate(SettingsRoute) },
                 onOpenLiked = { navController.navigate(PlaylistRoute(Playlist.LIKED_ID)) },
+                onOpenDiscovery = { navController.navigate(DiscoveryRoute) },
             )
         }
         composable<SearchRoute> {
@@ -80,6 +83,7 @@ private fun androidx.navigation.NavGraphBuilder.integrationDestinations(navContr
     composable<SettingsRoute> {
         SettingsScreenRoute(onBack = back, onOpenDownloads = { navController.navigate(DownloadsRoute) })
     }
+    composable<DiscoveryRoute> { DiscoveryScreenRoot(onBack = back, onOpenArtist = openArtist) }
     // TODO(integration J5) : écran de gestion des téléchargements
     composable<DownloadsRoute> { PlaceholderScreen(title = stringResource(R.string.placeholder_downloads)) }
     // TODO(integration J4b) : écran d'import

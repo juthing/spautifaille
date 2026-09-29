@@ -82,8 +82,6 @@
     <string name="home_liked_title">Titres likés</string>
     <string name="home_liked_subtitle">Vos coups de cœur au même endroit</string>
     <string name="home_discover_title">Découverte</string>
-    <string name="home_discover_soon_title">Bientôt disponible</string>
-    <string name="home_discover_soon_message">Des suggestions basées sur ce que vous écoutez apparaîtront ici.</string>
 
     <!-- Recherche -->
     <string name="search_placeholder">Titres, artistes, albums…</string>

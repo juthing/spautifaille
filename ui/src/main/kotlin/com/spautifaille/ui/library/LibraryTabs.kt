@@ -48,6 +48,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -69,7 +70,6 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
-import java.util.Locale
 
 private val FabClearance = 96.dp
 private val WideLayoutThreshold = 600.dp
@@ -397,7 +397,7 @@ private fun historyDayLabel(header: HistoryListItem.Header): String = when (val 
     HistoryDay.Today -> stringResource(R.string.lib_today)
     HistoryDay.Yesterday -> stringResource(R.string.lib_yesterday)
     is HistoryDay.On -> {
-        val locale = Locale.getDefault()
+        val locale = LocalConfiguration.current.locales[0]
         val pattern = if (day.date.year == LocalDate.now().year) "EEEE d MMMM" else "EEEE d MMMM yyyy"
         DateTimeFormatter.ofPattern(pattern, locale).format(day.date)
             .replaceFirstChar { it.titlecase(locale) }

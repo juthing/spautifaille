@@ -15,13 +15,13 @@ enum class ImportField { TITLE, ARTIST, ALBUM, DURATION, ISRC, YOUTUBE }
  */
 object CsvHeaderMatcher {
 
-    /** `"﻿ Titre du morceau (ms)"` → `"titre du morceau ms"`. */
+    /** `"\uFEFF Titre du morceau (ms)"` → `"titre du morceau ms"`. */
     fun normalize(header: String): String {
         val decomposed = Normalizer.normalize(header, Normalizer.Form.NFD)
         val sb = StringBuilder(decomposed.length)
         for (ch in decomposed) {
             when {
-                ch == '﻿' || ch == '​' -> Unit
+                ch == '\uFEFF' || ch == '\u200B' -> Unit
                 Character.getType(ch) == Character.NON_SPACING_MARK.toInt() -> Unit
                 Character.isLetterOrDigit(ch) -> sb.append(ch.lowercaseChar())
                 else -> sb.append(' ')

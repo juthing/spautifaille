@@ -14,7 +14,7 @@ class GenericCsvParser : PlaylistFileParser {
 
     override fun canParse(fileName: String?, content: String): Boolean {
         if (!ImportFileNames.extensionNotIn(fileName, "json")) return false
-        val start = content.trimStart('﻿', ' ', '\n', '\r', '\t')
+        val start = content.trimStart('\uFEFF', ' ', '\n', '\r', '\t')
         if (start.startsWith("{") || start.startsWith("[")) return false
         val rows = CsvRows.readOrNull(content) ?: return false
         return findHeader(rows) != null

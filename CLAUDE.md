@@ -37,7 +37,9 @@ Plugins de convention dans `build-logic/` : `spautifaille.android.application|li
 ```
 SDK Android : `local.properties` → `sdk.dir=/root/android-sdk` (installé par `.claude/hooks/session-start.sh` en session web).
 Pas d'émulateur dans le conteneur : Room/migrations/Media3 se testent via Robolectric en tests unitaires.
-Machine limitée (4 CPU / 15 Go) : en parallèle, utiliser `-Dorg.gradle.jvmargs=-Xmx2g --max-workers=2` et `./gradlew --stop` à la fin.
+Machine limitée (4 CPU / 15 Go) : en parallèle, utiliser `-Dorg.gradle.jvmargs=-Xmx2g -Pkotlin.compiler.execution.strategy=in-process --max-workers=2`. **Ne jamais lancer `./gradlew --stop` quand d'autres builds tournent** (tue les daemons de tous les worktrees).
+Tests réseau réels contre YouTube (désactivés par défaut) : `SPAUTIFAILLE_LIVE_TESTS=1 ./gradlew :data:testDebugUnitTest --tests "*LiveYoutubeTest*"`.
+Robolectric 4.17 : épingler `sdk = 35` (SDK 37 échoue sur JDK 21).
 
 CI : `.github/workflows/android.yml` (tests, lint, APK debug + release en artefacts téléchargeables).
 
@@ -73,4 +75,6 @@ On suit le commit épinglé par l'app NewPipe (testé en production) :
 - `AudioStream.isUrl()==false` → contenu = manifeste DASH, pas une URL.
 - Vidéos « made for kids » non lisibles ; `SignInConfirmNotBotException` / HTTP 429 = throttling IP (`AppError.BotDetected`).
 - Le `Downloader` ne doit pas écraser les en-têtes fournis par la requête NewPipe (User-Agent spécifique) et doit renvoyer les réponses non-2xx sans lever (sauf 429 → `ReCaptchaException`).
+- Recherche YouTube Music : les paramètres de filtre de NewPipeExtractor sont périmés → `data/src/main/java/.../PatchedYoutubeMusicSearchExtractor.java` (copie avec paramètres à jour). Titres/Albums peuvent renvoyer « aucun résultat » selon l'IP → repli automatique (Titres → vidéos YTM → vidéos, Albums → playlists) dans `NewPipeStreamRepository.search`. À retirer quand l'upstream corrige.
+- Gradle 9 échoue si un module a des sources de test mais aucun test découvert (`failOnNoDiscoveredTests`).
 - JitPack ne sert que `com.github.*` (filtre dans `settings.gradle.kts`). Maven Central passe par le miroir Google (évite les 429).
