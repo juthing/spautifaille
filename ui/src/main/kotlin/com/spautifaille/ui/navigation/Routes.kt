@@ -55,3 +55,7 @@ enum class TopLevelDestination(
     Library(LibraryRoute, LibraryRoute::class, R.string.nav_library, Icons.Filled.LibraryMusic),
     Settings(SettingsRoute, SettingsRoute::class, R.string.nav_settings, Icons.Filled.Settings),
 }
+
+/** Sous-page d'une catégorie de réglages ; [category] = `SettingsCategory.key` (l'onglet Réglages reste sélectionné). */
+@Serializable
+data class SettingsCategoryRoute(val category: String)

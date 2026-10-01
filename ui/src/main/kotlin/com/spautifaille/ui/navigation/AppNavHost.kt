@@ -10,6 +10,7 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.toRoute
 import com.spautifaille.domain.model.Playlist
 import com.spautifaille.ui.artist.ArtistRoute as ArtistScreenRoute
 import com.spautifaille.ui.discovery.DiscoveryRoute
@@ -22,6 +23,7 @@ import com.spautifaille.ui.importer.ImportScreenRoot
 import com.spautifaille.ui.library.LibraryRoute as LibraryScreenRoute
 import com.spautifaille.ui.playlist.PlaylistDetailRoute
 import com.spautifaille.ui.remoteplaylist.RemotePlaylistRoute as RemotePlaylistScreenRoute
+import com.spautifaille.ui.settings.SettingsCategoryRoute as SettingsCategoryScreenRoute
 import com.spautifaille.ui.settings.SettingsRoute as SettingsScreenRoute
 import com.spautifaille.ui.search.SearchScreenRoot
 
@@ -83,7 +85,7 @@ private fun androidx.navigation.NavGraphBuilder.integrationDestinations(navContr
     composable<SettingsRoute> {
         // Onglet racine : pas de retour.
         SettingsScreenRoute(
-            onOpenDownloads = { navController.navigate(DownloadsRoute) },
+            onOpenCategory = { category -> navController.navigate(SettingsCategoryRoute(category.key)) },
             onOpenImport = { navController.navigate(ImportRoute) },
         )
     }
@@ -97,4 +99,11 @@ private fun androidx.navigation.NavGraphBuilder.integrationDestinations(navContr
         )
     }
     composable<ImportReviewRoute> { ImportReviewScreenRoot(onBack = back) }
+    composable<SettingsCategoryRoute> { entry ->
+        SettingsCategoryScreenRoute(
+            categoryKey = entry.toRoute<SettingsCategoryRoute>().category,
+            onBack = back,
+            onOpenDownloads = { navController.navigate(DownloadsRoute) },
+        )
+    }
 }
