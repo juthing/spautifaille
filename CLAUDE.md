@@ -53,7 +53,10 @@ CI : `.github/workflows/android.yml` (tests, lint, APK debug + release en artefa
 - NewPipeExtractor n'est importé que dans `:data` (package `newpipe`) et, pour les helpers d'en-têtes (User-Agent VisionOS), dans `:player` via une abstraction si possible.
 - Room : `exportSchema = true` (`data/schemas`), **toute évolution de schéma = nouvelle version + `Migration` explicite + test `MigrationTestHelper`**. Pas de `fallbackToDestructiveMigration`.
 - Media3 : beaucoup d'API sont `@UnstableApi` → `@OptIn(UnstableApi::class)` localisé sur la classe concernée.
-- Chaînes UI en français dans `ui/src/main/res/values/strings.xml`.
+- Chaînes UI en français, **tutoiement partout** (app personnelle), réparties par zone : `strings.xml` (navigation, actions et erreurs communes, recherche, lecteur) + `strings_<zone>.xml` (`home`, `library`, `settings`, `import`, `downloads`, `discovery`, `player`, `misc`). Pas de chaîne inutilisée : vérifier par grep avant d'en laisser une.
+- Retours haptiques : toujours via `LocalAppHaptics.current` (`ui/common/Haptics.kt`, sémantique `click`/`toggle`/`confirm`/`reject`/`longPress`/`tick`…), jamais `LocalHapticFeedback` directement. Les composants partagés (`TrackListItem`…) le font déjà : ne pas le doubler chez l'appelant ; jamais à chaque frame.
+- Espacements, largeurs et tailles dans `ui/theme/Dimens.kt` (`Spacing`, `ScreenHorizontalPadding`, `SectionSpacing`, `ListBottomPadding`, `ContentMaxWidth`, `ArtworkSize`) plutôt que des `dp` en dur. États vides / erreur / chargement : `EmptyState`, `ErrorState`, `LoadingState` (`ui/components/States.kt`).
+- En-têtes d'écran : `TopAppBar` standard (jamais `LargeTopAppBar` : grand blanc en haut). Navigation : 3 onglets racine (Accueil, Bibliothèque, Réglages) ; la recherche est un écran poussé depuis l'Accueil (`SearchRoute`).
 - Tests : JUnit4 + kotlinx-coroutines-test + Turbine + MockK ; Robolectric pour Room/Android. Tests obligatoires : parsers d'import, scoring du matching, use cases, filtrage des recommandations, DAO + migrations.
 
 ## Architecture de lecture
