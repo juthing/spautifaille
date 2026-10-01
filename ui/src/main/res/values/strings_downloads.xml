@@ -24,6 +24,8 @@
     <!-- Sections -->
     <string name="dl_section_active">En cours</string>
     <string name="dl_section_done">Terminés</string>
+    <string name="dl_section_active_count">En cours · %1$d</string>
+    <string name="dl_section_done_count">Terminés · %1$d</string>
     <string name="dl_retry">Réessayer</string>
     <string name="dl_retry_all">Tout réessayer</string>
     <string name="dl_cancel_download">Annuler le téléchargement</string>
