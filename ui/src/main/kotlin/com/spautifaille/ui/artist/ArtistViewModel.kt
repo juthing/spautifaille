@@ -9,7 +9,7 @@ import com.spautifaille.domain.model.ArtistDetails
 import com.spautifaille.domain.player.PlaybackController
 import com.spautifaille.domain.repository.LibraryRepository
 import com.spautifaille.domain.repository.StreamRepository
-import com.spautifaille.ui.library.toLibraryAppError
+import com.spautifaille.ui.common.toAppError
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
@@ -64,7 +64,7 @@ class ArtistViewModel @Inject constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ArtistStatus.Error(e.toLibraryAppError())
+                ArtistStatus.Error(e.toAppError())
             }
         }
     }

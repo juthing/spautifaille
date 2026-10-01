@@ -66,4 +66,37 @@
     <string name="import_review_status_review">À vérifier</string>
     <string name="import_review_status_not_found">Introuvable</string>
     <string name="import_review_status_pending">En attente</string>
+
+    <!-- Refonte de l'écran d'import -->
+    <string name="import_screen_title">Importer</string>
+    <string name="import_intro">D\'où viennent vos playlists ?</string>
+    <string name="import_file_card_description">Choisissez un export enregistré sur votre appareil : le contenu est lu localement puis chaque titre est cherché sur YouTube.</string>
+    <string name="import_format_exportify">Exportify · CSV</string>
+    <string name="import_format_spotify">Spotify · JSON</string>
+    <string name="import_format_takeout">Google Takeout · CSV</string>
+    <string name="import_format_generic">CSV / JSON</string>
+    <string name="import_link_title">Depuis un lien</string>
+    <string name="import_link_description">Lien d\'une playlist YouTube ou YouTube Music, publique ou non répertoriée.</string>
+    <string name="import_link_hint">https://music.youtube.com/playlist?list=…</string>
+    <string name="import_recent_title">Imports récents</string>
+    <string name="import_stage_matching">Recherche des correspondances</string>
+    <string name="import_stage_review">Des titres sont à vérifier</string>
+    <string name="import_stage_done">Import terminé</string>
+    <string name="import_stage_failed">Import interrompu</string>
+    <string name="import_step_read">Lecture</string>
+    <string name="import_step_match">Correspondance</string>
+    <string name="import_step_review">Vérification</string>
+    <string name="import_progress_counter">%1$d sur %2$d titres</string>
+    <string name="import_progress_percent">%d %%</string>
+    <string name="import_delete_job_description">Supprimer l\'import « %1$s »</string>
+    <plurals name="import_tracks_total">
+        <item quantity="one">%d titre</item>
+        <item quantity="other">%d titres</item>
+    </plurals>
+    <string name="import_review_stat_matched">Trouvés</string>
+    <string name="import_review_stat_review">À vérifier</string>
+    <string name="import_review_stat_not_found">Introuvables</string>
+    <string name="import_review_summary_title">Résumé de l\'import</string>
+    <string name="import_review_done_title">Tout est vérifié</string>
+    <string name="import_review_validate_all_hint">Appuyez sur « Valider » pour garder la proposition, ou choisissez une autre version.</string>
 </resources>

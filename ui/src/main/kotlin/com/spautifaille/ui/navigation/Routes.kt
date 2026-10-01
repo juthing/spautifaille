@@ -63,3 +63,7 @@ data object HistoryRoute
 /** Liste complète des artistes suivis (« Tes artistes »). */
 @Serializable
 data object FollowedArtistsRoute
+
+/** Sous-page d'une catégorie de réglages ; [category] = `SettingsCategory.key` (l'onglet Réglages reste sélectionné). */
+@Serializable
+data class SettingsCategoryRoute(val category: String)
