@@ -26,6 +26,7 @@ dependencies {
     implementation(libs.compose.material3.adaptive.navigation)
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
+    implementation(libs.androidx.palette.ktx)
     implementation(libs.reorderable)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.datastore.preferences)

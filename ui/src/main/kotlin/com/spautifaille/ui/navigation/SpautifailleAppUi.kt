@@ -318,6 +318,7 @@ private fun MiniPlayerDock(
                         onExpand = onExpand,
                         onPlayPause = actions.onPlayPause,
                         onNext = actions.onNext,
+                        onPrevious = actions.onPrevious,
                         transition = PlayerTransition(sharedScope, visibilityScope),
                     )
                 }
