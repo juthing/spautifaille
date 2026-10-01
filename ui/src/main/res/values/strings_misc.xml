@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Actions partagées -->
+    <string name="misc_open">Ouvrir</string>
+    <string name="misc_action_shuffle">Aléatoire</string>
+
+    <!-- Page artiste -->
+    <string name="misc_artist_load_failed">Impossible de charger l\'artiste</string>
+    <string name="misc_artist_songs">Titres</string>
+    <string name="misc_artist_albums">Albums et playlists</string>
+    <string name="misc_artist_about">À propos</string>
+    <string name="misc_artist_empty_title">Aucun contenu</string>
+    <string name="misc_artist_empty_message">Aucun titre ni playlist n\'a été trouvé pour cet artiste.</string>
+    <string name="misc_artist_avatar_description">Photo de %1$s</string>
+    <string name="misc_subscribe">S\'abonner</string>
+    <string name="misc_subscribed">Abonné</string>
+    <string name="misc_description_expand">Afficher toute la description</string>
+
+    <!-- Playlist distante -->
+    <string name="misc_remote_load_failed">Impossible de charger la playlist</string>
+    <string name="misc_remote_save_to_library">Enregistrer dans la bibliothèque</string>
+    <string name="misc_remote_saved_message">« %1$s » enregistrée dans la bibliothèque</string>
+    <string name="misc_remote_saving_progress">Chargement des titres… %1$d</string>
+    <string name="misc_remote_cover_description">Pochette de %1$s</string>
+</resources>
