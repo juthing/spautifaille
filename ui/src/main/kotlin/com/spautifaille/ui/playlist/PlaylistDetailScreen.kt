@@ -64,7 +64,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -216,7 +215,7 @@ fun PlaylistDetailScreen(
                     }) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.lib_back),
+                            contentDescription = stringResource(R.string.common_action_back),
                         )
                     }
                 },
@@ -242,7 +241,7 @@ fun PlaylistDetailScreen(
                                     },
                                 )
                                 DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.lib_delete)) },
+                                    text = { Text(stringResource(R.string.common_action_delete)) },
                                     leadingIcon = { Icon(Icons.Filled.Delete, contentDescription = null) },
                                     onClick = {
                                         menuOpen = false
@@ -266,7 +265,7 @@ fun PlaylistDetailScreen(
                         icon = Icons.AutoMirrored.Filled.QueueMusic,
                         title = stringResource(R.string.lib_playlist_not_found),
                         message = stringResource(R.string.lib_playlist_not_found_body),
-                        actionLabel = stringResource(R.string.lib_back),
+                        actionLabel = stringResource(R.string.common_action_back),
                         onAction = actions.onBack,
                     )
                     else -> PlaylistContent(
@@ -287,8 +286,9 @@ fun PlaylistDetailScreen(
             track = entryForSheet.track,
             onDismiss = { sheetEntry = null },
             onGoToArtist = actions.onOpenArtist,
-            removeLabel = if (state.isDownloadedPlaylist) R.string.lib_remove_download else R.string.lib_remove_from_playlist,
-            onRemove = { actions.onRemove(entryForSheet) },
+            isPlayable = state.isAvailable(entryForSheet),
+            // « Téléchargés » : la feuille propose déjà « Supprimer le téléchargement » (avec confirmation).
+            onRemove = if (state.isDownloadedPlaylist) null else ({ actions.onRemove(entryForSheet) }),
         )
     }
     if (showRename && playlist != null) {
@@ -308,7 +308,7 @@ fun PlaylistDetailScreen(
         LibraryConfirmDialog(
             title = stringResource(R.string.lib_delete_playlist_title),
             text = stringResource(R.string.lib_delete_playlist_message, playlist.name),
-            confirmLabel = stringResource(R.string.lib_delete),
+            confirmLabel = stringResource(R.string.common_action_delete),
             onConfirm = {
                 haptics.confirm()
                 actions.onDelete()
@@ -512,6 +512,10 @@ private fun ReorderableCollectionItemScope.PlaylistEntryRow(
 ) {
     val haptics = LocalAppHaptics.current
     val dismissState = rememberSwipeToDismissBoxState()
+    // Cran quand le balayage franchit le seuil de retrait, confirmation quand le titre est retiré.
+    LaunchedEffect(dismissState.targetValue) {
+        if (dismissState.targetValue == SwipeToDismissBoxValue.EndToStart) haptics.gestureThreshold()
+    }
     LaunchedEffect(dismissState.currentValue) {
         if (dismissState.currentValue == SwipeToDismissBoxValue.EndToStart) {
             haptics.confirm()
@@ -538,6 +542,8 @@ private fun ReorderableCollectionItemScope.PlaylistEntryRow(
                     isCurrent = isCurrent,
                     isPlaying = isPlaying,
                     isDownloaded = isDownloaded,
+                    // Titre indisponible hors ligne : le refus (reject) tient lieu de retour haptique.
+                    clickFeedback = isAvailable,
                 )
                 if (reorderable) {
                     IconButton(

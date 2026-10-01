@@ -263,8 +263,10 @@ private fun PlayerBody(
         positionProvider = positionProvider,
         fallbackDurationMs = state.durationMs,
         onSeek = actions.onSeek,
+        // Un glissement qui démarre sur la barre ne doit jamais refermer le lecteur.
+        modifier = Modifier.blockParentDrag(),
     )
-    PlayerControls(state = state, actions = actions)
+    PlayerControls(state = state, actions = actions, modifier = Modifier.blockParentDrag())
     PlayerActionBar(
         state = state,
         trackId = track.id,

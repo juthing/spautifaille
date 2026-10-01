@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -56,7 +55,9 @@ import com.spautifaille.ui.theme.SpautifailleTheme
  * - [isPlaying] : n'a d'effet qu'avec [isCurrent] ; anime l'indicateur « en cours de lecture » (sinon il est figé) ;
  * - [isDownloaded] : affiche une petite icône « téléchargé » devant le sous-titre ;
  * - [onLongClick] : appui long (avec retour haptique). Par défaut ouvre le même menu que [onMoreClick] ;
- *   passer `null` pour désactiver l'appui long.
+ *   passer `null` pour désactiver l'appui long ;
+ * - [clickFeedback] : retour haptique au toucher de la ligne (désactiver quand l'appelant fournit lui-même
+ *   un retour, par exemple un refus sur un titre indisponible). Les appelants n'ajoutent pas leur propre `click()`.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -69,6 +70,7 @@ fun TrackListItem(
     isPlaying: Boolean = false,
     isDownloaded: Boolean = false,
     onLongClick: (() -> Unit)? = onMoreClick,
+    clickFeedback: Boolean = true,
 ) {
     val haptics = LocalAppHaptics.current
     val subtitle = track.durationMs?.let { stringResource(R.string.common_track_subtitle, track.artist, formatDuration(it)) }
@@ -78,7 +80,10 @@ fun TrackListItem(
         modifier = modifier
             .clip(MaterialTheme.shapes.large)
             .combinedClickable(
-                onClick = onClick,
+                onClick = {
+                    if (clickFeedback) haptics.click()
+                    onClick()
+                },
                 onLongClick = onLongClick?.let { longClick ->
                     {
                         haptics.longPress()

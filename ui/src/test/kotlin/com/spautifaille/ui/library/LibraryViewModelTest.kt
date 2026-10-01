@@ -226,13 +226,16 @@ class LibraryViewModelTest {
     }
 
     @Test
-    fun `offline playPlaylist with nothing downloaded plays nothing`() = runTest {
+    fun `offline playPlaylist with nothing downloaded plays nothing and says why`() = runTest {
         playlists.seed(userPlaylist(10, "P", 2), listOf(track(1), track(2)))
         online.value = false
+        val messages = mutableListOf<UiText>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { messenger.messages.collect { messages += it } }
 
         viewModel().playPlaylist(10, shuffle = false)
 
         verify(exactly = 0) { playback.play(any(), any(), any()) }
+        assertEquals(listOf<UiText>(UiText.of(R.string.lib_nothing_playable_offline)), messages)
     }
 
     @Test

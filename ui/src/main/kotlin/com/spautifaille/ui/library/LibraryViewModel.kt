@@ -93,7 +93,11 @@ class LibraryViewModel @Inject constructor(
             val downloadedIds = downloads.mapTo(HashSet()) { it.track.id }
             val isOffline = !networkMonitor.isOnline.first()
             val tracks = tracksOf(id, downloads.map { it.track }).availableTracks(downloadedIds, isOffline)
-            if (tracks.isNotEmpty()) playbackController.play(tracks, 0, shuffle)
+            if (tracks.isNotEmpty()) {
+                playbackController.play(tracks, 0, shuffle)
+            } else if (isOffline) {
+                messenger.show(UiText.of(R.string.lib_nothing_playable_offline))
+            }
         }
     }
 

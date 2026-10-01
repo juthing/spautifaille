@@ -1,5 +1,12 @@
 package com.spautifaille.ui.player
 
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChanged
+import androidx.compose.ui.util.fastAny
+import androidx.compose.ui.util.fastForEach
 import kotlin.math.abs
 
 /** Issue d'un glissement horizontal sur la pochette ou le mini lecteur. */
@@ -34,6 +41,23 @@ internal fun shouldCollapsePlayer(
     thresholdPx: Float,
     flingVelocityPx: Float,
 ): Boolean = offsetPx >= thresholdPx || (velocityPx >= flingVelocityPx && offsetPx > 0f)
+
+/**
+ * Empêche un glissement commencé sur cet élément (barre de progression, boutons de commande) de remonter
+ * vers le geste de fermeture du lecteur plein écran : les déplacements sont marqués comme consommés après
+ * le passage des enfants, donc le `draggable` parent ne les voit jamais. Appuis et relâchements restent intacts.
+ */
+internal fun Modifier.blockParentDrag(): Modifier = pointerInput(Unit) {
+    awaitEachGesture {
+        awaitFirstDown(requireUnconsumed = false)
+        do {
+            val event = awaitPointerEvent()
+            event.changes.fastForEach { change ->
+                if (change.positionChanged()) change.consume()
+            }
+        } while (event.changes.fastAny { it.pressed })
+    }
+}
 
 /** Pas (ms) des crans haptiques pendant le glissement de la barre de progression. */
 internal const val SEEK_HAPTIC_STEP_MS = 10_000L
