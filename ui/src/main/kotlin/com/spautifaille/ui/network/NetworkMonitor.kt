@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOf
 import javax.inject.Inject
 
 /** État du réseau utile à l'UI. */
@@ -19,6 +20,12 @@ interface NetworkMonitor {
      * (données mobiles, aucun réseau). Émet la valeur courante à l'abonnement, sans doublons consécutifs.
      */
     val isUnmetered: Flow<Boolean>
+
+    /**
+     * `true` si un réseau avec accès Internet validé est disponible, `false` hors ligne. Émet la valeur
+     * courante à l'abonnement, sans doublons consécutifs. Par défaut (implémentations de test) : toujours en ligne.
+     */
+    val isOnline: Flow<Boolean> get() = flowOf(true)
 }
 
 /** Implémentation via `ConnectivityManager.registerDefaultNetworkCallback`. */
@@ -47,6 +54,31 @@ class AndroidNetworkMonitor @Inject constructor(
         manager.registerDefaultNetworkCallback(callback)
         awaitClose { manager.unregisterNetworkCallback(callback) }
     }.distinctUntilChanged().conflate()
+
+    override val isOnline: Flow<Boolean> = callbackFlow {
+        val manager = context.getSystemService(ConnectivityManager::class.java)
+        if (manager == null) {
+            trySend(false)
+            awaitClose { }
+            return@callbackFlow
+        }
+        val callback = object : ConnectivityManager.NetworkCallback() {
+            override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
+                trySend(capabilities.hasInternet())
+            }
+
+            override fun onLost(network: Network) {
+                trySend(false)
+            }
+        }
+        trySend(manager.activeNetwork?.let(manager::getNetworkCapabilities)?.hasInternet() ?: false)
+        manager.registerDefaultNetworkCallback(callback)
+        awaitClose { manager.unregisterNetworkCallback(callback) }
+    }.distinctUntilChanged().conflate()
+
+    private fun NetworkCapabilities.hasInternet(): Boolean =
+        hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+            hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
 
     private fun NetworkCapabilities.isUnmetered(): Boolean =
         hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)

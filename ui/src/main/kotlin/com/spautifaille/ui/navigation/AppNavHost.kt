@@ -71,9 +71,7 @@ private fun androidx.navigation.NavGraphBuilder.integrationDestinations(navContr
     composable<LibraryRoute> {
         LibraryScreenRoute(
             onOpenPlaylist = openPlaylist,
-            onOpenDownloads = { navController.navigate(DownloadsRoute) },
             onOpenImport = { navController.navigate(ImportRoute) },
-            onOpenArtist = openArtist,
         )
     }
     // Les ViewModels lisent les arguments de route (`id`, `url`) depuis leur SavedStateHandle.

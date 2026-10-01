@@ -12,6 +12,13 @@ data class Playlist(
     companion object {
         /** Playlist système « Titres likés », créée à l'initialisation de la base, non supprimable. */
         const val LIKED_ID: Long = 1L
+
+        /**
+         * Playlist virtuelle « Téléchargés » : regroupe les titres dont le téléchargement est terminé.
+         * Absente de la base (aucun schéma Room), l'id négatif ne peut pas entrer en collision avec une
+         * playlist stockée (ids positifs auto-générés). Les ViewModels la reconstruisent depuis `DownloadRepository`.
+         */
+        const val DOWNLOADED_ID: Long = -2L
     }
 }
 

@@ -127,6 +127,25 @@
     <string name="lib_settings_powered_by">Propulsé par</string>
     <string name="lib_settings_powered_by_value">NewPipeExtractor</string>
 
+    <!-- Refonte : bibliothèque (playlists uniquement), création, hors ligne -->
+    <string name="lib_downloaded_playlist">Téléchargés</string>
+    <string name="lib_create_playlist_fab">Créer une playlist</string>
+    <string name="lib_new_playlist_empty_title">Playlist vide</string>
+    <string name="lib_new_playlist_empty_body">Crée-la et ajoute tes titres toi-même</string>
+    <string name="lib_new_playlist_import_title">Importer</string>
+    <string name="lib_new_playlist_import_body">Depuis Spotify, un fichier ou un lien YouTube</string>
+    <string name="lib_empty_playlists_title">Aucune playlist pour l\'instant</string>
+    <string name="lib_empty_playlists_body">Crée ta première playlist ou importe-en une avec le bouton +.</string>
+    <string name="lib_action_download">Télécharger</string>
+    <string name="lib_downloads_started">Téléchargement lancé</string>
+    <string name="lib_downloads_nothing_to_do">Tous les titres sont déjà téléchargés</string>
+    <string name="lib_offline_banner">Hors ligne — seuls les titres téléchargés sont disponibles</string>
+    <string name="lib_track_unavailable_offline">Ce titre n\'est pas téléchargé : indisponible hors ligne</string>
+    <string name="lib_downloaded_indicator">Téléchargé</string>
+    <string name="lib_downloaded_all">Playlist entièrement téléchargée</string>
+    <string name="lib_remove_download">Supprimer le téléchargement</string>
+    <string name="lib_nothing_playable_offline">Aucun titre téléchargé dans cette playlist</string>
+
     <!-- Erreurs -->
     <string name="lib_error_unavailable">Ce contenu n\'est plus disponible.</string>
     <string name="lib_error_age_restricted">Ce contenu est soumis à une restriction d\'âge.</string>

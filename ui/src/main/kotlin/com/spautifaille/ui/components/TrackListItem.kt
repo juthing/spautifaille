@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -20,6 +21,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DownloadDone
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -44,6 +46,7 @@ import com.spautifaille.domain.model.Track
 import com.spautifaille.ui.R
 import com.spautifaille.ui.common.LocalAppHaptics
 import com.spautifaille.ui.theme.ArtworkSize
+import com.spautifaille.ui.theme.Spacing
 import com.spautifaille.ui.theme.SpautifailleTheme
 
 /**
@@ -51,6 +54,7 @@ import com.spautifaille.ui.theme.SpautifailleTheme
  *
  * - [isCurrent] : titre de la file en cours, mis en évidence (fond tonal, titre en gras, indicateur sur la pochette) ;
  * - [isPlaying] : n'a d'effet qu'avec [isCurrent] ; anime l'indicateur « en cours de lecture » (sinon il est figé) ;
+ * - [isDownloaded] : affiche une petite icône « téléchargé » devant le sous-titre ;
  * - [onLongClick] : appui long (avec retour haptique). Par défaut ouvre le même menu que [onMoreClick] ;
  *   passer `null` pour désactiver l'appui long.
  */
@@ -63,6 +67,7 @@ fun TrackListItem(
     modifier: Modifier = Modifier,
     isCurrent: Boolean = false,
     isPlaying: Boolean = false,
+    isDownloaded: Boolean = false,
     onLongClick: (() -> Unit)? = onMoreClick,
 ) {
     val haptics = LocalAppHaptics.current
@@ -104,7 +109,20 @@ fun TrackListItem(
                 fontWeight = if (isCurrent) FontWeight.SemiBold else FontWeight.Medium,
             )
         },
-        supportingContent = { Text(text = subtitle, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        supportingContent = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (isDownloaded) {
+                    Icon(
+                        imageVector = Icons.Filled.DownloadDone,
+                        contentDescription = stringResource(R.string.lib_downloaded_indicator),
+                        modifier = Modifier.size(DownloadedIconSize),
+                        tint = if (isCurrent) colors.onSecondaryContainer else colors.primary,
+                    )
+                    Spacer(Modifier.width(Spacing.xs))
+                }
+                Text(text = subtitle, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        },
         trailingContent = {
             IconButton(onClick = {
                 haptics.click()
@@ -181,6 +199,7 @@ private fun EqualizerBars(modifier: Modifier, color: Color, fraction: (Int) -> F
     }
 }
 
+private val DownloadedIconSize = 16.dp
 private const val StoppedBarFraction = 0.6f
 private val BarDurationsMillis = listOf(420, 560, 480)
 private val BarsHeight = 18.dp
