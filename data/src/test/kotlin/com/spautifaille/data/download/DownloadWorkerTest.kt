@@ -235,7 +235,7 @@ class DownloadWorkerTest {
         val cases = mapOf(
             AppError.Unavailable to "Contenu indisponible",
             AppError.AgeRestricted to "Contenu soumis à une restriction d'âge",
-            AppError.GeoBlocked to "Indisponible dans votre pays",
+            AppError.GeoBlocked to "Indisponible dans ton pays",
             AppError.PaidContent to "Contenu payant ou réservé aux abonnés",
             AppError.NoAudioStream to "Aucun flux audio disponible",
         )

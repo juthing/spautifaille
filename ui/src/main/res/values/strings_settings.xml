@@ -38,17 +38,17 @@
     <string name="set_wifi_only_summary">Ne télécharger que sur un réseau Wi-Fi</string>
     <string name="set_section_manage">Gestion</string>
     <string name="set_manage_downloads">Gérer les téléchargements</string>
-    <string name="set_manage_downloads_summary">Voir, annuler ou supprimer vos titres téléchargés</string>
+    <string name="set_manage_downloads_summary">Voir, annuler ou supprimer tes titres téléchargés</string>
 
     <!-- Apparence -->
     <string name="set_section_theme">Thème</string>
     <string name="set_theme_system">Système</string>
-    <string name="set_theme_system_desc">Suit le réglage de votre appareil</string>
+    <string name="set_theme_system_desc">Suit le réglage de ton appareil</string>
     <string name="set_theme_light">Clair</string>
     <string name="set_theme_dark">Sombre</string>
     <string name="set_section_colors">Couleurs</string>
     <string name="set_dynamic_color">Couleurs dynamiques</string>
-    <string name="set_dynamic_color_summary">Utiliser les couleurs de votre fond d\'écran</string>
+    <string name="set_dynamic_color_summary">Utiliser les couleurs de ton fond d\'écran</string>
     <string name="set_dynamic_color_unavailable">Disponible à partir d\'Android 12</string>
 
     <!-- Stockage -->
@@ -65,11 +65,11 @@
     <string name="set_lastfm_configured">Configurée</string>
     <string name="set_lastfm_not_configured">Non configurée</string>
     <string name="set_lastfm_remove">Supprimer</string>
-    <string name="set_lastfm_intro">Une clé Last.fm servira à enrichir vos recommandations dans une prochaine version.</string>
+    <string name="set_lastfm_intro">Une clé Last.fm servira à enrichir tes recommandations dans une prochaine version.</string>
 
     <!-- À propos -->
     <string name="set_about_app_name">Spautifaille</string>
-    <string name="set_about_tagline">Votre musique en streaming, sans compromis</string>
+    <string name="set_about_tagline">Ta musique en streaming, sans compromis</string>
     <string name="set_about_version">Version</string>
     <string name="set_about_version_unknown">Inconnue</string>
     <string name="set_about_license">Licence</string>
@@ -80,5 +80,4 @@
 
     <!-- Actions -->
     <string name="set_save">Enregistrer</string>
-    <string name="set_cancel">Annuler</string>
 </resources>

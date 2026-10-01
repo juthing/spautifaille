@@ -212,7 +212,7 @@ class DownloadsViewModelTest {
         val vm = viewModel()
         messenger.messages.test {
             vm.delete("a")
-            assertEquals(UiText.of(R.string.dl_deleted), awaitItem())
+            assertEquals(UiText.of(R.string.snack_download_deleted), awaitItem())
             vm.deleteAll()
             assertEquals(UiText.of(R.string.dl_all_deleted), awaitItem())
         }

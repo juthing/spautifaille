@@ -149,7 +149,7 @@ fun DownloadsScreen(
                 title = { Text(stringResource(R.string.dl_title)) },
                 navigationIcon = {
                     IconButton(onClick = actions.onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.dl_back))
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_action_back))
                     }
                 },
                 actions = {
@@ -193,10 +193,10 @@ fun DownloadsScreen(
                         actions.onDeleteAll()
                     },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                ) { Text(stringResource(R.string.dl_delete_confirm)) }
+                ) { Text(stringResource(R.string.common_action_delete)) }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteAll = false }) { Text(stringResource(R.string.dl_cancel)) }
+                TextButton(onClick = { showDeleteAll = false }) { Text(stringResource(R.string.common_action_cancel)) }
             },
         )
     }
@@ -281,7 +281,7 @@ private fun WifiWaitingBanner(onAllowMobileData: () -> Unit, modifier: Modifier 
             contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
         ),
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(modifier = Modifier.padding(Spacing.m), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.WifiOff, contentDescription = null)
                 Spacer(Modifier.width(12.dp))
@@ -312,7 +312,7 @@ private fun StorageCard(storage: StorageUsage, modifier: Modifier = Modifier) {
         shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(modifier = Modifier.padding(Spacing.m), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 ToneIconCircle(icon = Icons.Filled.Storage, tone = IconTone.Tertiary)
                 Spacer(Modifier.width(Spacing.m))
@@ -336,7 +336,7 @@ private fun StorageCard(storage: StorageUsage, modifier: Modifier = Modifier) {
                 gapSize = 0.dp,
                 drawStopIndicator = {},
             )
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                 LegendRow(
                     color = MaterialTheme.colorScheme.primary,
                     label = stringResource(R.string.dl_storage_downloads),
@@ -366,7 +366,7 @@ private fun LegendRow(color: Color, label: String, detail: String) {
                 .clip(CircleShape)
                 .background(color),
         )
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(Spacing.s))
         Text(text = label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
         Text(
             text = detail,
@@ -412,7 +412,7 @@ private fun ActiveDownloadRow(download: Download, actions: DownloadsActions, mod
                         haptics.click()
                         actions.onRetry(download.track.id)
                     }) {
-                        Icon(Icons.Filled.Refresh, contentDescription = stringResource(R.string.dl_retry))
+                        Icon(Icons.Filled.Refresh, contentDescription = stringResource(R.string.common_action_retry))
                     }
                 }
                 IconButton(onClick = {
@@ -421,7 +421,7 @@ private fun ActiveDownloadRow(download: Download, actions: DownloadsActions, mod
                 }) {
                     Icon(
                         Icons.Filled.Close,
-                        contentDescription = stringResource(if (failed) R.string.dl_remove_failed else R.string.dl_cancel_download),
+                        contentDescription = stringResource(if (failed) R.string.dl_remove_failed else R.string.common_action_cancel_download),
                     )
                 }
             }
@@ -495,12 +495,12 @@ private fun CompletedDownloadRow(
                 Modifier
                     .fillMaxSize()
                     .background(MaterialTheme.colorScheme.errorContainer)
-                    .padding(horizontal = 24.dp),
+                    .padding(horizontal = Spacing.l),
                 contentAlignment = Alignment.CenterEnd,
             ) {
                 Icon(
                     Icons.Filled.Delete,
-                    contentDescription = stringResource(R.string.dl_delete_download),
+                    contentDescription = stringResource(R.string.common_action_delete_download),
                     tint = MaterialTheme.colorScheme.onErrorContainer,
                 )
             }

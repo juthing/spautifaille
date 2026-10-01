@@ -1,17 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="disc_title">Découverte</string>
-    <string name="disc_see_all">Voir tout</string>
     <string name="disc_refresh">Actualiser</string>
-    <string name="disc_refreshing">Actualisation…</string>
     <string name="disc_play_all">Tout lire</string>
     <string name="disc_shuffle">Aléatoire</string>
-    <string name="disc_subtitle">D\'après vos coups de cœur et vos écoutes</string>
+    <string name="disc_subtitle">D\'après tes coups de cœur et tes écoutes</string>
     <plurals name="disc_track_count">
         <item quantity="one">%d suggestion</item>
         <item quantity="other">%d suggestions</item>
     </plurals>
     <string name="disc_empty_title">Pas encore de suggestions</string>
-    <string name="disc_empty_message">Aimez des titres ou écoutez de la musique : la découverte s\'appuie sur vos coups de cœur, votre historique d\'écoute et vos playlists.</string>
+    <string name="disc_empty_message">Aime des titres ou écoute de la musique : la découverte s\'appuie sur tes coups de cœur, ton historique d\'écoute et tes playlists.</string>
     <string name="disc_error_title">Suggestions indisponibles</string>
 </resources>

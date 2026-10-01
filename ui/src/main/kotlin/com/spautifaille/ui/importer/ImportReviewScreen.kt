@@ -5,7 +5,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.material3.Surface
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
@@ -201,7 +200,7 @@ fun ImportReviewScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = actions.onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.import_back))
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_action_back))
                     }
                 },
                 scrollBehavior = scrollBehavior,
@@ -418,10 +417,10 @@ private fun ReviewItemCard(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
     ) {
-        Column(Modifier.padding(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(Modifier.padding(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
             // Titre tel que lu dans la source.
             Row(
-                modifier = Modifier.padding(horizontal = 16.dp),
+                modifier = Modifier.padding(horizontal = Spacing.m),
                 horizontalArrangement = Arrangement.spacedBy(Spacing.s),
                 verticalAlignment = Alignment.Top,
             ) {
@@ -438,7 +437,7 @@ private fun ReviewItemCard(
                 }
                 StatusBadge(result.status)
             }
-            HorizontalDivider(Modifier.padding(vertical = 4.dp))
+            HorizontalDivider(Modifier.padding(vertical = Spacing.xs))
 
             // Candidat retenu.
             if (best != null) {
@@ -452,14 +451,14 @@ private fun ReviewItemCard(
                     ),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    modifier = Modifier.padding(horizontal = Spacing.m, vertical = Spacing.s),
                 )
             }
 
             if (canResolve) {
                 FlowRow(
-                    modifier = Modifier.padding(horizontal = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.padding(horizontal = Spacing.s),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
                 ) {
                     if (best != null && result.status == MatchStatus.NEEDS_REVIEW) {
                         FilledTonalButton(onClick = { actions.onChoose(item.id, best.track) }) {
@@ -495,7 +494,7 @@ private fun ReviewItemCard(
             }
 
             AnimatedVisibility(visible = expanded) {
-                Column(Modifier.padding(top = 4.dp)) {
+                Column(Modifier.padding(top = Spacing.xs)) {
                     HorizontalDivider()
                     choices.forEach { candidate ->
                         val selected = candidate.track.id == best?.track?.id
@@ -537,7 +536,7 @@ private fun CandidateRow(
         modifier = modifier,
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         leadingContent = {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
                 leading?.invoke()
                 Artwork(url = track.thumbnailUrl, modifier = Modifier.size(48.dp))
             }
@@ -599,7 +598,7 @@ private fun MatchStatus.labelRes(): Int = when (this) {
 
 @Composable
 private fun SearchPanel(search: ReviewSearchState, itemId: Long, actions: ImportReviewActions) {
-    Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(Modifier.padding(horizontal = Spacing.m), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
         HorizontalDivider()
         OutlinedTextField(
             value = search.query,
@@ -621,7 +620,7 @@ private fun SearchPanel(search: ReviewSearchState, itemId: Long, actions: Import
             keyboardActions = KeyboardActions(onSearch = { actions.onSubmitSearch() }),
         )
         when {
-            search.isSearching -> Box(Modifier.fillMaxWidth().padding(8.dp), contentAlignment = Alignment.Center) {
+            search.isSearching -> Box(Modifier.fillMaxWidth().padding(Spacing.s), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(Modifier.size(28.dp), strokeWidth = 3.dp)
             }
             search.error != null -> Text(

@@ -1,15 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Écran d'import -->
-    <string name="import_title">Importer une playlist</string>
-    <string name="import_back">Retour</string>
-
     <string name="import_file_title">Depuis un fichier</string>
-    <string name="import_file_description">Formats pris en charge : export Exportify (CSV), export de données Spotify (JSON), playlist Google Takeout YouTube (CSV), ou CSV générique avec les colonnes titre, artiste, album et durée.</string>
     <string name="import_file_button">Choisir un fichier</string>
 
-    <string name="import_youtube_title">Depuis YouTube / YouTube Music</string>
-    <string name="import_youtube_description">Collez le lien d\'une playlist publique ou non répertoriée.</string>
     <string name="import_url_label">Lien de la playlist</string>
     <string name="import_url_invalid">Ce lien n\'est pas celui d\'une playlist YouTube.</string>
     <string name="import_url_paste">Coller</string>
@@ -23,19 +17,14 @@
     </plurals>
 
     <!-- Liste des imports -->
-    <string name="import_jobs_title">Imports</string>
     <string name="import_jobs_empty">Aucun import pour le moment.</string>
-    <string name="import_job_running">En cours : %1$d / %2$d titres</string>
-    <string name="import_job_completed">Terminé : %1$d titres</string>
-    <string name="import_job_failed">Import interrompu</string>
     <string name="import_job_failed_default">L\'import a échoué.</string>
     <string name="import_chip_matched">%d trouvés</string>
     <string name="import_chip_review">%d à vérifier</string>
     <string name="import_chip_not_found">%d introuvables</string>
     <string name="import_action_open_playlist">Ouvrir la playlist</string>
     <string name="import_action_review">Vérifier</string>
-    <string name="import_action_delete">Supprimer</string>
-    <string name="import_error_generic">L\'import a échoué. Réessayez.</string>
+    <string name="import_error_generic">L\'import a échoué. Réessaie.</string>
 
     <!-- Revue -->
     <string name="import_review_title">Vérifier l\'import</string>
@@ -67,10 +56,10 @@
     <string name="import_review_status_not_found">Introuvable</string>
     <string name="import_review_status_pending">En attente</string>
 
-    <!-- Refonte de l'écran d'import -->
+    <!-- Écran d'import : cartes de choix, progression, résumé -->
     <string name="import_screen_title">Importer</string>
-    <string name="import_intro">D\'où viennent vos playlists ?</string>
-    <string name="import_file_card_description">Choisissez un export enregistré sur votre appareil : le contenu est lu localement puis chaque titre est cherché sur YouTube.</string>
+    <string name="import_intro">D\'où viennent tes playlists ?</string>
+    <string name="import_file_card_description">Choisis un export enregistré sur ton appareil : le contenu est lu localement puis chaque titre est cherché sur YouTube.</string>
     <string name="import_format_exportify">Exportify · CSV</string>
     <string name="import_format_spotify">Spotify · JSON</string>
     <string name="import_format_takeout">Google Takeout · CSV</string>
@@ -96,7 +85,5 @@
     <string name="import_review_stat_matched">Trouvés</string>
     <string name="import_review_stat_review">À vérifier</string>
     <string name="import_review_stat_not_found">Introuvables</string>
-    <string name="import_review_summary_title">Résumé de l\'import</string>
-    <string name="import_review_done_title">Tout est vérifié</string>
-    <string name="import_review_validate_all_hint">Appuyez sur « Valider » pour garder la proposition, ou choisissez une autre version.</string>
+    <string name="import_review_validate_all_hint">Appuie sur « Valider » pour garder la proposition, ou choisis une autre version.</string>
 </resources>

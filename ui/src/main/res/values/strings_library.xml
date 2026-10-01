@@ -1,18 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Communs -->
-    <string name="lib_back">Retour</string>
-    <string name="lib_cancel">Annuler</string>
-    <string name="lib_save">Enregistrer</string>
-    <string name="lib_retry">Réessayer</string>
-    <string name="lib_open">Ouvrir</string>
     <string name="lib_undo">Annuler</string>
     <string name="lib_play">Lecture</string>
     <string name="lib_shuffle">Aléatoire</string>
     <string name="lib_rename">Renommer</string>
-    <string name="lib_delete">Supprimer</string>
-    <string name="lib_create">Créer</string>
-    <string name="lib_clear">Effacer</string>
     <string name="lib_more_options">Plus d\'options</string>
     <plurals name="lib_track_count">
         <item quantity="one">%d titre</item>
@@ -20,50 +12,23 @@
     </plurals>
     <string name="lib_duration_hours_minutes">%1$d h %2$02d min</string>
     <string name="lib_duration_minutes">%1$d min</string>
-    <string name="lib_subscribers">%1$s abonnés</string>
 
     <!-- Bibliothèque -->
     <string name="lib_title">Bibliothèque</string>
-    <string name="lib_action_import">Importer une playlist</string>
-    <string name="lib_tab_playlists">Playlists</string>
-    <string name="lib_tab_downloads">Téléchargés</string>
-    <string name="lib_tab_history">Historique</string>
-    <string name="lib_tab_artists">Artistes</string>
-    <string name="lib_new_playlist">Nouvelle playlist</string>
     <string name="lib_rename_playlist">Renommer la playlist</string>
-    <string name="lib_playlist_name_label">Nom de la playlist</string>
     <string name="lib_playlist_name_blank">Le nom ne peut pas être vide</string>
     <string name="lib_playlist_name_too_long">%1$d caractères maximum</string>
     <string name="lib_delete_playlist_title">Supprimer la playlist ?</string>
     <string name="lib_delete_playlist_message">« %1$s » sera supprimée définitivement. Les titres restent disponibles ailleurs.</string>
 
-    <string name="lib_manage">Gérer</string>
-    <string name="lib_downloads_storage_used">%1$s utilisés</string>
     <string name="lib_downloads_empty_title">Aucun titre téléchargé</string>
-    <string name="lib_downloads_empty_body">Téléchargez des titres pour les écouter hors connexion.</string>
-
-    <string name="lib_today">Aujourd\'hui</string>
-    <string name="lib_yesterday">Hier</string>
-    <string name="lib_history_empty_title">Historique vide</string>
-    <string name="lib_history_empty_body">Les titres que vous écoutez apparaîtront ici.</string>
-    <string name="lib_history_remove">Retirer de l\'historique</string>
-    <string name="lib_clear_history">Effacer l\'historique</string>
-    <string name="lib_clear_history_message">Tout l\'historique d\'écoute sera supprimé. Cette action est irréversible.</string>
-
-    <string name="lib_artists_empty_title">Aucun abonnement</string>
-    <string name="lib_artists_empty_body">Abonnez-vous à des artistes pour les retrouver ici.</string>
-    <string name="lib_unsubscribe_from">Se désabonner de %1$s</string>
+    <string name="lib_downloads_empty_body">Télécharge des titres pour les écouter hors connexion.</string>
 
     <!-- Détail de playlist -->
     <string name="lib_reorder">Réorganiser</string>
     <string name="lib_download_all">Tout télécharger</string>
-    <string name="lib_play_next">Lire ensuite</string>
-    <string name="lib_add_to_queue">Ajouter à la file</string>
-    <string name="lib_go_to_artist">Aller à l\'artiste</string>
     <string name="lib_remove_from_playlist">Retirer de la playlist</string>
     <string name="lib_track_removed">« %1$s » retiré de la playlist</string>
-    <string name="lib_play_next_done">Sera lu ensuite</string>
-    <string name="lib_added_to_queue">Ajouté à la file d\'attente</string>
     <plurals name="lib_downloads_queued">
         <item quantity="one">%d titre ajouté aux téléchargements</item>
         <item quantity="other">%d titres ajoutés aux téléchargements</item>
@@ -71,63 +36,9 @@
     <string name="lib_playlist_not_found">Playlist introuvable</string>
     <string name="lib_playlist_not_found_body">Cette playlist a peut-être été supprimée.</string>
     <string name="lib_playlist_empty_title">Playlist vide</string>
-    <string name="lib_playlist_empty_body">Ajoutez des titres depuis la recherche ou le lecteur.</string>
+    <string name="lib_playlist_empty_body">Ajoute des titres depuis la recherche ou le lecteur.</string>
 
-    <!-- Playlist distante -->
-    <string name="lib_remote_load_failed">Impossible de charger la playlist</string>
-    <string name="lib_save_to_library">Enregistrer dans la bibliothèque</string>
-    <string name="lib_saving_progress">Chargement des titres… %1$d</string>
-    <string name="lib_saved_to_library">« %1$s » enregistrée dans la bibliothèque</string>
-
-    <!-- Artiste -->
-    <string name="lib_artist_load_failed">Impossible de charger l\'artiste</string>
-    <string name="lib_artist_tracks">Titres</string>
-    <string name="lib_artist_playlists">Playlists et albums</string>
-    <string name="lib_artist_empty_title">Aucun contenu</string>
-    <string name="lib_artist_empty_body">Aucun titre ni playlist n\'a été trouvé pour cet artiste.</string>
-    <string name="lib_subscribe">S\'abonner</string>
-    <string name="lib_subscribed">Abonné</string>
-
-    <!-- Paramètres -->
-    <string name="lib_settings_title">Paramètres</string>
-    <string name="lib_settings_playback">Lecture</string>
-    <string name="lib_settings_audio_quality">Qualité audio</string>
-    <string name="lib_quality_best">Meilleure qualité</string>
-    <string name="lib_quality_best_desc">Débit maximal disponible</string>
-    <string name="lib_quality_data_saver">Économie de données</string>
-    <string name="lib_quality_data_saver_desc">Débit réduit pour consommer moins de données</string>
-    <string name="lib_settings_downloads">Téléchargements</string>
-    <string name="lib_settings_wifi_only">Wi-Fi uniquement</string>
-    <string name="lib_settings_wifi_only_summary">Ne télécharger que sur un réseau Wi-Fi</string>
-    <string name="lib_settings_manage_downloads">Gérer les téléchargements</string>
-    <string name="lib_settings_appearance">Apparence</string>
-    <string name="lib_settings_theme">Thème</string>
-    <string name="lib_theme_system">Système</string>
-    <string name="lib_theme_light">Clair</string>
-    <string name="lib_theme_dark">Sombre</string>
-    <string name="lib_settings_dynamic_color">Couleurs dynamiques</string>
-    <string name="lib_settings_dynamic_color_summary">Utiliser les couleurs de votre fond d\'écran</string>
-    <string name="lib_settings_storage">Stockage</string>
-    <string name="lib_settings_cache_size">Taille du cache de streaming</string>
-    <string name="lib_size_mb">%1$d Mo</string>
-    <string name="lib_size_gb">%1$d Go</string>
-    <string name="lib_size_gb_decimal">%1$.1f Go</string>
-    <string name="lib_settings_discovery">Découverte</string>
-    <string name="lib_settings_lastfm_key">Clé API Last.fm</string>
-    <string name="lib_settings_lastfm_key_label">Clé API (facultative)</string>
-    <string name="lib_settings_lastfm_note">Stockée localement, jamais partagée. Fonction future.</string>
-    <string name="lib_settings_lastfm_configured">Configurée</string>
-    <string name="lib_settings_lastfm_not_configured">Non configurée</string>
-    <string name="lib_settings_lastfm_remove">Supprimer</string>
-    <string name="lib_settings_about">À propos</string>
-    <string name="lib_settings_version">Version</string>
-    <string name="lib_settings_version_unknown">Inconnue</string>
-    <string name="lib_settings_license">Licence</string>
-    <string name="lib_settings_license_value">GPL-3.0</string>
-    <string name="lib_settings_powered_by">Propulsé par</string>
-    <string name="lib_settings_powered_by_value">NewPipeExtractor</string>
-
-    <!-- Refonte : bibliothèque (playlists uniquement), création, hors ligne -->
+    <!-- Bibliothèque : création, hors ligne, téléchargements -->
     <string name="lib_downloaded_playlist">Téléchargés</string>
     <string name="lib_create_playlist_fab">Créer une playlist</string>
     <string name="lib_new_playlist_empty_title">Playlist vide</string>
@@ -136,25 +47,11 @@
     <string name="lib_new_playlist_import_body">Depuis Spotify, un fichier ou un lien YouTube</string>
     <string name="lib_empty_playlists_title">Aucune playlist pour l\'instant</string>
     <string name="lib_empty_playlists_body">Crée ta première playlist ou importe-en une avec le bouton +.</string>
-    <string name="lib_action_download">Télécharger</string>
     <string name="lib_downloads_started">Téléchargement lancé</string>
     <string name="lib_downloads_nothing_to_do">Tous les titres sont déjà téléchargés</string>
     <string name="lib_offline_banner">Hors ligne — seuls les titres téléchargés sont disponibles</string>
     <string name="lib_track_unavailable_offline">Ce titre n\'est pas téléchargé : indisponible hors ligne</string>
     <string name="lib_downloaded_indicator">Téléchargé</string>
     <string name="lib_downloaded_all">Playlist entièrement téléchargée</string>
-    <string name="lib_remove_download">Supprimer le téléchargement</string>
     <string name="lib_nothing_playable_offline">Aucun titre téléchargé dans cette playlist</string>
-
-    <!-- Erreurs -->
-    <string name="lib_error_unavailable">Ce contenu n\'est plus disponible.</string>
-    <string name="lib_error_age_restricted">Ce contenu est soumis à une restriction d\'âge.</string>
-    <string name="lib_error_geo_blocked">Ce contenu n\'est pas disponible dans votre pays.</string>
-    <string name="lib_error_paid_content">Ce contenu est réservé aux abonnés payants.</string>
-    <string name="lib_error_bot_detected">YouTube limite temporairement les requêtes. Réessayez plus tard.</string>
-    <string name="lib_error_network">Connexion impossible. Vérifiez votre réseau.</string>
-    <string name="lib_error_stream_expired">Le lien de lecture a expiré. Réessayez.</string>
-    <string name="lib_error_no_audio_stream">Aucun flux audio disponible pour ce titre.</string>
-    <string name="lib_error_extraction_broken">L\'extraction a échoué. L\'application doit peut-être être mise à jour.</string>
-    <string name="lib_error_unknown">Une erreur est survenue.</string>
 </resources>

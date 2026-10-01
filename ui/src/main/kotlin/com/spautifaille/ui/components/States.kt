@@ -238,7 +238,7 @@ fun TrackListPlaceholder(
 private fun StatesPreview() {
     SpautifailleTheme(dynamicColor = false) {
         Column {
-            Box(Modifier.height(240.dp)) { EmptyState(title = "Aucun résultat", message = "Essayez une autre recherche") }
+            Box(Modifier.height(240.dp)) { EmptyState(title = "Aucun résultat", message = "Essaie une autre recherche") }
             Box(Modifier.height(240.dp)) { ErrorState(message = R.string.apperror_network, onRetry = {}) }
             TrackListPlaceholder(count = 3)
         }

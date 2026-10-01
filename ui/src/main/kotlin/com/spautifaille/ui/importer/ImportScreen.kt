@@ -195,7 +195,7 @@ fun ImportScreen(
                 title = { Text(stringResource(R.string.import_screen_title)) },
                 navigationIcon = {
                     IconButton(onClick = actions.onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.import_back))
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_action_back))
                     }
                 },
                 scrollBehavior = scrollBehavior,
