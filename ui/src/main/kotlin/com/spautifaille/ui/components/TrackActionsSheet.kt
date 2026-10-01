@@ -1,5 +1,6 @@
 package com.spautifaille.ui.components
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -48,12 +49,16 @@ import kotlinx.coroutines.launch
 /**
  * Feuille d'actions d'un titre : lire ensuite, ajouter à la file, à une playlist, J'aime, télécharger,
  * aller à l'artiste. [onGoToArtist] est nul quand la navigation vers l'artiste n'a pas de sens (déjà sur sa page).
+ * [onRemove] (facultatif, libellé [removeLabel]) ajoute une action contextuelle en bas de feuille, par exemple
+ * « Retirer de la playlist ».
  */
 @Composable
 fun TrackActionsSheet(
     track: Track,
     onDismiss: () -> Unit,
     onGoToArtist: ((artistUrl: String) -> Unit)? = null,
+    @StringRes removeLabel: Int = R.string.lib_remove_from_playlist,
+    onRemove: (() -> Unit)? = null,
     viewModel: TrackActionsViewModel = hiltViewModel(),
 ) {
     LaunchedEffect(track.id) { viewModel.select(track.id) }
@@ -75,6 +80,8 @@ fun TrackActionsSheet(
         onToggleLike = { viewModel.toggleLike(track) },
         onToggleDownload = { viewModel.toggleDownload(track) },
         onGoToArtist = track.artistUrl?.let { url -> onGoToArtist?.let { go -> { go(url) } } },
+        removeLabel = removeLabel,
+        onRemove = onRemove,
     )
 }
 
@@ -91,6 +98,8 @@ fun TrackActionsSheetContent(
     onToggleLike: () -> Unit,
     onToggleDownload: () -> Unit,
     onGoToArtist: (() -> Unit)?,
+    @StringRes removeLabel: Int = R.string.lib_remove_from_playlist,
+    onRemove: (() -> Unit)? = null,
 ) {
     val sheetState = rememberModalBottomSheetState()
     val scope = rememberCoroutineScope()
@@ -140,6 +149,11 @@ fun TrackActionsSheetContent(
             if (onGoToArtist != null) {
                 ActionItem(Icons.Filled.Person, R.string.common_action_go_to_artist) {
                     onGoToArtist(); scope.hideSheet(sheetState, onDismiss)
+                }
+            }
+            if (onRemove != null) {
+                ActionItem(Icons.Filled.Delete, removeLabel) {
+                    onRemove(); scope.hideSheet(sheetState, onDismiss)
                 }
             }
         }
