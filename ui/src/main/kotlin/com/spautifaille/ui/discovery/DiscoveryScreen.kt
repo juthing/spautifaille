@@ -52,6 +52,7 @@ import com.spautifaille.ui.components.ErrorState
 import com.spautifaille.ui.components.TrackActionsSheet
 import com.spautifaille.ui.components.TrackListItem
 import com.spautifaille.ui.components.TrackListPlaceholder
+import com.spautifaille.ui.theme.ListBottomPadding
 import com.spautifaille.ui.theme.Spacing
 import com.spautifaille.ui.theme.SpautifailleTheme
 
@@ -142,7 +143,7 @@ fun DiscoveryScreen(
                 }
                 DiscoveryStatus.CONTENT -> LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 16.dp),
+                    contentPadding = PaddingValues(bottom = ListBottomPadding),
                 ) {
                     item(key = "header") {
                         Header(count = state.tracks.size, onPlayAll = actions.onPlayAll)
@@ -152,7 +153,7 @@ fun DiscoveryScreen(
                             track = track,
                             onClick = { actions.onPlayFrom(index) },
                             onMoreClick = { actionsTrack = track },
-                            modifier = Modifier.padding(horizontal = 8.dp),
+                            modifier = Modifier.padding(horizontal = Spacing.s),
                         )
                     }
                 }
@@ -183,7 +184,7 @@ private fun ScrollableBox(content: @Composable () -> Unit) {
 @Composable
 private fun Header(count: Int, onPlayAll: (shuffle: Boolean) -> Unit) {
     Column(
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        modifier = Modifier.padding(horizontal = Spacing.m, vertical = Spacing.s),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Column {

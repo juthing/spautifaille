@@ -48,6 +48,7 @@ import com.spautifaille.domain.model.Track
 import com.spautifaille.ui.R
 import com.spautifaille.ui.common.LocalAppHaptics
 import com.spautifaille.ui.components.Artwork
+import com.spautifaille.ui.theme.Spacing
 import com.spautifaille.ui.theme.SpautifailleTheme
 import kotlin.math.abs
 
@@ -94,7 +95,7 @@ fun MiniPlayer(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 4.dp)
+            .padding(horizontal = 12.dp, vertical = Spacing.xs)
             .graphicsLayer {
                 translationX = offsetX * FOLLOW_FACTOR
                 alpha = 1f - (abs(offsetX) / (size.width.coerceAtLeast(1f))).coerceIn(0f, 0.5f)
@@ -147,7 +148,7 @@ fun MiniPlayer(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp)
-                    .padding(start = 8.dp, end = 6.dp),
+                    .padding(start = Spacing.s, end = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Artwork(
@@ -209,7 +210,7 @@ fun MiniPlayer(
                 progress = progress,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 16.dp, end = 16.dp, bottom = 6.dp)
+                    .padding(start = Spacing.m, end = Spacing.m, bottom = 6.dp)
                     .height(3.dp)
                     .clip(CircleShape),
                 color = MaterialTheme.colorScheme.primary,

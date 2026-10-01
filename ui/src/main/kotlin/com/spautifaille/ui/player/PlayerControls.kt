@@ -86,6 +86,7 @@ import com.spautifaille.ui.common.LocalAppHaptics
 import com.spautifaille.ui.components.formatDuration
 import kotlinx.coroutines.delay
 import kotlin.math.abs
+import com.spautifaille.ui.theme.Spacing
 
 private val SeekThumbGap = 6.dp
 private val SeekTrackInnerCorner = 3.dp
@@ -192,7 +193,7 @@ internal fun SeekBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 4.dp),
+                .padding(horizontal = Spacing.xs),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             val timeColor = if (dragging) colors.onSurface else colors.onSurfaceVariant
@@ -412,7 +413,7 @@ private fun ToggleIconButton(
         }
         Box(
             modifier = Modifier
-                .padding(bottom = 4.dp)
+                .padding(bottom = Spacing.xs)
                 .size(5.dp)
                 .graphicsLayer {
                     alpha = dotScale
@@ -446,7 +447,7 @@ internal fun PlayerActionBar(
         color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.55f),
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            modifier = Modifier.padding(horizontal = Spacing.s, vertical = Spacing.xs),
             horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
             PlayerActionButton(
@@ -562,7 +563,7 @@ private fun PlayerActionButton(
         modifier = modifier
             .clip(MaterialTheme.shapes.large)
             .clickable(role = Role.Button, onClick = onClick)
-            .padding(vertical = 8.dp)
+            .padding(vertical = Spacing.s)
             .clearAndSetSemantics { this.contentDescription = contentDescription },
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -580,7 +581,7 @@ private fun PlayerActionButton(
             color = if (active) colors.primary else colors.onSurfaceVariant,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 4.dp, start = 4.dp, end = 4.dp),
+            modifier = Modifier.padding(top = Spacing.xs, start = Spacing.xs, end = Spacing.xs),
         )
     }
 }

@@ -24,7 +24,6 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -33,7 +32,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.spautifaille.domain.model.Playlist
@@ -41,6 +39,7 @@ import com.spautifaille.domain.model.Track
 import com.spautifaille.ui.R
 import com.spautifaille.ui.common.LocalAppHaptics
 import com.spautifaille.ui.theme.ArtworkSize
+import com.spautifaille.ui.theme.Spacing
 
 /** Feuille « Ajouter à une playlist » : playlists locales + création d'une nouvelle playlist. */
 @Composable
@@ -75,7 +74,7 @@ fun AddToPlaylistSheetContent(
         Text(
             text = stringResource(R.string.common_add_to_playlist_title),
             style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+            modifier = Modifier.padding(horizontal = Spacing.l, vertical = Spacing.s),
         )
         LazyColumn(modifier = Modifier.navigationBarsPadding()) {
             item(key = "new") {

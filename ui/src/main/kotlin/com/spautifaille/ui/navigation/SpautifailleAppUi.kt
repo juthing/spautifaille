@@ -53,7 +53,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -74,6 +73,7 @@ import com.spautifaille.ui.player.MiniPlayerHeight
 import com.spautifaille.ui.player.PlayerActions
 import com.spautifaille.ui.player.PlayerTransition
 import com.spautifaille.ui.player.PlayerViewModel
+import com.spautifaille.ui.theme.Spacing
 import com.spautifaille.ui.theme.SpautifailleTheme
 import kotlinx.coroutines.flow.collectLatest
 
@@ -217,7 +217,7 @@ private fun AppShell(
                             hostState = snackbarHostState,
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
-                                .padding(bottom = 8.dp),
+                                .padding(bottom = Spacing.s),
                         )
                     }
                     MiniPlayerDock(
@@ -266,7 +266,7 @@ private fun AppShell(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .safeDrawingPadding()
-                        .padding(bottom = 8.dp),
+                        .padding(bottom = Spacing.s),
                 )
             }
         }

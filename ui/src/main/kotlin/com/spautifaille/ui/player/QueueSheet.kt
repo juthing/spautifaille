@@ -61,6 +61,7 @@ import com.spautifaille.ui.components.NowPlayingIndicator
 import com.spautifaille.ui.components.hideSheet
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
+import com.spautifaille.ui.theme.Spacing
 
 private val QueueHorizontalPadding = 16.dp
 
@@ -113,7 +114,7 @@ fun QueueSheet(
             if (state.shuffleEnabled) {
                 // La liste montre l'ordre de la file, pas l'ordre réel de lecture.
                 Row(
-                    modifier = Modifier.padding(horizontal = QueueHorizontalPadding + 8.dp),
+                    modifier = Modifier.padding(horizontal = QueueHorizontalPadding + Spacing.s),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
@@ -126,7 +127,7 @@ fun QueueSheet(
                         text = stringResource(R.string.queue_shuffle_note),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(start = 8.dp),
+                        modifier = Modifier.padding(start = Spacing.s),
                     )
                 }
             }
@@ -155,7 +156,7 @@ fun QueueSheet(
                             text = stringResource(R.string.queue_empty),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
+                            modifier = Modifier.padding(horizontal = Spacing.s, vertical = 12.dp),
                         )
                     }
                 }
@@ -213,7 +214,7 @@ private fun QueueHeader(canClear: Boolean, onClear: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = QueueHorizontalPadding + 8.dp, end = QueueHorizontalPadding - 4.dp),
+            .padding(start = QueueHorizontalPadding + Spacing.s, end = QueueHorizontalPadding - Spacing.xs),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
@@ -224,7 +225,7 @@ private fun QueueHeader(canClear: Boolean, onClear: () -> Unit) {
         )
         TextButton(enabled = canClear, onClick = onClear) {
             Icon(Icons.Filled.ClearAll, contentDescription = null, modifier = Modifier.size(18.dp))
-            Text(stringResource(R.string.queue_clear_short), modifier = Modifier.padding(start = 8.dp))
+            Text(stringResource(R.string.queue_clear_short), modifier = Modifier.padding(start = Spacing.s))
         }
     }
 }
@@ -234,7 +235,7 @@ private fun SectionLabel(text: String, count: String? = null) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 8.dp),
+            .padding(horizontal = Spacing.s, vertical = Spacing.s),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
@@ -274,7 +275,7 @@ private fun NowPlayingCard(item: QueueItem, isPlaying: Boolean) {
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(horizontal = 16.dp),
+                    .padding(horizontal = Spacing.m),
             ) {
                 Text(
                     text = item.track.title,
@@ -293,7 +294,7 @@ private fun NowPlayingCard(item: QueueItem, isPlaying: Boolean) {
             NowPlayingIndicator(
                 isAnimating = isPlaying,
                 color = MaterialTheme.colorScheme.onPrimaryContainer,
-                modifier = Modifier.padding(end = 8.dp),
+                modifier = Modifier.padding(end = Spacing.s),
             )
         }
     }
@@ -332,7 +333,7 @@ private fun UpcomingRow(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(if (swiping) MaterialTheme.colorScheme.errorContainer else Color.Transparent)
-                    .padding(horizontal = 24.dp),
+                    .padding(horizontal = Spacing.l),
                 contentAlignment = if (dismissState.dismissDirection == SwipeToDismissBoxValue.StartToEnd) {
                     Alignment.CenterStart
                 } else {
