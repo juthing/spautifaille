@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Lecteur plein écran -->
+    <string name="player_speed_short">Vitesse</string>
+    <string name="player_like_label">J\'aime</string>
+    <string name="player_liked_label">Aimé</string>
+    <string name="player_seek_label">Progression de la lecture</string>
+    <string name="player_seek_state">%1$s sur %2$s</string>
+
+    <!-- Feuille minuterie -->
+    <string name="player_sleep_chip_minutes">%1$d min</string>
+
+    <!-- File d\'attente -->
+    <string name="queue_clear_short">Vider</string>
+    <plurals name="queue_up_next_count">
+        <item quantity="one">%1$d titre</item>
+        <item quantity="other">%1$d titres</item>
+    </plurals>
+</resources>
