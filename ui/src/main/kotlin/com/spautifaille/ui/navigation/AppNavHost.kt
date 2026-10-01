@@ -9,7 +9,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
 import com.spautifaille.domain.model.Playlist
@@ -58,17 +57,12 @@ fun AppNavHost(
                 onOpenArtist = { url -> navController.navigate(ArtistRoute(url)) },
                 onOpenFollowedArtists = { navController.navigate(FollowedArtistsRoute) },
                 onOpenHistory = { navController.navigate(HistoryRoute) },
-                onOpenSearch = {
-                    navController.navigate(SearchRoute) {
-                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
-                },
+                onOpenSearch = { navController.navigate(SearchRoute) { launchSingleTop = true } },
             )
         }
         composable<SearchRoute> {
             SearchScreenRoot(
+                onBack = { navController.navigateUp() },
                 onOpenPlaylist = { url -> navController.navigate(RemotePlaylistRoute(url)) },
                 onOpenArtist = { url -> navController.navigate(ArtistRoute(url)) },
             )

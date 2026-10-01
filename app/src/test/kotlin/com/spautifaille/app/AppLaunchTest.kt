@@ -4,7 +4,9 @@ import android.app.Application
 import android.content.ComponentName
 import android.content.Intent
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isSelected
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
@@ -96,17 +98,36 @@ class AppLaunchTest {
 
     @Test
     fun homeRendersWithBottomNavigation() {
-        listOf("Accueil", "Rechercher", "Bibliothèque").forEach(::awaitNavigationLabel)
+        listOf("Accueil", "Bibliothèque", "Réglages").forEach(::awaitNavigationLabel)
+        // La recherche n'est plus un onglet : elle s'ouvre depuis la barre de l'Accueil.
+        composeRule.onAllNodes(hasText("Rechercher")).assertCountEquals(0)
     }
 
     @Test
     fun navigatingBetweenTabsDoesNotCrash() {
-        clickNavigation("Rechercher")
         clickNavigation("Bibliothèque")
+        clickNavigation("Réglages")
         clickNavigation("Accueil")
+    }
+
+    @Test
+    fun searchOpensFromHomeKeepingHomeSelectedAndBackReturns() {
+        awaitNavigationLabel("Accueil")
+        composeRule.onAllNodes(hasClickAction() and hasText(SEARCH_PLACEHOLDER)).onFirst().performClick()
+        // Écran de recherche : flèche de retour présente, onglet Accueil toujours sélectionné.
+        composeRule.waitUntil(timeoutMillis = WAIT_MS) {
+            composeRule.onAllNodes(hasContentDescription("Retour")).fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onAllNodes(isSelected() and hasText("Accueil")).assertCountEquals(1)
+        // Retour système : retour à l'Accueil.
+        composeRule.runOnUiThread { composeRule.activity.onBackPressedDispatcher.onBackPressed() }
+        composeRule.waitUntil(timeoutMillis = WAIT_MS) {
+            composeRule.onAllNodes(hasContentDescription("Retour")).fetchSemanticsNodes().isEmpty()
+        }
     }
 
     private companion object {
         const val WAIT_MS = 15_000L
+        const val SEARCH_PLACEHOLDER = "Titres, artistes, albums…"
     }
 }

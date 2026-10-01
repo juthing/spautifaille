@@ -1,6 +1,5 @@
 package com.spautifaille.ui.search
 
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -15,6 +14,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
@@ -56,6 +56,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -96,6 +98,7 @@ private val SearchBarSpace = 72.dp
 
 @Composable
 fun SearchScreenRoot(
+    onBack: () -> Unit,
     onOpenPlaylist: (url: String) -> Unit,
     onOpenArtist: (url: String) -> Unit,
     modifier: Modifier = Modifier,
@@ -104,6 +107,7 @@ fun SearchScreenRoot(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     SearchScreen(
         state = state,
+        onBack = onBack,
         onQueryChange = viewModel::onQueryChange,
         onSearch = viewModel::onSearch,
         onFilterSelected = viewModel::onFilterSelected,
@@ -118,10 +122,16 @@ fun SearchScreenRoot(
     )
 }
 
+/**
+ * Recherche, poussée depuis l'Accueil : le champ prend le focus à la première arrivée (clavier ouvert),
+ * la flèche et le retour système ramènent à l'Accueil. Tant que le champ a le focus, les suggestions
+ * (ou l'historique) remplacent les résultats ; valider la recherche referme le clavier.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchScreen(
     state: SearchUiState,
+    onBack: () -> Unit,
     onQueryChange: (String) -> Unit,
     onSearch: (String) -> Unit,
     onFilterSelected: (SearchFilter) -> Unit,
@@ -134,10 +144,20 @@ fun SearchScreen(
     modifier: Modifier = Modifier,
     onRemoveRecent: (String) -> Unit = {},
 ) {
-    var expanded by rememberSaveable { mutableStateOf(false) }
+    // Vrai tant que le champ a le focus (saisie en cours).
+    var typing by remember { mutableStateOf(false) }
+    // Focus automatique une seule fois : pas à chaque recomposition ni au retour depuis un résultat.
+    var autoFocusPending by rememberSaveable { mutableStateOf(true) }
+    val focusRequester = remember { FocusRequester() }
     var actionsTrack by remember { mutableStateOf<Track?>(null) }
-    val horizontalPadding by animateDpAsState(if (expanded) 0.dp else 16.dp, label = "searchBarPadding")
     val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+
+    LaunchedEffect(Unit) {
+        if (autoFocusPending) {
+            autoFocusPending = false
+            if (state.submittedQuery == null) focusRequester.requestFocus()
+        }
+    }
 
     Box(modifier = modifier.fillMaxSize().semantics { isTraversalGroup = true }) {
         Column(
@@ -146,26 +166,42 @@ fun SearchScreen(
                 .padding(top = topInset + SearchBarSpace)
                 .semantics { traversalIndex = 1f },
         ) {
-            FilterRow(selected = state.filter, onSelected = onFilterSelected)
-            ResultsContent(
-                state = state,
-                onSearch = onSearch,
-                onClearRecent = onClearRecent,
-                onRemoveRecent = onRemoveRecent,
-                onTrackClick = onTrackClick,
-                onTrackMore = { actionsTrack = it },
-                onLoadMore = onLoadMore,
-                onRetry = onRetry,
-                onOpenPlaylist = onOpenPlaylist,
-                onOpenArtist = onOpenArtist,
-            )
+            if (typing) {
+                SuggestionsContent(
+                    query = state.query,
+                    suggestions = state.suggestions,
+                    recents = state.recentQueries,
+                    onPick = {
+                        onSearch(it)
+                        typing = false
+                    },
+                    onFill = onQueryChange,
+                    onClearRecent = onClearRecent,
+                    onRemoveRecent = onRemoveRecent,
+                )
+            } else {
+                FilterRow(selected = state.filter, onSelected = onFilterSelected)
+                ResultsContent(
+                    state = state,
+                    onSearch = onSearch,
+                    onClearRecent = onClearRecent,
+                    onRemoveRecent = onRemoveRecent,
+                    onTrackClick = onTrackClick,
+                    onTrackMore = { actionsTrack = it },
+                    onLoadMore = onLoadMore,
+                    onRetry = onRetry,
+                    onOpenPlaylist = onOpenPlaylist,
+                    onOpenArtist = onOpenArtist,
+                )
+            }
         }
 
+        // Barre repliée : seul le champ est utilisé, les suggestions sont affichées par l'écran lui-même.
         SearchBar(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .fillMaxWidth()
-                .padding(horizontal = horizontalPadding)
+                .padding(horizontal = ScreenHorizontalPadding)
                 .semantics { traversalIndex = 0f },
             inputField = {
                 SearchBarDefaults.InputField(
@@ -173,45 +209,32 @@ fun SearchScreen(
                     onQueryChange = onQueryChange,
                     onSearch = {
                         onSearch(it)
-                        expanded = false
+                        typing = false
                     },
-                    expanded = expanded,
-                    onExpandedChange = { expanded = it },
+                    expanded = typing,
+                    onExpandedChange = { typing = it },
+                    modifier = Modifier.focusRequester(focusRequester),
                     placeholder = { Text(stringResource(R.string.search_placeholder)) },
                     leadingIcon = {
-                        if (expanded) {
-                            IconButton(onClick = { expanded = false }) {
-                                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_action_back))
-                            }
-                        } else {
-                            Icon(Icons.Filled.Search, contentDescription = null)
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_action_back))
                         }
                     },
                     trailingIcon = {
                         if (state.query.isNotEmpty()) {
-                            IconButton(onClick = { onQueryChange("") }) {
+                            IconButton(onClick = {
+                                onQueryChange("")
+                                focusRequester.requestFocus()
+                            }) {
                                 Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.common_action_clear))
                             }
                         }
                     },
                 )
             },
-            expanded = expanded,
-            onExpandedChange = { expanded = it },
-        ) {
-            SuggestionsContent(
-                query = state.query,
-                suggestions = state.suggestions,
-                recents = state.recentQueries,
-                onPick = {
-                    onSearch(it)
-                    expanded = false
-                },
-                onFill = onQueryChange,
-                onClearRecent = onClearRecent,
-                onRemoveRecent = onRemoveRecent,
-            )
-        }
+            expanded = false,
+            onExpandedChange = {},
+        ) {}
     }
 
     actionsTrack?.let { track ->
@@ -350,7 +373,7 @@ private fun ResultsList(
         if (state.isLoadingMore || state.loadMoreError != null) {
             item(key = "footer") {
                 Box(
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(Spacing.m),
                     contentAlignment = Alignment.Center,
                 ) {
                     if (state.loadMoreError != null) {
@@ -514,7 +537,7 @@ private fun SuggestionsContent(
     val showRecents = query.isBlank()
     val entries = if (showRecents) recents else suggestions
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().imePadding(),
         contentPadding = PaddingValues(horizontal = Spacing.s, vertical = Spacing.s),
     ) {
         if (showRecents && recents.isNotEmpty()) {
@@ -567,7 +590,7 @@ private fun SearchScreenResultsPreview() {
     SpautifailleTheme(dynamicColor = false) {
         SearchScreen(
             state = SearchUiState(query = "titre", submittedQuery = "titre", results = PreviewTracks, nowPlayingId = "id1"),
-            onQueryChange = {}, onSearch = {}, onFilterSelected = {}, onTrackClick = {}, onLoadMore = {},
+            onBack = {}, onQueryChange = {}, onSearch = {}, onFilterSelected = {}, onTrackClick = {}, onLoadMore = {},
             onRetry = {}, onClearRecent = {}, onOpenPlaylist = {}, onOpenArtist = {},
         )
     }
@@ -579,7 +602,7 @@ private fun SearchScreenRecentsPreview() {
     SpautifailleTheme(dynamicColor = false) {
         SearchScreen(
             state = SearchUiState(recentQueries = listOf("daft punk", "lofi hip hop", "stromae papaoutai")),
-            onQueryChange = {}, onSearch = {}, onFilterSelected = {}, onTrackClick = {}, onLoadMore = {},
+            onBack = {}, onQueryChange = {}, onSearch = {}, onFilterSelected = {}, onTrackClick = {}, onLoadMore = {},
             onRetry = {}, onClearRecent = {}, onOpenPlaylist = {}, onOpenArtist = {},
         )
     }
@@ -591,7 +614,7 @@ private fun SearchScreenErrorPreview() {
     SpautifailleTheme(dynamicColor = false) {
         SearchScreen(
             state = SearchUiState(query = "titre", submittedQuery = "titre", error = AppError.Network),
-            onQueryChange = {}, onSearch = {}, onFilterSelected = {}, onTrackClick = {}, onLoadMore = {},
+            onBack = {}, onQueryChange = {}, onSearch = {}, onFilterSelected = {}, onTrackClick = {}, onLoadMore = {},
             onRetry = {}, onClearRecent = {}, onOpenPlaylist = {}, onOpenArtist = {},
         )
     }

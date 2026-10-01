@@ -20,10 +20,13 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -31,10 +34,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -71,7 +73,7 @@ fun HomeScreenRoot(
     onOpenFollowedArtists: () -> Unit = {},
     /** Ouvre l'historique (`HistoryRoute`). */
     onOpenHistory: () -> Unit = {},
-    /** Bascule vers l'onglet Recherche. */
+    /** Ouvre l'écran de recherche (`SearchRoute`). */
     onOpenSearch: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
@@ -107,6 +109,7 @@ private fun discoveryState(viewModel: DiscoveryViewModel = hiltViewModel()): Pai
     return state to actions
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     state: HomeUiState,
@@ -124,7 +127,17 @@ fun HomeScreen(
 ) {
     var actionsTrack by remember { mutableStateOf<Track?>(null) }
     val layoutDirection = LocalLayoutDirection.current
-    Scaffold(modifier = modifier) { padding ->
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+    Scaffold(
+        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        // Même barre que Bibliothèque et Réglages : la salutation en est le titre.
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(state.greeting.labelRes())) },
+                scrollBehavior = scrollBehavior,
+            )
+        },
+    ) { padding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -139,16 +152,15 @@ fun HomeScreen(
                 modifier = Modifier
                     .widthIn(max = ContentMaxWidth)
                     .fillMaxHeight(),
-                // Pas d'AppBar : la salutation défile avec le contenu, sous la barre d'état.
                 contentPadding = PaddingValues(
-                    top = padding.calculateTopPadding() + Spacing.m,
+                    top = padding.calculateTopPadding() + Spacing.s,
                     bottom = padding.calculateBottomPadding() + ListBottomPadding,
                 ),
                 verticalArrangement = Arrangement.spacedBy(SectionSpacing),
             ) {
                 item(key = "header") {
                     Column(verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
-                        GreetingHeader(state.greeting)
+                        HomeSearchField(onClick = onOpenSearch)
                         if (state.isLoading) {
                             ShortcutsPlaceholder()
                         } else {
@@ -216,18 +228,6 @@ fun HomeScreen(
             },
         )
     }
-}
-
-@Composable
-private fun GreetingHeader(greeting: Greeting) {
-    Text(
-        text = stringResource(greeting.labelRes()),
-        style = MaterialTheme.typography.headlineMedium,
-        color = MaterialTheme.colorScheme.onSurface,
-        modifier = Modifier
-            .padding(horizontal = ScreenHorizontalPadding)
-            .semantics { heading() },
-    )
 }
 
 private fun Greeting.labelRes(): Int = when (this) {

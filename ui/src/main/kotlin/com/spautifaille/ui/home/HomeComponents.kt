@@ -38,6 +38,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -56,6 +59,49 @@ import com.spautifaille.ui.theme.SpautifailleTheme
 internal val ShortcutHeight: Dp = 56.dp
 private val ArtistAvatarSize: Dp = 88.dp
 private val PlayButtonSize: Dp = 40.dp
+private val SearchFieldHeight: Dp = 56.dp
+
+/**
+ * Barre de recherche de l'Accueil : champ tonal en pilule, non éditable ; un appui ouvre l'écran de
+ * recherche (qui prend le focus et ouvre le clavier).
+ */
+@Composable
+internal fun HomeSearchField(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val haptics = LocalAppHaptics.current
+    Surface(
+        onClick = {
+            haptics.click()
+            onClick()
+        },
+        modifier = modifier
+            .padding(horizontal = ScreenHorizontalPadding)
+            .fillMaxWidth()
+            .semantics(mergeDescendants = true) { role = Role.Button },
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+    ) {
+        Row(
+            modifier = Modifier
+                .height(SearchFieldHeight)
+                .padding(horizontal = Spacing.m),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.m),
+        ) {
+            Icon(
+                Icons.Filled.Search,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = stringResource(R.string.search_placeholder),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
 
 /** Raccourci compact : pochette carrée à gauche, nom à droite, fond tonal. */
 @Composable

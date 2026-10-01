@@ -41,13 +41,13 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -129,7 +129,7 @@ fun LibraryScreen(
     modifier: Modifier = Modifier,
 ) {
     val haptics = LocalAppHaptics.current
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
     var showNewSheet by rememberSaveable { mutableStateOf(false) }
     var showNameDialog by rememberSaveable { mutableStateOf(false) }
@@ -140,7 +140,7 @@ fun LibraryScreen(
     Scaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            LargeTopAppBar(
+            TopAppBar(
                 title = { Text(stringResource(R.string.lib_title)) },
                 scrollBehavior = scrollBehavior,
             )
@@ -181,8 +181,8 @@ fun LibraryScreen(
     }
     if (showNameDialog) {
         PlaylistNameDialog(
-            title = stringResource(R.string.lib_new_playlist),
-            confirmLabel = stringResource(R.string.lib_create),
+            title = stringResource(R.string.common_action_new_playlist),
+            confirmLabel = stringResource(R.string.common_action_create),
             initialName = "",
             onConfirm = {
                 haptics.confirm()
@@ -224,7 +224,7 @@ fun LibraryScreen(
         LibraryConfirmDialog(
             title = stringResource(R.string.lib_delete_playlist_title),
             text = stringResource(R.string.lib_delete_playlist_message, deleteTarget.name),
-            confirmLabel = stringResource(R.string.lib_delete),
+            confirmLabel = stringResource(R.string.common_action_delete),
             onConfirm = {
                 haptics.confirm()
                 actions.onDeletePlaylist(deleteTarget.id)
@@ -448,7 +448,7 @@ private fun NewPlaylistSheet(
             verticalArrangement = Arrangement.spacedBy(Spacing.m),
         ) {
             Text(
-                text = stringResource(R.string.lib_new_playlist),
+                text = stringResource(R.string.common_action_new_playlist),
                 style = MaterialTheme.typography.headlineSmall,
                 modifier = Modifier.padding(bottom = Spacing.xs),
             )
@@ -573,7 +573,7 @@ private fun PlaylistActionsSheet(
                 }
             }
             if (canDownload) {
-                SheetAction(Icons.Filled.Download, stringResource(R.string.lib_action_download)) {
+                SheetAction(Icons.Filled.Download, stringResource(R.string.common_action_download)) {
                     onDownload()
                     scope.hideSheet(sheetState, onDismiss)
                 }
@@ -583,7 +583,7 @@ private fun PlaylistActionsSheet(
                     scope.hideSheet(sheetState, onDismiss)
                     onRename()
                 }
-                SheetAction(Icons.Filled.Delete, stringResource(R.string.lib_delete), destructive = true) {
+                SheetAction(Icons.Filled.Delete, stringResource(R.string.common_action_delete), destructive = true) {
                     scope.hideSheet(sheetState, onDismiss)
                     onDelete()
                 }
