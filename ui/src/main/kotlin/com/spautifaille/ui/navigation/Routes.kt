@@ -55,3 +55,11 @@ enum class TopLevelDestination(
     Library(LibraryRoute, LibraryRoute::class, R.string.nav_library, Icons.Filled.LibraryMusic),
     Settings(SettingsRoute, SettingsRoute::class, R.string.nav_settings, Icons.Filled.Settings),
 }
+
+/** Historique d'écoute complet. */
+@Serializable
+data object HistoryRoute
+
+/** Liste complète des artistes suivis (« Tes artistes »). */
+@Serializable
+data object FollowedArtistsRoute

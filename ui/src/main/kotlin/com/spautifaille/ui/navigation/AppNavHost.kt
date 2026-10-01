@@ -9,12 +9,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.composable
 import com.spautifaille.domain.model.Playlist
 import com.spautifaille.ui.artist.ArtistRoute as ArtistScreenRoute
 import com.spautifaille.ui.discovery.DiscoveryRoute
 import com.spautifaille.ui.discovery.DiscoveryScreenRoot
 import com.spautifaille.ui.downloads.DownloadsScreenRoot
+import com.spautifaille.ui.followed.FollowedArtistsScreenRoot
+import com.spautifaille.ui.history.HistoryScreenRoot
 import com.spautifaille.ui.home.HomeScreenRoot
 import com.spautifaille.ui.importer.ImportReviewRoute
 import com.spautifaille.ui.importer.ImportReviewScreenRoot
@@ -48,7 +51,18 @@ fun AppNavHost(
         composable<HomeRoute> {
             HomeScreenRoot(
                 onOpenLiked = { navController.navigate(PlaylistRoute(Playlist.LIKED_ID)) },
+                onOpenPlaylist = { id -> navController.navigate(PlaylistRoute(id)) },
                 onOpenDiscovery = { navController.navigate(DiscoveryRoute) },
+                onOpenArtist = { url -> navController.navigate(ArtistRoute(url)) },
+                onOpenFollowedArtists = { navController.navigate(FollowedArtistsRoute) },
+                onOpenHistory = { navController.navigate(HistoryRoute) },
+                onOpenSearch = {
+                    navController.navigate(SearchRoute) {
+                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
             )
         }
         composable<SearchRoute> {
@@ -97,4 +111,6 @@ private fun androidx.navigation.NavGraphBuilder.integrationDestinations(navContr
         )
     }
     composable<ImportReviewRoute> { ImportReviewScreenRoot(onBack = back) }
+    composable<HistoryRoute> { HistoryScreenRoot(onBack = back, onOpenArtist = openArtist) }
+    composable<FollowedArtistsRoute> { FollowedArtistsScreenRoot(onBack = back, onOpenArtist = openArtist) }
 }

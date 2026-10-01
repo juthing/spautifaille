@@ -66,6 +66,9 @@ import com.spautifaille.domain.model.HistoryEntry
 import com.spautifaille.domain.model.Playlist
 import com.spautifaille.domain.model.StorageUsage
 import com.spautifaille.ui.R
+import com.spautifaille.ui.history.HistoryDay
+import com.spautifaille.ui.history.HistoryListItem
+import com.spautifaille.ui.history.groupHistoryByDay
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter

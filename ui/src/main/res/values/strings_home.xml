@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Accueil -->
+    <string name="home_see_all">Tout voir</string>
+    <string name="home_recently_played_title">Écouté récemment</string>
+    <string name="home_artists_title">Tes artistes</string>
+    <string name="home_play_track">Lire %1$s</string>
+    <string name="home_offline_title">Vous êtes hors ligne</string>
+    <string name="home_offline_message">Les recommandations reviendront dès que vous serez reconnecté.</string>
+    <string name="home_welcome_title">Bienvenue sur Spautifaille</string>
+    <string name="home_welcome_message">Cherchez un titre, un artiste ou un album pour commencer à écouter. Vos écoutes et vos coups de cœur apparaîtront ici.</string>
+    <string name="home_welcome_action">Rechercher de la musique</string>
+
+    <!-- Historique -->
+    <string name="history_title">Historique</string>
+    <string name="history_today">Aujourd\'hui</string>
+    <string name="history_yesterday">Hier</string>
+    <string name="history_empty_title">Historique vide</string>
+    <string name="history_empty_message">Les titres que vous écoutez apparaîtront ici.</string>
+    <string name="history_remove">Retirer de l\'historique</string>
+    <string name="history_clear">Effacer l\'historique</string>
+    <string name="history_clear_message">Tout l\'historique d\'écoute sera supprimé. Cette action est irréversible.</string>
+    <string name="history_clear_confirm">Effacer</string>
+
+    <!-- Artistes suivis -->
+    <string name="followed_title">Tes artistes</string>
+    <string name="followed_empty_title">Aucun artiste suivi</string>
+    <string name="followed_empty_message">Abonnez-vous à des artistes depuis leur page pour les retrouver ici.</string>
+    <string name="followed_unsubscribe">Se désabonner de %1$s</string>
+    <string name="followed_unsubscribed">Vous ne suivez plus %1$s</string>
+</resources>
