@@ -8,7 +8,7 @@ Lecteur audio Android en streaming, alimenté par YouTube via [NewPipeExtractor]
 2. En bas de la page, télécharger l'artefact **spautifaille-release-apk** (optimisé, ~5 Mo) ou **spautifaille-debug-apk** (non optimisé, installable à côté de la release : identifiant `com.spautifaille.app.debug`).
 3. Dézipper puis ouvrir l'`.apk` sur le téléphone (autoriser « Installer des applis inconnues » pour le navigateur ou le gestionnaire de fichiers).
 
-> L'APK release est signé avec la clé de debug du CI : pour mettre à jour sans désinstaller, toujours installer un APK venant du même type de build.
+> L'APK release est signé avec une clé fixe (secrets GitHub Actions) : les mises à jour s'installent par-dessus la version précédente, sans désinstaller. Seule la toute première installation signée avec cette clé nécessite de désinstaller une ancienne version signée autrement (clé de debug d'un ancien run, par exemple). Play Protect peut avertir (« développeur inconnu ») : choisir « Installer quand même ».
 
 Configuration minimale : Android 8.0 (API 26). Cible : Android 17 (API 37).
 

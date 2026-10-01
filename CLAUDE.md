@@ -79,5 +79,6 @@ On suit le commit épinglé par l'app NewPipe (testé en production) :
 - Vidéos « made for kids » non lisibles ; `SignInConfirmNotBotException` / HTTP 429 = throttling IP (`AppError.BotDetected`).
 - Le `Downloader` ne doit pas écraser les en-têtes fournis par la requête NewPipe (User-Agent spécifique) et doit renvoyer les réponses non-2xx sans lever (sauf 429 → `ReCaptchaException`).
 - Recherche YouTube Music : les paramètres de filtre de NewPipeExtractor sont périmés → `data/src/main/java/.../PatchedYoutubeMusicSearchExtractor.java` (copie avec paramètres à jour). Titres/Albums peuvent renvoyer « aucun résultat » selon l'IP → repli automatique (Titres → vidéos YTM → vidéos, Albums → playlists) dans `NewPipeStreamRepository.search`. À retirer quand l'upstream corrige.
+- Signature release : `app/build.gradle.kts` lit `SPAUTIFAILLE_KEYSTORE_PATH`, `SPAUTIFAILLE_KEYSTORE_PASSWORD`, `SPAUTIFAILLE_KEY_ALIAS`, `SPAUTIFAILLE_KEY_PASSWORD` (en CI : secrets GitHub, dont `SPAUTIFAILLE_KEYSTORE_BASE64` décodé en .jks) ; absentes → repli clé de debug + warning (APK non mettable à jour par-dessus). Ne jamais commiter de keystore.
 - Gradle 9 échoue si un module a des sources de test mais aucun test découvert (`failOnNoDiscoveredTests`).
 - JitPack ne sert que `com.github.*` (filtre dans `settings.gradle.kts`). Maven Central passe par le miroir Google (évite les 429).
