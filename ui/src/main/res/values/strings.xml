@@ -6,7 +6,9 @@
     <string name="nav_library">Bibliothèque</string>
     <string name="nav_settings">Réglages</string>
 
-    <!-- TODO(integration) : titres des écrans provisoires -->
+    <!-- Réglages : sections ajoutées avec l'onglet Réglages -->
+    <string name="settings_section_library">Bibliothèque</string>
+    <string name="settings_import_summary">Depuis un fichier (Spotify, Exportify, CSV) ou un lien YouTube</string>
 
     <!-- Actions communes -->
     <string name="common_action_retry">Réessayer</string>

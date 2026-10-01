@@ -41,6 +41,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.spautifaille.domain.model.Track
 import com.spautifaille.ui.R
+import com.spautifaille.ui.common.LocalAppHaptics
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -147,8 +148,12 @@ fun TrackActionsSheetContent(
 
 @Composable
 private fun ActionItem(icon: ImageVector, label: Int, onClick: () -> Unit) {
+    val haptics = LocalAppHaptics.current
     ListItem(
-        modifier = Modifier.clickable(onClick = onClick),
+        modifier = Modifier.clickable {
+            haptics.click()
+            onClick()
+        },
         leadingContent = { Icon(icon, contentDescription = null) },
         headlineContent = { Text(stringResource(label)) },
         colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),

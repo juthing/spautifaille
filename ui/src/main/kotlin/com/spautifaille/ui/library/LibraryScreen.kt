@@ -13,7 +13,6 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
@@ -66,7 +65,6 @@ data class LibraryActions(
     val onOpenDownloads: () -> Unit = {},
     val onOpenImport: () -> Unit = {},
     val onOpenArtist: (String) -> Unit = {},
-    val onOpenSettings: () -> Unit = {},
     val onCreatePlaylist: (String) -> Unit = {},
     val onRenamePlaylist: (id: Long, name: String) -> Unit = { _, _ -> },
     val onDeletePlaylist: (Long) -> Unit = {},
@@ -84,18 +82,16 @@ fun LibraryRoute(
     onOpenDownloads: () -> Unit,
     onOpenImport: () -> Unit,
     onOpenArtist: (String) -> Unit,
-    onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: LibraryViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val actions = remember(viewModel, onOpenPlaylist, onOpenDownloads, onOpenImport, onOpenArtist, onOpenSettings) {
+    val actions = remember(viewModel, onOpenPlaylist, onOpenDownloads, onOpenImport, onOpenArtist) {
         LibraryActions(
             onOpenPlaylist = onOpenPlaylist,
             onOpenDownloads = onOpenDownloads,
             onOpenImport = onOpenImport,
             onOpenArtist = onOpenArtist,
-            onOpenSettings = onOpenSettings,
             onCreatePlaylist = { viewModel.createPlaylist(it) },
             onRenamePlaylist = { id, name -> viewModel.renamePlaylist(id, name) },
             onDeletePlaylist = { viewModel.deletePlaylist(it) },
@@ -138,12 +134,6 @@ fun LibraryScreen(
                             Icon(
                                 Icons.AutoMirrored.Filled.PlaylistAdd,
                                 contentDescription = stringResource(R.string.lib_action_import),
-                            )
-                        }
-                        IconButton(onClick = actions.onOpenSettings) {
-                            Icon(
-                                Icons.Filled.Settings,
-                                contentDescription = stringResource(R.string.lib_action_settings),
                             )
                         }
                     },

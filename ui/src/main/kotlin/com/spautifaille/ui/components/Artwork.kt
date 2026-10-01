@@ -12,6 +12,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -21,8 +22,9 @@ import coil3.request.ImageRequest
 import coil3.request.crossfade
 
 /**
- * Pochette / avatar. Le fond et l'icône servent de placeholder tant que l'image charge (ou si [url] est nul
- * ou en erreur) ; l'image opaque les recouvre ensuite.
+ * Pochette / avatar. Le dégradé tonal (couleurs du thème) et l'icône servent de placeholder tant que l'image
+ * charge (ou si [url] est nul ou en erreur) ; l'image opaque les recouvre ensuite. [shape] vaut
+ * `MaterialTheme.shapes.medium` par défaut ; passer `CircleShape` pour un avatar d'artiste.
  */
 @Composable
 fun Artwork(
@@ -32,16 +34,20 @@ fun Artwork(
     contentDescription: String? = null,
     placeholderIcon: ImageVector = Icons.Filled.MusicNote,
 ) {
+    val colors = MaterialTheme.colorScheme
+    val placeholderBrush = remember(colors.secondaryContainer, colors.tertiaryContainer) {
+        Brush.linearGradient(listOf(colors.secondaryContainer, colors.tertiaryContainer))
+    }
     Box(
         modifier = modifier
             .clip(shape)
-            .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+            .background(placeholderBrush),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
             imageVector = placeholderIcon,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            tint = colors.onSecondaryContainer.copy(alpha = 0.7f),
             modifier = Modifier.fillMaxSize(0.4f),
         )
         if (!url.isNullOrBlank()) {

@@ -39,6 +39,7 @@ import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffo
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
@@ -65,6 +66,8 @@ import androidx.navigation.compose.rememberNavController
 import com.spautifaille.domain.model.Track
 import com.spautifaille.domain.player.PlaybackPosition
 import com.spautifaille.domain.player.PlayerState
+import com.spautifaille.ui.common.LocalAppHaptics
+import com.spautifaille.ui.common.rememberAppHaptics
 import com.spautifaille.ui.player.FullPlayerScreen
 import com.spautifaille.ui.player.MiniPlayer
 import com.spautifaille.ui.player.MiniPlayerHeight
@@ -95,7 +98,9 @@ fun SpautifailleAppUi(
             // Réglages en cours de chargement : fond neutre pour éviter un flash du mauvais thème.
             Box(modifier.fillMaxSize().background(MaterialTheme.colorScheme.background))
         } else {
-            AppShell(appViewModel = appViewModel, playerViewModel = playerViewModel, modifier = modifier)
+            CompositionLocalProvider(LocalAppHaptics provides rememberAppHaptics()) {
+                AppShell(appViewModel = appViewModel, playerViewModel = playerViewModel, modifier = modifier)
+            }
         }
     }
 }
@@ -108,6 +113,7 @@ private fun AppShell(
     modifier: Modifier = Modifier,
 ) {
     val navController = rememberNavController()
+    val haptics = LocalAppHaptics.current
     val playerState by playerViewModel.state.collectAsStateWithLifecycle()
     val positionState = playerViewModel.position.collectAsStateWithLifecycle()
     // Non lu ici : seuls les composables qui affichent la minuterie se recomposent à chaque seconde.
@@ -181,7 +187,10 @@ private fun AppShell(
                     TopLevelDestination.entries.forEachIndexed { index, destination ->
                         NavigationSuiteItem(
                             selected = index == selectedTop,
-                            onClick = { navController.navigateToTopLevel(destination, reselected = index == selectedTop) },
+                            onClick = {
+                                haptics.click()
+                                navController.navigateToTopLevel(destination, reselected = index == selectedTop)
+                            },
                             icon = { Icon(destination.icon, contentDescription = null) },
                             label = { Text(stringResource(destination.label)) },
                             navigationSuiteType = navigationSuiteType,

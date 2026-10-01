@@ -18,12 +18,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -51,7 +49,6 @@ import com.spautifaille.ui.theme.SpautifailleTheme
 
 @Composable
 fun HomeScreenRoot(
-    onOpenSettings: () -> Unit,
     onOpenLiked: () -> Unit,
     modifier: Modifier = Modifier,
     /** Ouvre la liste complète (`DiscoveryRoute`). */
@@ -72,7 +69,6 @@ fun HomeScreenRoot(
         state = state,
         onRecentClick = viewModel::onRecentClick,
         onOpenLiked = onOpenLiked,
-        onOpenSettings = onOpenSettings,
         modifier = modifier,
         discovery = discovery,
         discoveryActions = discoveryActions,
@@ -86,7 +82,6 @@ fun HomeScreen(
     state: HomeUiState,
     onRecentClick: (Track) -> Unit,
     onOpenLiked: () -> Unit,
-    onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
     discovery: DiscoveryUiState = DiscoveryUiState(isLoading = false),
     discoveryActions: DiscoveryActions = DiscoveryActions(),
@@ -98,11 +93,6 @@ fun HomeScreen(
         topBar = {
             LargeTopAppBar(
                 title = { Text(stringResource(state.greeting.labelRes())) },
-                actions = {
-                    IconButton(onClick = onOpenSettings) {
-                        Icon(Icons.Filled.Settings, contentDescription = stringResource(R.string.nav_settings))
-                    }
-                },
                 scrollBehavior = scrollBehavior,
             )
         },
@@ -260,7 +250,7 @@ private fun HomeScreenPreview() {
     SpautifailleTheme(dynamicColor = false) {
         HomeScreen(
             state = HomeUiState(greeting = Greeting.EVENING, recent = PreviewRecent, isLoading = false),
-            onRecentClick = {}, onOpenLiked = {}, onOpenSettings = {},
+            onRecentClick = {}, onOpenLiked = {},
             discovery = DiscoveryUiState(tracks = PreviewRecent.map { it.copy(id = "d${it.id}") }, isLoading = false),
         )
     }
@@ -272,7 +262,7 @@ private fun HomeScreenEmptyPreview() {
     SpautifailleTheme(dynamicColor = false) {
         HomeScreen(
             state = HomeUiState(isLoading = false),
-            onRecentClick = {}, onOpenLiked = {}, onOpenSettings = {},
+            onRecentClick = {}, onOpenLiked = {},
         )
     }
 }

@@ -5,6 +5,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.spautifaille.ui.R
 import kotlinx.serialization.Serializable
@@ -52,4 +53,5 @@ enum class TopLevelDestination(
     Home(HomeRoute, HomeRoute::class, R.string.nav_home, Icons.Filled.Home),
     Search(SearchRoute, SearchRoute::class, R.string.nav_search, Icons.Filled.Search),
     Library(LibraryRoute, LibraryRoute::class, R.string.nav_library, Icons.Filled.LibraryMusic),
+    Settings(SettingsRoute, SettingsRoute::class, R.string.nav_settings, Icons.Filled.Settings),
 }

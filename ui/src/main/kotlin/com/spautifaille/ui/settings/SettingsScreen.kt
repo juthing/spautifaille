@@ -17,7 +17,7 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.GraphicEq
@@ -33,7 +33,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -69,8 +68,8 @@ import com.spautifaille.ui.library.LibraryContentMaxWidth
 
 @Immutable
 data class SettingsActions(
-    val onBack: () -> Unit = {},
     val onOpenDownloads: () -> Unit = {},
+    val onOpenImport: () -> Unit = {},
     val onAudioQualityChange: (AudioQuality) -> Unit = {},
     val onWifiOnlyChange: (Boolean) -> Unit = {},
     val onThemeModeChange: (ThemeMode) -> Unit = {},
@@ -81,18 +80,18 @@ data class SettingsActions(
 
 @Composable
 fun SettingsRoute(
-    onBack: () -> Unit,
     onOpenDownloads: () -> Unit,
+    onOpenImport: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val versionName = remember(context) { context.appVersionName() }
-    val actions = remember(viewModel, onBack, onOpenDownloads) {
+    val actions = remember(viewModel, onOpenDownloads, onOpenImport) {
         SettingsActions(
-            onBack = onBack,
             onOpenDownloads = onOpenDownloads,
+            onOpenImport = onOpenImport,
             onAudioQualityChange = viewModel::setAudioQuality,
             onWifiOnlyChange = viewModel::setDownloadOverWifiOnly,
             onThemeModeChange = viewModel::setThemeMode,
@@ -132,14 +131,6 @@ fun SettingsScreen(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.lib_settings_title)) },
-                navigationIcon = {
-                    IconButton(onClick = actions.onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.lib_back),
-                        )
-                    }
-                },
             )
         },
     ) { innerPadding ->
@@ -175,6 +166,15 @@ fun SettingsScreen(
                         icon = Icons.Filled.Download,
                         title = stringResource(R.string.lib_settings_manage_downloads),
                         onClick = actions.onOpenDownloads,
+                        trailing = { Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null) },
+                    )
+                }
+                SettingsSection(R.string.settings_section_library) {
+                    SettingsItem(
+                        icon = Icons.AutoMirrored.Filled.PlaylistAdd,
+                        title = stringResource(R.string.import_title),
+                        summary = stringResource(R.string.settings_import_summary),
+                        onClick = actions.onOpenImport,
                         trailing = { Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null) },
                     )
                 }

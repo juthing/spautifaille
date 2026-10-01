@@ -47,7 +47,6 @@ fun AppNavHost(
     ) {
         composable<HomeRoute> {
             HomeScreenRoot(
-                onOpenSettings = { navController.navigate(SettingsRoute) },
                 onOpenLiked = { navController.navigate(PlaylistRoute(Playlist.LIKED_ID)) },
                 onOpenDiscovery = { navController.navigate(DiscoveryRoute) },
             )
@@ -62,7 +61,7 @@ fun AppNavHost(
     }
 }
 
-/** Destinations secondaires (bibliothèque, playlists, artiste, paramètres…). */
+/** Destinations secondaires (bibliothèque, playlists, artiste, réglages…). */
 private fun androidx.navigation.NavGraphBuilder.integrationDestinations(navController: NavHostController) {
     val openPlaylist: (Long) -> Unit = { id -> navController.navigate(PlaylistRoute(id)) }
     val openArtist: (String) -> Unit = { url -> navController.navigate(ArtistRoute(url)) }
@@ -75,7 +74,6 @@ private fun androidx.navigation.NavGraphBuilder.integrationDestinations(navContr
             onOpenDownloads = { navController.navigate(DownloadsRoute) },
             onOpenImport = { navController.navigate(ImportRoute) },
             onOpenArtist = openArtist,
-            onOpenSettings = { navController.navigate(SettingsRoute) },
         )
     }
     // Les ViewModels lisent les arguments de route (`id`, `url`) depuis leur SavedStateHandle.
@@ -83,7 +81,11 @@ private fun androidx.navigation.NavGraphBuilder.integrationDestinations(navContr
     composable<RemotePlaylistRoute> { RemotePlaylistScreenRoute(onBack = back, onOpenPlaylist = openPlaylist) }
     composable<ArtistRoute> { ArtistScreenRoute(onBack = back, onOpenRemotePlaylist = openRemotePlaylist) }
     composable<SettingsRoute> {
-        SettingsScreenRoute(onBack = back, onOpenDownloads = { navController.navigate(DownloadsRoute) })
+        // Onglet racine : pas de retour.
+        SettingsScreenRoute(
+            onOpenDownloads = { navController.navigate(DownloadsRoute) },
+            onOpenImport = { navController.navigate(ImportRoute) },
+        )
     }
     composable<DiscoveryRoute> { DiscoveryScreenRoot(onBack = back, onOpenArtist = openArtist) }
     composable<DownloadsRoute> { DownloadsScreenRoot(onBack = back) }

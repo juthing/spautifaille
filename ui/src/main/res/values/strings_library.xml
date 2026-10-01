@@ -25,7 +25,6 @@
     <!-- Bibliothèque -->
     <string name="lib_title">Bibliothèque</string>
     <string name="lib_action_import">Importer une playlist</string>
-    <string name="lib_action_settings">Paramètres</string>
     <string name="lib_tab_playlists">Playlists</string>
     <string name="lib_tab_downloads">Téléchargés</string>
     <string name="lib_tab_history">Historique</string>
