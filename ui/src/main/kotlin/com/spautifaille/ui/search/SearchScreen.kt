@@ -2,6 +2,10 @@ package com.spautifaille.ui.search
 
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
+import com.spautifaille.ui.components.SectionHeader
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,6 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.CallMade
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Person
@@ -30,6 +35,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -68,14 +74,21 @@ import com.spautifaille.domain.model.SearchFilter
 import com.spautifaille.domain.model.SearchResult
 import com.spautifaille.domain.model.Track
 import com.spautifaille.ui.R
+import com.spautifaille.ui.common.LocalAppHaptics
 import com.spautifaille.ui.common.toMessage
 import com.spautifaille.ui.components.Artwork
 import com.spautifaille.ui.components.EmptyState
 import com.spautifaille.ui.components.ErrorState
 import com.spautifaille.ui.components.TrackActionsSheet
 import com.spautifaille.ui.components.TrackListItem
+import com.spautifaille.ui.components.IconTone
+import com.spautifaille.ui.components.ToneIconCircle
 import com.spautifaille.ui.components.TrackListPlaceholder
 import com.spautifaille.ui.components.formatCompactCount
+import com.spautifaille.ui.theme.ArtworkSize
+import com.spautifaille.ui.theme.ContentMaxWidth
+import com.spautifaille.ui.theme.ScreenHorizontalPadding
+import com.spautifaille.ui.theme.Spacing
 import com.spautifaille.ui.theme.SpautifailleTheme
 
 private const val LOAD_MORE_THRESHOLD = 5
@@ -136,6 +149,9 @@ fun SearchScreen(
             FilterRow(selected = state.filter, onSelected = onFilterSelected)
             ResultsContent(
                 state = state,
+                onSearch = onSearch,
+                onClearRecent = onClearRecent,
+                onRemoveRecent = onRemoveRecent,
                 onTrackClick = onTrackClick,
                 onTrackMore = { actionsTrack = it },
                 onLoadMore = onLoadMore,
@@ -209,15 +225,27 @@ fun SearchScreen(
 
 @Composable
 private fun FilterRow(selected: SearchFilter, onSelected: (SearchFilter) -> Unit) {
+    val haptics = LocalAppHaptics.current
     LazyRow(
-        contentPadding = PaddingValues(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        contentPadding = PaddingValues(horizontal = ScreenHorizontalPadding),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.s),
     ) {
         items(SearchFilters, key = { it.name }) { filter ->
+            val isSelected = filter == selected
             FilterChip(
-                selected = filter == selected,
-                onClick = { onSelected(filter) },
+                selected = isSelected,
+                onClick = {
+                    if (!isSelected) {
+                        haptics.tick()
+                        onSelected(filter)
+                    }
+                },
                 label = { Text(stringResource(filter.labelRes())) },
+                leadingIcon = if (isSelected) {
+                    { Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(FilterChipDefaults.IconSize)) }
+                } else {
+                    null
+                },
             )
         }
     }
@@ -234,6 +262,9 @@ private fun SearchFilter.labelRes(): Int = when (this) {
 @Composable
 private fun ResultsContent(
     state: SearchUiState,
+    onSearch: (String) -> Unit,
+    onClearRecent: () -> Unit,
+    onRemoveRecent: (String) -> Unit,
     onTrackClick: (Track) -> Unit,
     onTrackMore: (Track) -> Unit,
     onLoadMore: () -> Unit,
@@ -242,11 +273,20 @@ private fun ResultsContent(
     onOpenArtist: (String) -> Unit,
 ) {
     when {
-        state.submittedQuery == null -> EmptyState(
-            title = stringResource(R.string.search_idle_title),
-            message = stringResource(R.string.search_idle_message),
-            icon = Icons.Filled.Search,
-        )
+        state.submittedQuery == null -> if (state.recentQueries.isEmpty()) {
+            EmptyState(
+                title = stringResource(R.string.search_idle_title),
+                message = stringResource(R.string.search_idle_message),
+                icon = Icons.Filled.Search,
+            )
+        } else {
+            RecentSearches(
+                recents = state.recentQueries,
+                onPick = onSearch,
+                onClear = onClearRecent,
+                onRemove = onRemoveRecent,
+            )
+        }
         state.isLoading -> TrackListPlaceholder()
         state.error != null -> ErrorState(message = state.error.toMessage(), onRetry = onRetry)
         state.results.isEmpty() -> EmptyState(
@@ -289,10 +329,11 @@ private fun ResultsList(
         if (nearEnd && state.hasMore && !state.isLoadingMore && state.loadMoreError == null) onLoadMore()
     }
 
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
     LazyColumn(
         state = listState,
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
+        modifier = Modifier.widthIn(max = ContentMaxWidth).fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = Spacing.s, vertical = Spacing.s),
     ) {
         items(state.results, key = { resultKey(it) }, contentType = { it::class }) { result ->
             when (result) {
@@ -329,6 +370,7 @@ private fun ResultsList(
             }
         }
     }
+    }
 }
 
 private fun resultKey(result: SearchResult): String = when (result) {
@@ -339,15 +381,21 @@ private fun resultKey(result: SearchResult): String = when (result) {
 
 @Composable
 private fun PlaylistResultItem(playlist: RemotePlaylist, onClick: () -> Unit) {
+    val haptics = LocalAppHaptics.current
     val count = playlist.trackCount?.toInt()?.let { pluralStringResource(R.plurals.common_track_count, it, it) }
     val subtitle = listOfNotNull(playlist.uploader, count).joinToString(" · ")
     ListItem(
         modifier = Modifier
             .clip(MaterialTheme.shapes.large)
-            .clickable(onClick = onClick),
+            .clickable {
+                haptics.click()
+                onClick()
+            },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-        leadingContent = { Artwork(url = playlist.thumbnailUrl, modifier = Modifier.size(52.dp)) },
-        headlineContent = { Text(playlist.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        leadingContent = { Artwork(url = playlist.thumbnailUrl, modifier = Modifier.size(ArtworkSize.Row)) },
+        headlineContent = {
+            Text(playlist.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        },
         supportingContent = if (subtitle.isNotEmpty()) {
             { Text(subtitle, maxLines = 1, overflow = TextOverflow.Ellipsis) }
         } else {
@@ -359,23 +407,96 @@ private fun PlaylistResultItem(playlist: RemotePlaylist, onClick: () -> Unit) {
 
 @Composable
 private fun ArtistResultItem(artist: Artist, onClick: () -> Unit) {
+    val haptics = LocalAppHaptics.current
     val subscribers = artist.subscriberCount?.let { stringResource(R.string.common_artist_subscribers, formatCompactCount(it)) }
     ListItem(
         modifier = Modifier
             .clip(MaterialTheme.shapes.large)
-            .clickable(onClick = onClick),
+            .clickable {
+                haptics.click()
+                onClick()
+            },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         leadingContent = {
             Artwork(
                 url = artist.avatarUrl,
-                modifier = Modifier.size(52.dp),
+                modifier = Modifier.size(ArtworkSize.Row),
                 shape = CircleShape,
                 placeholderIcon = Icons.Filled.Person,
             )
         },
-        headlineContent = { Text(artist.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        headlineContent = {
+            Text(artist.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        },
         supportingContent = subscribers?.let { { Text(it, maxLines = 1, overflow = TextOverflow.Ellipsis) } },
         trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null) },
+    )
+}
+
+/** Historique affiché sur l'écran de recherche tant qu'aucune recherche n'a été lancée. */
+@Composable
+private fun RecentSearches(
+    recents: List<String>,
+    onPick: (String) -> Unit,
+    onClear: () -> Unit,
+    onRemove: (String) -> Unit,
+) {
+    val haptics = LocalAppHaptics.current
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+        LazyColumn(
+            modifier = Modifier.widthIn(max = ContentMaxWidth).fillMaxSize(),
+            contentPadding = PaddingValues(horizontal = Spacing.s, vertical = Spacing.s),
+        ) {
+            item(key = "recents-header") {
+                SectionHeader(
+                    title = stringResource(R.string.search_recent_title),
+                    actionLabel = stringResource(R.string.search_clear_history),
+                    onAction = {
+                        haptics.confirm()
+                        onClear()
+                    },
+                )
+            }
+            items(recents, key = { "r:$it" }) { entry ->
+                SearchEntryRow(
+                    text = entry,
+                    icon = Icons.Filled.History,
+                    onClick = { onPick(entry) },
+                    trailing = {
+                        IconButton(onClick = {
+                            haptics.click()
+                            onRemove(entry)
+                        }) {
+                            Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.search_remove_recent))
+                        }
+                    },
+                )
+            }
+        }
+    }
+}
+
+/** Ligne d'historique ou de suggestion : icône tonale, texte, action finale. */
+@Composable
+private fun SearchEntryRow(
+    text: String,
+    icon: ImageVector,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    trailing: @Composable () -> Unit,
+) {
+    val haptics = LocalAppHaptics.current
+    ListItem(
+        modifier = modifier
+            .clip(MaterialTheme.shapes.large)
+            .clickable {
+                haptics.click()
+                onClick()
+            },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        leadingContent = { ToneIconCircle(icon = icon, tone = IconTone.Neutral, size = 40.dp) },
+        headlineContent = { Text(text, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        trailingContent = trailing,
     )
 }
 
@@ -389,40 +510,43 @@ private fun SuggestionsContent(
     onClearRecent: () -> Unit,
     onRemoveRecent: (String) -> Unit,
 ) {
+    val haptics = LocalAppHaptics.current
     val showRecents = query.isBlank()
     val entries = if (showRecents) recents else suggestions
-    LazyColumn(modifier = Modifier.fillMaxSize()) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = Spacing.s, vertical = Spacing.s),
+    ) {
         if (showRecents && recents.isNotEmpty()) {
             item(key = "recents-header") {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text(
-                        text = stringResource(R.string.search_recent_title),
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    TextButton(onClick = onClearRecent) { Text(stringResource(R.string.search_clear_history)) }
-                }
+                SectionHeader(
+                    title = stringResource(R.string.search_recent_title),
+                    actionLabel = stringResource(R.string.search_clear_history),
+                    onAction = {
+                        haptics.confirm()
+                        onClearRecent()
+                    },
+                )
             }
         }
         items(entries, key = { (if (showRecents) "r:" else "s:") + it }) { entry ->
-            ListItem(
-                modifier = Modifier.clickable { onPick(entry) },
-                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                leadingContent = {
-                    Icon(if (showRecents) Icons.Filled.History else Icons.Filled.Search, contentDescription = null)
-                },
-                headlineContent = { Text(entry, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                trailingContent = {
+            SearchEntryRow(
+                text = entry,
+                icon = if (showRecents) Icons.Filled.History else Icons.Filled.Search,
+                onClick = { onPick(entry) },
+                trailing = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(onClick = { onFill(entry) }) {
+                        IconButton(onClick = {
+                            haptics.click()
+                            onFill(entry)
+                        }) {
                             Icon(Icons.AutoMirrored.Filled.CallMade, contentDescription = stringResource(R.string.search_use_suggestion))
                         }
                         if (showRecents) {
-                            IconButton(onClick = { onRemoveRecent(entry) }) {
+                            IconButton(onClick = {
+                                haptics.click()
+                                onRemoveRecent(entry)
+                            }) {
                                 Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.search_remove_recent))
                             }
                         }
@@ -443,6 +567,18 @@ private fun SearchScreenResultsPreview() {
     SpautifailleTheme(dynamicColor = false) {
         SearchScreen(
             state = SearchUiState(query = "titre", submittedQuery = "titre", results = PreviewTracks, nowPlayingId = "id1"),
+            onQueryChange = {}, onSearch = {}, onFilterSelected = {}, onTrackClick = {}, onLoadMore = {},
+            onRetry = {}, onClearRecent = {}, onOpenPlaylist = {}, onOpenArtist = {},
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun SearchScreenRecentsPreview() {
+    SpautifailleTheme(dynamicColor = false) {
+        SearchScreen(
+            state = SearchUiState(recentQueries = listOf("daft punk", "lofi hip hop", "stromae papaoutai")),
             onQueryChange = {}, onSearch = {}, onFilterSelected = {}, onTrackClick = {}, onLoadMore = {},
             onRetry = {}, onClearRecent = {}, onOpenPlaylist = {}, onOpenArtist = {},
         )
