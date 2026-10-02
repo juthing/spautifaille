@@ -2,6 +2,8 @@ package com.spautifaille.ui.components
 
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import java.time.LocalDate
+import java.util.Locale
 
 class FormatTest {
     @Test
@@ -21,5 +23,11 @@ class FormatTest {
     @Test
     fun `formatDuration borne les valeurs negatives`() {
         assertEquals("0:00", formatDuration(-5_000))
+    }
+
+    @Test
+    fun `formatUploadDate formate en francais`() {
+        assertEquals("12 mars 2021", formatUploadDate(LocalDate.of(2021, 3, 12), Locale.FRANCE))
+        assertEquals("1 janvier 2020", formatUploadDate(LocalDate.of(2020, 1, 1), Locale.FRANCE))
     }
 }

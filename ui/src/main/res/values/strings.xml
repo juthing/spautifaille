@@ -35,6 +35,8 @@
     <string name="common_playlist_name_label">Nom de la playlist</string>
 
     <string name="common_track_subtitle">%1$s · %2$s</string>
+    <string name="track_stats_views">%1$s de vues</string>
+    <string name="track_stats_likes">%1$s j\'aime</string>
     <string name="common_artist_subscribers">%1$s abonnés</string>
     <plurals name="common_track_count">
         <item quantity="one">%d titre</item>

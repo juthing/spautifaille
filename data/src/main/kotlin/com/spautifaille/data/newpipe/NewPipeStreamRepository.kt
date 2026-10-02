@@ -15,6 +15,7 @@ import com.spautifaille.domain.model.ResolvedStream
 import com.spautifaille.domain.model.SearchFilter
 import com.spautifaille.domain.model.SearchResult
 import com.spautifaille.domain.model.Track
+import com.spautifaille.domain.model.TrackStats
 import com.spautifaille.domain.repository.StreamRepository
 import com.spautifaille.domain.repository.TrackCache
 import kotlinx.coroutines.CancellationException
@@ -147,6 +148,24 @@ class NewPipeStreamRepository @Inject constructor(
         val chosen = AudioStreamSelector.select(candidates, quality)
             ?: throw AppException(AppError.NoAudioStream)
         buildResolvedStream(videoId, streams[chosen.index])
+    }
+
+    private val statsCache = object : LinkedHashMap<String, TrackStats>(STATS_CACHE_SIZE, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, TrackStats>?): Boolean =
+            size > STATS_CACHE_SIZE
+    }
+
+    override suspend fun trackStats(videoId: String): TrackStats {
+        synchronized(statsCache) { statsCache[videoId] }?.let { return it }
+        return call {
+            val info = StreamInfo.getInfo(service, watchUrl(videoId))
+            cachePut(listOf(NewPipeMappers.toTrack(info, videoId)))
+            TrackStats(
+                viewCount = info.viewCount.takeIf { it >= 0 },
+                likeCount = info.likeCount.takeIf { it >= 0 },
+                uploadDate = info.uploadDate?.offsetDateTime()?.toLocalDate(),
+            ).also { stats -> synchronized(statsCache) { statsCache[videoId] = stats } }
+        }
     }
 
     override suspend fun related(videoId: String): List<Track> = call {
@@ -327,5 +346,6 @@ class NewPipeStreamRepository @Inject constructor(
 
     private companion object {
         const val TAG = "NewPipeRepo"
+        const val STATS_CACHE_SIZE = 100
     }
 }

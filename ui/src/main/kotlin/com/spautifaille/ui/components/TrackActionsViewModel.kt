@@ -7,10 +7,12 @@ import com.spautifaille.domain.model.Download
 import com.spautifaille.domain.model.DownloadState
 import com.spautifaille.domain.model.Playlist
 import com.spautifaille.domain.model.Track
+import com.spautifaille.domain.model.TrackStats
 import com.spautifaille.domain.player.PlaybackController
 import com.spautifaille.domain.repository.DownloadRepository
 import com.spautifaille.domain.repository.LibraryRepository
 import com.spautifaille.domain.repository.PlaylistRepository
+import com.spautifaille.domain.repository.StreamRepository
 import com.spautifaille.ui.R
 import com.spautifaille.ui.common.NotificationPermissionRequester
 import com.spautifaille.ui.common.UiMessenger
@@ -19,6 +21,7 @@ import com.spautifaille.ui.common.toAppError
 import com.spautifaille.ui.common.toMessage
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -43,6 +46,13 @@ data class TrackActionsState(
         }
 }
 
+/** Statistiques affichées sous l'en-tête : chargement, valeurs, ou rien (erreur / hors ligne / aucune donnée). */
+sealed interface TrackStatsState {
+    data object Loading : TrackStatsState
+    data object Hidden : TrackStatsState
+    data class Loaded(val stats: TrackStats) : TrackStatsState
+}
+
 enum class DownloadStatus { NONE, IN_PROGRESS, DONE }
 
 /**
@@ -58,6 +68,7 @@ class TrackActionsViewModel @Inject constructor(
     private val downloadRepository: DownloadRepository,
     private val messenger: UiMessenger,
     private val notificationPermission: NotificationPermissionRequester,
+    private val streamRepository: StreamRepository,
 ) : ViewModel() {
 
     private val selectedTrackId = MutableStateFlow<String?>(null)
@@ -80,8 +91,28 @@ class TrackActionsViewModel @Inject constructor(
         .map { list -> list.filterNot { it.isSystem } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    private val _stats = MutableStateFlow<TrackStatsState>(TrackStatsState.Hidden)
+    val stats: StateFlow<TrackStatsState> = _stats
+    private var statsJob: Job? = null
+
     fun select(trackId: String) {
         selectedTrackId.value = trackId
+        loadStats(trackId)
+    }
+
+    private fun loadStats(trackId: String) {
+        statsJob?.cancel()
+        _stats.value = TrackStatsState.Loading
+        statsJob = viewModelScope.launch {
+            _stats.value = try {
+                val stats = streamRepository.trackStats(trackId)
+                if (stats.isEmpty) TrackStatsState.Hidden else TrackStatsState.Loaded(stats)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                TrackStatsState.Hidden
+            }
+        }
     }
 
     fun playNext(track: Track) {

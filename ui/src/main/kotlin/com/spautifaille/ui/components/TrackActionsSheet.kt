@@ -1,7 +1,12 @@
 package com.spautifaille.ui.components
 
 import androidx.annotation.StringRes
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.size
@@ -67,6 +72,7 @@ fun TrackActionsSheet(
 ) {
     LaunchedEffect(track.id) { viewModel.select(track.id) }
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val stats by viewModel.stats.collectAsStateWithLifecycle()
     var showPlaylistPicker by remember(track.id) { mutableStateOf(false) }
 
     if (showPlaylistPicker) {
@@ -77,6 +83,7 @@ fun TrackActionsSheet(
     TrackActionsSheetContent(
         track = track,
         state = state,
+        stats = stats,
         onDismiss = onDismiss,
         onPlayNext = { viewModel.playNext(track) },
         onAddToQueue = { viewModel.addToQueue(track) },
@@ -96,6 +103,7 @@ fun TrackActionsSheet(
 fun TrackActionsSheetContent(
     track: Track,
     state: TrackActionsState,
+    stats: TrackStatsState = TrackStatsState.Hidden,
     onDismiss: () -> Unit,
     onPlayNext: () -> Unit,
     onAddToQueue: () -> Unit,
@@ -146,6 +154,7 @@ fun TrackActionsSheetContent(
                 supportingContent = { Text(track.artist, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
             )
+            TrackStatsLine(stats)
             HorizontalDivider()
             if (isPlayable) {
                 ActionItem(Icons.AutoMirrored.Filled.PlaylistPlay, R.string.common_action_play_next) {
@@ -222,5 +231,34 @@ private fun ActionItem(
 internal fun CoroutineScope.hideSheet(sheetState: SheetState, onDismiss: () -> Unit) {
     launch { sheetState.hide() }.invokeOnCompletion {
         if (!sheetState.isVisible) onDismiss()
+    }
+}
+
+@Composable
+private fun TrackStatsLine(stats: TrackStatsState) {
+    when (stats) {
+        TrackStatsState.Hidden -> Unit
+        TrackStatsState.Loading -> Box(
+            modifier = Modifier
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .size(width = 180.dp, height = 14.dp)
+                .clip(MaterialTheme.shapes.small)
+                .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+        )
+        is TrackStatsState.Loaded -> {
+            val parts = listOfNotNull(
+                stats.stats.viewCount?.let { stringResource(R.string.track_stats_views, formatCompactCount(it)) },
+                stats.stats.likeCount?.let { stringResource(R.string.track_stats_likes, formatCompactCount(it)) },
+                stats.stats.uploadDate?.let { formatUploadDate(it) },
+            )
+            Text(
+                text = parts.joinToString(" \u00b7 "),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            )
+        }
     }
 }
