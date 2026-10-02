@@ -51,7 +51,7 @@ jobs:
           echo "Keystore release décodé."
 
       - name: Unit tests
-        run: ./gradlew testDebugUnitTest --stacktrace
+        run: ./gradlew testDebugUnitTest --stacktrace --refresh-dependencies
 
       - name: Lint
         run: ./gradlew lintDebug
