@@ -24,4 +24,6 @@ data class AppSettings(
     /** Clé Last.fm saisie par l'utilisateur (jamais embarquée dans l'APK). Réservé à une extension future. */
     val lastFmApiKey: String? = null,
     val contentCountry: String = "FR",
+    /** « Volume égal entre les titres » : ramène chaque titre au même niveau perçu. */
+    val normalizeVolume: Boolean = true,
 )

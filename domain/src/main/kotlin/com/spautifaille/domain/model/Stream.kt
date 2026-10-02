@@ -19,4 +19,9 @@ data class ResolvedStream(
     val expiresAtMs: Long,
     /** Manifeste DASH (XML) quand le flux n'est pas progressif. */
     val dashManifest: String? = null,
+    /**
+     * Niveau sonore du titre relatif à la cible de YouTube (-14 LUFS), en dB : positif = plus fort. `null` si
+     * YouTube ne l'annonce pas. Stable par vidéo (contrairement à l'URL), donc mémorisable : voir `LoudnessStore`.
+     */
+    val loudnessDb: Float? = null,
 )

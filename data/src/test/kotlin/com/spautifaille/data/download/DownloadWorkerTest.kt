@@ -67,6 +67,7 @@ class DownloadWorkerTest {
         override suspend fun setColorSource(source: ColorSource) = Unit
         override suspend fun setStreamCacheSizeMb(sizeMb: Int) = Unit
         override suspend fun setLastFmApiKey(key: String?) = Unit
+        override suspend fun setNormalizeVolume(enabled: Boolean) = Unit
     }
 
     private lateinit var context: Context

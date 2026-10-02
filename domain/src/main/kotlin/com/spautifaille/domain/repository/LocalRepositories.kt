@@ -66,6 +66,7 @@ interface SettingsRepository {
     suspend fun setColorSource(source: ColorSource)
     suspend fun setStreamCacheSizeMb(sizeMb: Int)
     suspend fun setLastFmApiKey(key: String?)
+    suspend fun setNormalizeVolume(enabled: Boolean)
 }
 
 interface DownloadRepository {

@@ -22,11 +22,20 @@ import javax.inject.Singleton
  * - Cookies : `youtube_restricted_mode_key` (désactivé par défaut) + cookies reCAPTCHA éventuels.
  * - HTTP 429 -> [ReCaptchaException] ; les autres réponses non 2xx sont RENVOYÉES, jamais levées.
  *
+ * Les réponses 2xx de l'endpoint `player` d'InnerTube sont aussi transmises à [PlayerLoudnessRecorder]
+ * (niveau sonore pour la normalisation du volume).
+ *
  * Le client partagé est dérivé (`newBuilder`) : même pool de connexions et dispatcher, mais timeout de
  * lecture de 30 s et décompression gzip/brotli propres au Downloader.
  */
 @Singleton
-class OkHttpDownloader @Inject constructor(sharedClient: OkHttpClient) : Downloader() {
+class OkHttpDownloader @Inject constructor(
+    sharedClient: OkHttpClient,
+    private val loudnessRecorder: PlayerLoudnessRecorder,
+) : Downloader() {
+
+    /** Sans mémorisation du niveau sonore (tests, usages hors injection). */
+    constructor(sharedClient: OkHttpClient) : this(sharedClient, PlayerLoudnessRecorder(NoOpLoudnessStore))
 
     private val client: OkHttpClient = sharedClient.newBuilder()
         .readTimeout(30, TimeUnit.SECONDS)
@@ -92,6 +101,8 @@ class OkHttpDownloader @Inject constructor(sharedClient: OkHttpClient) : Downloa
                 throw ReCaptchaException("reCaptcha Challenge requested", url)
             }
             val responseBody = response.body.string()
+            // NewPipeExtractor n'expose pas le niveau sonore de la réponse `player` : on le relève au passage.
+            if (response.isSuccessful) loudnessRecorder.onResponse(url, responseBody)
             return Response(
                 response.code,
                 response.message,

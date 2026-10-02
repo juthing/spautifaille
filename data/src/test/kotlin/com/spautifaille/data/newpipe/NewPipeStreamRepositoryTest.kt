@@ -20,7 +20,7 @@ class NewPipeStreamRepositoryTest {
     private val initializer = mockk<NewPipeInitializer>(relaxed = true)
 
     private fun repo(dispatcher: kotlinx.coroutines.CoroutineDispatcher) =
-        NewPipeStreamRepository(initializer, cache, dispatcher)
+        NewPipeStreamRepository(initializer, cache, dispatcher, FakeLoudnessStore())
 
     @Test fun trackIsAnsweredFromCacheWithoutInitializingNewPipe() = runTest {
         val cached = Track(id = "dQw4w9WgXcQ", title = "t", artist = "a")
