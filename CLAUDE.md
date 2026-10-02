@@ -9,7 +9,7 @@ Priorités : robustesse, architecture propre, intégration système parfaite, Ma
 - Gradle 9.6.0, JDK 21 (bytecode 17), Kotlin 2.4.20, KSP 2.3.12
 - compileSdk/targetSdk 37, minSdk 26, core library desugaring (`desugar_jdk_libs_nio`, requis par NewPipe)
 - Compose BOM 2026.09.00 (Material 3 1.4.0), `material-icons-extended` (**toujours `Icons.Filled`**), navigation-suite, Navigation Compose 2.10 (routes typées `@Serializable`)
-- Media3 1.11.1, Room 2.8.5, Hilt 2.60.1, WorkManager 2.12.0, DataStore 1.2.1, Coil 3.6.3, OkHttp 5.5.0, material-color-utilities 5.0.1 (thème « Musique en cours » : HCT, `SchemeTonalSpot`, quantification Celebi)
+- Media3 1.11.1, Room 2.8.5, Hilt 2.60.1, WorkManager 2.12.0, DataStore 1.2.1, Coil 3.6.3, OkHttp 5.5.0, material-color-utilities 5.0.1 (HCT, `SchemeTonalSpot` : base du thème « Musique en cours »), Palette 1.0.0 (couleur source des pochettes)
 - NewPipeExtractor : commit épinglé (voir « Mettre à jour NewPipeExtractor »)
 
 ## Modules
@@ -58,6 +58,9 @@ CI : `.github/workflows/android.yml` (tests, lint, APK debug + release en artefa
 - Espacements, largeurs et tailles dans `ui/theme/Dimens.kt` (`Spacing`, `ScreenHorizontalPadding`, `SectionSpacing`, `ListBottomPadding`, `ContentMaxWidth`, `ArtworkSize`) plutôt que des `dp` en dur. États vides / erreur / chargement : `EmptyState`, `ErrorState`, `LoadingState` (`ui/components/States.kt`).
 - En-têtes d'écran : `TopAppBar` standard (jamais `LargeTopAppBar` : grand blanc en haut). Navigation : 3 onglets racine (Accueil, Bibliothèque, Réglages) ; la recherche est un écran poussé depuis l'Accueil (`SearchRoute`).
 - Tests : JUnit4 + kotlinx-coroutines-test + Turbine + MockK ; Robolectric pour Room/Android. Tests obligatoires : parsers d'import, scoring du matching, use cases, filtrage des recommandations, DAO + migrations.
+
+## Couleurs « Musique en cours »
+Une seule chaîne, partagée par le thème global (`ColorSource.NOW_PLAYING`, `SpautifailleAppUi`) et le lecteur plein écran (`PlayerColorScheme`) : `ui/theme/ArtworkSeedColor.kt` (`rememberArtworkSeedColor(url)` : Coil 128 px + Palette, swatch vibrant, cache LRU partagé) → `ui/theme/ArtworkColors.kt` (`deriveArtworkColors` : accent `primary*` en HSL à contraste garanti) → `ui/theme/SeedColorScheme.kt` (`nowPlayingColorScheme` : surfaces/secondary/tertiary en `SchemeTonalSpot`, `primary*` et `surfaceTint` repris de `deriveArtworkColors`). Le grand lecteur n'a donc jamais d'accent différent de celui de l'application ; ne pas recréer d'extraction ni de dérivation parallèle.
 
 ## Architecture de lecture
 - `PlaybackService` (MediaLibraryService, foreground `mediaPlayback`) possède l'ExoPlayer et la MediaSession. L'UI passe par `PlaybackController` (MediaController) : le player ne vit jamais dans l'UI.
