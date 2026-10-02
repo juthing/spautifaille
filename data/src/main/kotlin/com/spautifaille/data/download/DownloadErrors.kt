@@ -26,7 +26,10 @@ internal class DownloadMessages(private val context: Context) {
             AppError.StreamExpired -> R.string.data_download_error_stream_expired
             AppError.NoAudioStream -> R.string.data_download_error_no_audio
             is AppError.ExtractionBroken -> R.string.data_download_error_extraction
-            is AppError.Unknown -> R.string.data_download_error_unknown
+            is AppError.Unknown,
+            AppError.MicrophoneUnavailable,
+            AppError.RecognitionUnavailable,
+            -> R.string.data_download_error_unknown
         },
     )
 }

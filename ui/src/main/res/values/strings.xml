@@ -63,6 +63,8 @@
     <string name="apperror_stream_expired">Le lien de lecture a expiré. Réessaie.</string>
     <string name="apperror_no_audio_stream">Aucun flux audio exploitable pour ce titre.</string>
     <string name="apperror_extraction_broken">L\'extraction a échoué : YouTube a probablement changé. Mets l\'application à jour.</string>
+    <string name="apperror_microphone_unavailable">Impossible d\'utiliser le micro. Vérifie qu\'une autre application ne l\'utilise pas.</string>
+    <string name="apperror_recognition_unavailable">Le service de reconnaissance est indisponible pour le moment. Réessaie plus tard.</string>
     <string name="apperror_unknown">Une erreur inattendue s\'est produite.</string>
 
     <!-- Accueil -->
@@ -86,6 +88,28 @@
     <string name="search_filter_albums">Albums</string>
     <string name="search_filter_playlists">Playlists</string>
     <string name="search_filter_artists">Artistes</string>
+
+    <!-- Reconnaissance musicale -->
+    <string name="search_recognize_action">Reconnaître un titre</string>
+    <string name="recognition_listening_title">À l\'écoute…</string>
+    <string name="recognition_listening_hint">Approche ton téléphone de la musique.</string>
+    <string name="recognition_listening_progress">Écoute en cours, %1$d secondes sur %2$d</string>
+    <string name="recognition_identifying_title">Identification…</string>
+    <string name="recognition_identifying_hint">Un instant, on cherche ce titre.</string>
+    <string name="recognition_found_title">Titre reconnu</string>
+    <string name="recognition_searching">Recherche en cours…</string>
+    <string name="recognition_play">Lire</string>
+    <string name="recognition_see_results">Voir les résultats</string>
+    <string name="recognition_no_match_title">Aucun titre reconnu</string>
+    <string name="recognition_no_match_message">Rapproche-toi de la source, limite les bruits ambiants et réessaie.</string>
+    <string name="recognition_error_title">Reconnaissance impossible</string>
+    <string name="recognition_permission_title">Accès au micro nécessaire</string>
+    <string name="recognition_permission_message">Spautifaille écoute la musique autour de toi pour la reconnaître. Rien n\'est enregistré : seule une empreinte de l\'extrait est envoyée au service de reconnaissance.</string>
+    <string name="recognition_permission_denied_message">Sans accès au micro, la reconnaissance est impossible.</string>
+    <string name="recognition_permission_settings_message">L\'accès au micro est refusé. Autorise-le dans les paramètres de l\'application pour reconnaître un titre.</string>
+    <string name="recognition_permission_grant">Autoriser</string>
+    <string name="recognition_open_settings">Ouvrir les paramètres</string>
+    <string name="recognition_close">Fermer</string>
 
     <!-- Lecteur -->
     <string name="player_collapse">Réduire le lecteur</string>

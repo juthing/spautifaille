@@ -20,6 +20,8 @@ class AppErrorMessagesTest {
         AppError.StreamExpired,
         AppError.NoAudioStream,
         AppError.ExtractionBroken("détail"),
+        AppError.MicrophoneUnavailable,
+        AppError.RecognitionUnavailable,
         AppError.Unknown("détail"),
     )
 

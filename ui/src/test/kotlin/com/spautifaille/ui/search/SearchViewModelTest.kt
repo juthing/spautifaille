@@ -123,6 +123,23 @@ class SearchViewModelTest {
     }
 
     @Test
+    fun `une recherche issue de la reconnaissance force le filtre Titres`() = runTest {
+        collectState()
+        coEvery { stream.search(any(), any(), null) } returns Paged(results(1..2), next = null)
+        viewModel.onFilterSelected(SearchFilter.PLAYLISTS)
+
+        viewModel.onRecognizedQuery("Papaoutai Stromae")
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(SearchFilter.SONGS, state.filter)
+        assertEquals("Papaoutai Stromae", state.submittedQuery)
+        assertEquals(2, state.results.size)
+        coVerify(exactly = 1) { stream.search("Papaoutai Stromae", SearchFilter.SONGS, null) }
+        coVerify(exactly = 0) { stream.search(any(), SearchFilter.PLAYLISTS, any()) }
+    }
+
+    @Test
     fun `une recherche en echec expose l erreur puis retry la relance`() = runTest {
         collectState()
         coEvery { stream.search("q", SearchFilter.SONGS, null) } throws AppException(AppError.Network)

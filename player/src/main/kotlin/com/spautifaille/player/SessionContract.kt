@@ -195,6 +195,8 @@ object AppErrorCodec {
         AppError.NoAudioStream -> NO_AUDIO_STREAM
         is AppError.ExtractionBroken -> withDetail(EXTRACTION_BROKEN, error.detail)
         is AppError.Unknown -> withDetail(UNKNOWN, error.detail)
+        // Erreurs de reconnaissance musicale : ne traversent jamais la session média.
+        AppError.MicrophoneUnavailable, AppError.RecognitionUnavailable -> UNKNOWN
     }
 
     fun decode(code: String?): AppError {

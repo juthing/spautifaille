@@ -123,6 +123,12 @@ class SearchViewModel @Inject constructor(
         runSearch()
     }
 
+    /** Recherche issue de la reconnaissance musicale : toujours sur les titres, quel que soit le filtre courant. */
+    fun onRecognizedQuery(query: String) {
+        internal.update { it.copy(filter = SearchFilter.SONGS) }
+        onSearch(query)
+    }
+
     fun onFilterSelected(filter: SearchFilter) {
         if (filter == internal.value.filter) return
         internal.update { it.copy(filter = filter) }

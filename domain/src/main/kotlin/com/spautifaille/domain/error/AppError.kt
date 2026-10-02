@@ -17,11 +17,15 @@ sealed interface AppError {
     /** Aucun flux audio exploitable. */
     data object NoAudioStream : AppError
     /** L'extraction a échoué (YouTube a changé) : il faut probablement mettre à jour NewPipeExtractor. */
+    /** Le micro ne peut pas être ouvert (permission retirée, utilisé par une autre application). */
+    data object MicrophoneUnavailable : AppError
+    /** Le service de reconnaissance musicale refuse ou limite les requêtes (HTTP 429, changement d'API). Récupérable plus tard. */
+    data object RecognitionUnavailable : AppError
     data class ExtractionBroken(val detail: String?) : AppError
     data class Unknown(val detail: String?) : AppError
 
     val isRecoverable: Boolean
-        get() = this is Network || this is StreamExpired || this is BotDetected
+        get() = this is Network || this is StreamExpired || this is BotDetected || this is RecognitionUnavailable
 }
 
 class AppException(val error: AppError, cause: Throwable? = null) :
