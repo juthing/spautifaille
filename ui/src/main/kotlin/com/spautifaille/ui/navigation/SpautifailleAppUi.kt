@@ -72,8 +72,8 @@ import com.spautifaille.ui.player.PlayerActions
 import com.spautifaille.ui.player.PlayerTransition
 import com.spautifaille.ui.player.PlayerViewModel
 import com.spautifaille.ui.theme.Spacing
-import com.spautifaille.ui.theme.rememberNowPlayingSchemes
 import com.spautifaille.ui.theme.SpautifailleTheme
+import com.spautifaille.ui.theme.rememberArtworkSeedColor
 import kotlinx.coroutines.flow.collectLatest
 
 /**
@@ -90,14 +90,13 @@ fun SpautifailleAppUi(
     val theme by appViewModel.themeSettings.collectAsStateWithLifecycle()
     val loaded = theme
     val colorSource = loaded?.colorSource ?: ColorSource.DYNAMIC
-    val nowPlayingSchemes by rememberNowPlayingSchemes(
-        artworkUrl = loaded?.nowPlayingArtworkUrl,
-        enabled = colorSource == ColorSource.NOW_PLAYING,
-    )
+    // Même extraction (et même cache) que le lecteur plein écran : l'application prend les couleurs du grand lecteur.
+    // `nowPlayingArtworkUrl` n'est renseignée que pour la source « Musique en cours ».
+    val nowPlayingSeed by rememberArtworkSeedColor(loaded?.nowPlayingArtworkUrl)
     SpautifailleTheme(
         themeMode = loaded?.themeMode ?: ThemeMode.SYSTEM,
         colorSource = colorSource,
-        nowPlayingSchemes = nowPlayingSchemes,
+        nowPlayingSeed = nowPlayingSeed,
     ) {
         if (loaded == null) {
             // Réglages en cours de chargement : fond neutre pour éviter un flash du mauvais thème.

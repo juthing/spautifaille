@@ -1,7 +1,6 @@
 package com.spautifaille.player.artwork
 
 import kotlin.math.abs
-import kotlin.math.min
 import kotlin.math.roundToInt
 
 /** Rectangle de pixels, bornes droite et basse exclues. */
@@ -11,38 +10,14 @@ internal data class PixelRect(val left: Int, val top: Int, val right: Int, val b
     val aspect: Float get() = width.toFloat() / height
 }
 
-/** Comment fabriquer l'affiche paysage à partir d'une image source. */
-internal sealed interface ArtworkPlan {
-    /** Image 16:9 (ou presque) : on en recadre [source] au centre en 16:9 et on remplit toute l'affiche. */
-    data class Fill(val source: PixelRect) : ArtworkPlan
-
-    /**
-     * Image carrée / 4:3 / très large : [content] est posée en [destination] par-dessus une version agrandie et
-     * floue de [backgroundSource] (même contenu recadré en 16:9) qui remplit l'affiche.
-     */
-    data class Fit(
-        val content: PixelRect,
-        val destination: PixelRect,
-        val backgroundSource: PixelRect,
-    ) : ArtworkPlan
-}
-
 /**
  * Géométrie pure (sans API Android, donc testable en JVM) de l'affiche paysage du lecteur système :
- * détection des bandes noires d'une miniature (letterbox / pillarbox) et plan de composition.
+ * détection des bandes noires d'une miniature (letterbox / pillarbox) et recadrage central en 16:9.
  */
 internal object ArtworkLayout {
     const val CANVAS_WIDTH = 1_280
     const val CANVAS_HEIGHT = 720
     const val TARGET_ASPECT = CANVAS_WIDTH.toFloat() / CANVAS_HEIGHT
-
-    /** Hauteur de la pochette posée sur le fond flou, en proportion de la hauteur de l'affiche. */
-    private const val FOREGROUND_HEIGHT_RATIO = 0.8f
-    private const val FOREGROUND_MAX_WIDTH_RATIO = 0.9f
-
-    /** Entre ces rapports (largeur / hauteur), l'image remplit l'affiche (recadrage central) au lieu d'être posée sur un fond flou. */
-    private const val FILL_MIN_ASPECT = 1.5f
-    private const val FILL_MAX_ASPECT = 2.5f
 
     // --- Détection des bandes ---
 
@@ -133,20 +108,14 @@ internal object ArtworkLayout {
         return dark >= (toY - fromY) * BAR_DARK_RATIO
     }
 
-    // --- Plan de composition ---
+    // --- Recadrage ---
 
-    fun plan(content: PixelRect): ArtworkPlan {
-        val background = centerCrop(content, TARGET_ASPECT)
-        if (content.aspect in FILL_MIN_ASPECT..FILL_MAX_ASPECT) return ArtworkPlan.Fill(background)
-        val boxWidth = CANVAS_WIDTH * FOREGROUND_MAX_WIDTH_RATIO
-        val boxHeight = CANVAS_HEIGHT * FOREGROUND_HEIGHT_RATIO
-        val scale = min(boxWidth / content.width, boxHeight / content.height)
-        val w = (content.width * scale).roundToInt().coerceAtLeast(1)
-        val h = (content.height * scale).roundToInt().coerceAtLeast(1)
-        val left = (CANVAS_WIDTH - w) / 2
-        val top = (CANVAS_HEIGHT - h) / 2
-        return ArtworkPlan.Fit(content, PixelRect(left, top, left + w, top + h), background)
-    }
+    /**
+     * Zone de [content] (zone utile, bandes noires déjà retirées) à afficher : le plus grand rectangle 16:9 centré,
+     * pour que l'image remplisse toute l'affiche sans bande ni fond. Une pochette carrée perd donc ~44 % de sa hauteur
+     * (moitié en haut, moitié en bas).
+     */
+    fun cropRegion(content: PixelRect): PixelRect = centerCrop(content, TARGET_ASPECT)
 
     /** Plus grand rectangle centré de [rect] d'aspect [aspect]. */
     fun centerCrop(rect: PixelRect, aspect: Float): PixelRect {
@@ -159,60 +128,6 @@ internal object ArtworkLayout {
             val h = (rect.width / aspect).roundToInt().coerceIn(1, rect.height)
             val top = rect.top + (rect.height - h) / 2
             PixelRect(rect.left, top, rect.right, top + h)
-        }
-    }
-
-    // --- Flou ---
-
-    /**
-     * Flou boîte séparable (somme glissante), [passes] fois, rayon [radius] px, sur [pixels] ARGB opaques
-     * (modifié sur place). Utilisé sur une image minuscule, puis agrandie en bilinéaire : sans RenderScript, ni
-     * `RenderEffect` (qui n'existe que pour les vues).
-     */
-    fun boxBlur(pixels: IntArray, width: Int, height: Int, radius: Int, passes: Int) {
-        if (radius <= 0 || passes <= 0 || width == 0 || height == 0) return
-        val temp = IntArray(pixels.size)
-        repeat(passes) {
-            blurLines(pixels, temp, width, height, radius, horizontal = true)
-            blurLines(temp, pixels, width, height, radius, horizontal = false)
-        }
-    }
-
-    private fun blurLines(src: IntArray, dst: IntArray, width: Int, height: Int, radius: Int, horizontal: Boolean) {
-        val lines = if (horizontal) height else width
-        val length = if (horizontal) width else height
-        for (line in 0 until lines) {
-            fun index(i: Int) = if (horizontal) line * width + i else i * width + line
-            var r = 0
-            var g = 0
-            var b = 0
-            // Fenêtre [i - radius, i + radius] tronquée aux bords.
-            for (i in 0..min(radius, length - 1)) {
-                val p = src[index(i)]
-                r += (p shr 16) and 0xFF
-                g += (p shr 8) and 0xFF
-                b += p and 0xFF
-            }
-            for (i in 0 until length) {
-                val from = (i - radius).coerceAtLeast(0)
-                val to = min(i + radius, length - 1)
-                val count = to - from + 1
-                dst[index(i)] = (0xFF shl 24) or ((r / count) shl 16) or ((g / count) shl 8) or (b / count)
-                val leaving = i - radius
-                if (leaving >= 0) {
-                    val p = src[index(leaving)]
-                    r -= (p shr 16) and 0xFF
-                    g -= (p shr 8) and 0xFF
-                    b -= p and 0xFF
-                }
-                val entering = i + radius + 1
-                if (entering < length) {
-                    val p = src[index(entering)]
-                    r += (p shr 16) and 0xFF
-                    g += (p shr 8) and 0xFF
-                    b += p and 0xFF
-                }
-            }
         }
     }
 }

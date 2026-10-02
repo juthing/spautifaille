@@ -4,7 +4,7 @@ package com.spautifaille.domain.model
  * Réécriture des URL de miniatures pour l'affichage en grand. Les URL stockées (`Track.thumbnailUrl`) restent
  * celles choisies par `:data` (<= ~720 px, adaptées aux listes) ; ce helper pur en dérive une version haute
  * résolution carrée pour le lecteur plein écran. [landscapeCandidates] en dérive les sources d'une affiche
- * paysage 16:9 (carte média de l'écran de verrouillage, notification), recadrée ensuite par `:player`.
+ * paysage 16:9 (carte média de l'écran de verrouillage, notification), recadrée au centre par `:player`.
  */
 object ArtworkUrls {
     private const val MIN_SIZE_PX = 64
@@ -43,10 +43,11 @@ object ArtworkUrls {
     /**
      * Sources, à essayer dans l'ordre, pour fabriquer une affiche paysage 16:9 du titre ([videoId] facultatif : à
      * défaut il est lu dans l'URL d'une miniature YouTube). Les images renvoyées ne sont PAS toutes en 16:9 : le
-     * consommateur les recadre / les compose (miniatures 4:3 à bandes noires, pochettes carrées).
+     * consommateur les recadre au centre en 16:9 plein cadre (miniatures 4:3 à bandes noires retirées, pochettes carrées
+     * dont le haut et le bas sont coupés).
      *
      * - pochette `googleusercontent.com` / `ggpht.com` (titres YouTube Music) : la pochette carrée haute résolution
-     *   (1200 px), que l'affiche met en valeur sur un fond flou, puis l'URL d'origine ;
+     *   (1200 px), recadrée au centre, puis l'URL d'origine ;
      * - miniature YouTube (ou titre sans miniature mais avec [videoId]) : `maxresdefault` (1280x720, peut être
      *   absente), `sddefault` (640x480, 4:3 avec bandes), `hqdefault` (480x360, 4:3 avec bandes, toujours présente),
      *   puis l'URL d'origine ;

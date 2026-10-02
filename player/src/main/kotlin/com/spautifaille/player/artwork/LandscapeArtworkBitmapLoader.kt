@@ -22,8 +22,9 @@ import kotlinx.coroutines.withContext
 /**
  * [BitmapLoader] de la `MediaSession` : c'est lui qui fournit l'image du lecteur système (carte média de l'écran
  * de verrouillage et des réglages rapides, grande icône de la notification, écran « en cours » d'Android Auto).
- * Il renvoie une **affiche paysage 16:9** (voir [LandscapeArtworkComposer]) alors que `MediaMetadata.artworkUri`
- * reste la vignette carrée : l'UI de l'application, qui lit `artworkUri`, ne change pas.
+ * Il renvoie une **affiche paysage 16:9**, l'image recadrée au centre en plein cadre, sans bande ni fond (voir
+ * [LandscapeArtworkComposer]) : une pochette carrée y perd le haut et le bas. `MediaMetadata.artworkUri` reste la
+ * vignette carrée : l'UI de l'application, qui lit `artworkUri`, ne change pas.
  *
  * - Les sources viennent de [ArtworkUrls.landscapeCandidates] (maxresdefault, sddefault... ou pochette HD) et sont
  *   essayées dans l'ordre via [delegate] ; une image trop petite (placeholder YouTube) est ignorée.

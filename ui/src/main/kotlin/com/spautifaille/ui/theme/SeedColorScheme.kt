@@ -2,57 +2,47 @@ package com.spautifaille.ui.theme
 
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.lightColorScheme
-import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import com.materialkolor.dynamiccolor.DynamicColor
 import com.materialkolor.dynamiccolor.MaterialDynamicColors
 import com.materialkolor.hct.Hct
-import com.materialkolor.quantize.QuantizerCelebi
+import com.materialkolor.scheme.DynamicScheme
 import com.materialkolor.scheme.SchemeTonalSpot
-import com.materialkolor.score.Score
 import com.spautifaille.domain.model.ColorSource
 
 /*
- * Génération d'un schéma Material 3 complet à partir d'une couleur source (thème « Musique en cours »).
- * Algorithme officiel de Material (HCT) via `material-color-utilities` : quantification Celebi + Score pour
- * choisir la couleur source dans la pochette, puis `SchemeTonalSpot` pour tous les rôles de couleur.
+ * Schéma M3 du thème « Musique en cours » : il est bâti sur la couleur source extraite de la pochette par
+ * `rememberArtworkSeedColor` (la même que celle du lecteur plein écran). Les rôles d'accent `primary*` viennent de
+ * `deriveArtworkColors` (exactement ceux du grand lecteur) ; tout le reste (surfaces, secondary, tertiary, erreurs,
+ * contours...) est la palette « tonal spot » de Material (HCT, `material-color-utilities`) de la même couleur source,
+ * pour que l'application entière reste cohérente et lisible en clair comme en sombre.
  * Logique pure (aucune dépendance Android) : testable en JVM.
  */
 
-/** Nombre de couleurs conservées par la quantification. */
-private const val QUANTIZER_MAX_COLORS = 128
-
-/** Schémas clair et sombre générés depuis une même couleur [seed] (ARGB). */
-@Immutable
-internal data class SeedSchemes(val seed: Int, val light: ColorScheme, val dark: ColorScheme) {
-    fun forMode(dark: Boolean): ColorScheme = if (dark) this.dark else light
-}
-
-/** Génère les deux schémas à partir de [seed]. */
-internal fun seedSchemes(seed: Int): SeedSchemes =
-    SeedSchemes(seed = seed, light = seedColorScheme(seed, dark = false), dark = seedColorScheme(seed, dark = true))
-
 /**
- * Choisit la couleur source d'une image à partir de ses [pixels] (ARGB) : quantification Celebi puis `Score`
- * (privilégie les teintes saturées et bien représentées). Pour une image presque grise, que `Score` écarte,
- * retombe sur la couleur la plus fréquente afin de produire un schéma neutre plutôt que rien. `null` si
- * [pixels] est vide ou entièrement transparent.
+ * Schéma de l'application pour la couleur source [seed] (pochette en cours), clair ou sombre. Ses rôles `primary`,
+ * `onPrimary`, `primaryContainer` et `onPrimaryContainer` sont ceux que le lecteur plein écran affiche pour [seed] ;
+ * `surfaceTint` suit `primary` (teinte d'élévation des surfaces).
  */
-internal fun seedColorFromPixels(pixels: IntArray): Int? {
-    val opaque = pixels.filter { (it ushr ALPHA_SHIFT) == OPAQUE }.toIntArray()
-    if (opaque.isEmpty()) return null
-    val quantized = QuantizerCelebi.quantize(opaque, QUANTIZER_MAX_COLORS)
-    if (quantized.isEmpty()) return null
-    Score.score(quantized, desired = 1, fallbackColorArgb = null).firstOrNull()?.let { return it }
-    return quantized.maxByOrNull { it.value }?.key
+internal fun nowPlayingColorScheme(seed: Color, dark: Boolean): ColorScheme {
+    val base = tonalSpotColorScheme(seed.toArgb(), dark)
+    val accent = deriveArtworkColors(seed, base, dark)
+    return base.copy(
+        primary = accent.primary,
+        onPrimary = accent.onPrimary,
+        primaryContainer = accent.primaryContainer,
+        onPrimaryContainer = accent.onPrimaryContainer,
+        surfaceTint = accent.primary,
+    )
 }
-
-private const val ALPHA_SHIFT = 24
-private const val OPAQUE = 0xFF
 
 /** Schéma M3 « tonal spot » (celui de Material You) de couleur source [seedArgb]. */
-internal fun seedColorScheme(seedArgb: Int, dark: Boolean): ColorScheme {
-    val scheme = SchemeTonalSpot(sourceColorHct = Hct.fromInt(seedArgb), isDark = dark, contrastLevel = 0.0)
+internal fun tonalSpotColorScheme(seedArgb: Int, dark: Boolean): ColorScheme =
+    materialColorScheme(SchemeTonalSpot(sourceColorHct = Hct.fromInt(seedArgb), isDark = dark, contrastLevel = 0.0))
+
+/** Tous les rôles Material 3 de [scheme] (HCT), en `ColorScheme` Compose. */
+internal fun materialColorScheme(scheme: DynamicScheme): ColorScheme {
     val roles = MaterialDynamicColors()
     fun DynamicColor.color(): Color = Color(getArgb(scheme))
     // Tous les rôles sont fournis : les valeurs par défaut de light/darkColorScheme ne servent pas.
@@ -112,19 +102,19 @@ internal fun seedColorScheme(seedArgb: Int, dark: Boolean): ColorScheme {
 internal enum class ResolvedPalette { STATIC, DYNAMIC, NOW_PLAYING }
 
 /**
- * Choisit la palette à appliquer. « Musique en cours » sans schéma disponible (rien ne joue, pochette absente
- * ou illisible) retombe sur le thème dynamique si l'appareil le permet (Android 12+), sinon sur le thème normal.
+ * Choisit la palette à appliquer. « Musique en cours » sans couleur source (rien ne joue, pochette absente ou
+ * illisible) retombe sur le thème dynamique si l'appareil le permet (Android 12+), sinon sur le thème normal.
  */
 internal fun resolvePalette(
     source: ColorSource,
     dynamicSupported: Boolean,
-    hasNowPlayingScheme: Boolean,
+    hasNowPlayingSeed: Boolean,
 ): ResolvedPalette = when (source) {
     ColorSource.STATIC -> ResolvedPalette.STATIC
     ColorSource.DYNAMIC ->
         if (dynamicSupported) ResolvedPalette.DYNAMIC else ResolvedPalette.STATIC
     ColorSource.NOW_PLAYING -> when {
-        hasNowPlayingScheme -> ResolvedPalette.NOW_PLAYING
+        hasNowPlayingSeed -> ResolvedPalette.NOW_PLAYING
         dynamicSupported -> ResolvedPalette.DYNAMIC
         else -> ResolvedPalette.STATIC
     }
