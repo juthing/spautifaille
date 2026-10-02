@@ -71,6 +71,7 @@ import com.spautifaille.domain.model.Track
 import com.spautifaille.ui.R
 import com.spautifaille.ui.common.LocalAppHaptics
 import com.spautifaille.ui.common.toMessage
+import com.spautifaille.ui.components.AppButtonDefaults
 import com.spautifaille.ui.components.Artwork
 import com.spautifaille.ui.components.EmptyState
 import com.spautifaille.ui.components.ErrorState
@@ -351,6 +352,7 @@ private fun ArtistHeader(
                         actions.onPlayAll(false)
                     },
                     enabled = hasTracks,
+                    colors = AppButtonDefaults.filledColors(),
                     modifier = Modifier.weight(1f),
                 ) {
                     Icon(Icons.Filled.PlayArrow, contentDescription = null, Modifier.size(18.dp))
@@ -362,6 +364,7 @@ private fun ArtistHeader(
                         actions.onPlayAll(true)
                     },
                     enabled = hasTracks,
+                    colors = AppButtonDefaults.tonalColors(),
                     modifier = Modifier.weight(1f),
                 ) {
                     Icon(Icons.Filled.Shuffle, contentDescription = null, Modifier.size(18.dp))

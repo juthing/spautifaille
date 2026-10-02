@@ -6,7 +6,9 @@ import androidx.lifecycle.viewModelScope
 import com.spautifaille.domain.model.Playlist
 import com.spautifaille.domain.model.Track
 import com.spautifaille.domain.player.PlaybackController
+import com.spautifaille.domain.player.QueueSources
 import com.spautifaille.domain.repository.DownloadRepository
+import com.spautifaille.domain.repository.OfflineAvailability
 import com.spautifaille.domain.repository.PlaylistRepository
 import com.spautifaille.ui.R
 import com.spautifaille.ui.common.NotificationPermissionRequester
@@ -17,6 +19,7 @@ import com.spautifaille.ui.playlist.availableTracks
 import com.spautifaille.ui.playlist.completedDownloads
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -25,6 +28,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 @Immutable
 data class LibraryUiState(
@@ -47,6 +51,7 @@ class LibraryViewModel @Inject constructor(
     private val downloadRepository: DownloadRepository,
     private val playbackController: PlaybackController,
     private val networkMonitor: NetworkMonitor,
+    private val offlineAvailability: OfflineAvailability,
     private val notificationPermission: NotificationPermissionRequester,
     private val messenger: UiMessenger,
 ) : ViewModel() {
@@ -86,15 +91,16 @@ class LibraryViewModel @Inject constructor(
         return true
     }
 
-    /** Lit la playlist ; hors ligne, uniquement ses titres téléchargés. */
+    /** Lit la playlist ; hors ligne, uniquement ses titres lisibles (téléchargés ou en cache). */
     fun playPlaylist(id: Long, shuffle: Boolean = false) {
         viewModelScope.launch {
             val downloads = downloadRepository.observeDownloads().first().completedDownloads()
             val downloadedIds = downloads.mapTo(HashSet()) { it.track.id }
             val isOffline = !networkMonitor.isOnline.first()
-            val tracks = tracksOf(id, downloads.map { it.track }).availableTracks(downloadedIds, isOffline)
+            val playableIds = if (isOffline) downloadedIds + offlineAvailability.cachedPlayableIds() else downloadedIds
+            val tracks = tracksOf(id, downloads.map { it.track }).availableTracks(playableIds, isOffline)
             if (tracks.isNotEmpty()) {
-                playbackController.play(tracks, 0, shuffle)
+                playbackController.play(tracks, 0, shuffle, QueueSources.playlist(id))
             } else if (isOffline) {
                 messenger.show(UiText.of(R.string.lib_nothing_playable_offline))
             }
@@ -119,6 +125,16 @@ class LibraryViewModel @Inject constructor(
         }
     }
 
+    /** Dernier état connu de l'index hors ligne ; une source défaillante ne doit pas empêcher la lecture. */
+    private suspend fun OfflineAvailability.cachedPlayableIds(): Set<String> =
+        try {
+            withTimeoutOrNull(OFFLINE_INDEX_TIMEOUT_MS) { observePlayableIds().first() }.orEmpty()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            emptySet()
+        }
+
     private suspend fun tracksOf(id: Long, downloadedTracks: List<Track>): List<Track> =
         if (id == Playlist.DOWNLOADED_ID) {
             downloadedTracks
@@ -132,5 +148,6 @@ class LibraryViewModel @Inject constructor(
 
     private companion object {
         const val STOP_TIMEOUT_MS = 5_000L
+        const val OFFLINE_INDEX_TIMEOUT_MS = 2_000L
     }
 }

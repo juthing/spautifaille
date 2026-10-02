@@ -39,7 +39,18 @@ data class PlayerState(
     val isCurrentOffline: Boolean = false,
     val hasNext: Boolean = false,
     val hasPrevious: Boolean = false,
+    /**
+     * Origine de la file en cours (voir [QueueSources]) : renseignée par `play(..., sourceId)` et portée par le
+     * titre courant. `null` si la file ne vient d'aucune source identifiée (titre ajouté à la main, file restaurée).
+     */
+    val queueSourceId: String? = null,
 )
+
+/** Identifiants d'origine d'une file de lecture (`PlayerState.queueSourceId`). */
+object QueueSources {
+    /** File lancée depuis la playlist locale [playlistId] (y compris « Titres likés » et « Téléchargés »). */
+    fun playlist(playlistId: Long): String = "playlist:$playlistId"
+}
 
 /** Position de lecture, émise séparément à ~4 Hz pour ne pas recomposer tout l'UI. */
 data class PlaybackPosition(
@@ -65,8 +76,11 @@ interface PlaybackController {
     val position: StateFlow<PlaybackPosition>
     val events: Flow<PlayerEvent>
 
-    /** Remplace la file par [tracks] et démarre à [startIndex]. */
-    fun play(tracks: List<Track>, startIndex: Int = 0, shuffle: Boolean = false)
+    /**
+     * Remplace la file par [tracks] et démarre à [startIndex]. [sourceId] (voir [QueueSources]) identifie
+     * l'origine de la file : l'UI s'en sert pour savoir si « cette playlist » est en cours de lecture.
+     */
+    fun play(tracks: List<Track>, startIndex: Int = 0, shuffle: Boolean = false, sourceId: String? = null)
     fun playNext(tracks: List<Track>)
     fun addToQueue(tracks: List<Track>)
     fun moveQueueItem(from: Int, to: Int)

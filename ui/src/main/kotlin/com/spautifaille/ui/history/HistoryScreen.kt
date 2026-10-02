@@ -203,6 +203,7 @@ private fun HistoryList(
                         entry = item.entry,
                         isCurrent = item.entry.track.id == state.currentTrackId,
                         isPlaying = state.isPlaying,
+                        isAvailable = state.isAvailable(item.entry.track.id),
                         onClick = { actions.onPlayFrom(item.index) },
                         onMoreClick = { onMoreClick(item.entry.track) },
                         onRemove = { actions.onRemove(item.entry.id) },
@@ -220,6 +221,7 @@ private fun HistoryRow(
     entry: HistoryEntry,
     isCurrent: Boolean,
     isPlaying: Boolean,
+    isAvailable: Boolean,
     onClick: () -> Unit,
     onMoreClick: () -> Unit,
     onRemove: () -> Unit,
@@ -271,6 +273,7 @@ private fun HistoryRow(
                 onMoreClick = onMoreClick,
                 isCurrent = isCurrent,
                 isPlaying = isPlaying,
+                isAvailable = isAvailable,
                 modifier = Modifier.padding(horizontal = Spacing.s),
             )
         }

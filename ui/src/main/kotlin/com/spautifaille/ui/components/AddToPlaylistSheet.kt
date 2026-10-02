@@ -41,19 +41,29 @@ import com.spautifaille.ui.common.LocalAppHaptics
 import com.spautifaille.ui.theme.ArtworkSize
 import com.spautifaille.ui.theme.Spacing
 
-/** Feuille « Ajouter à une playlist » : playlists locales + création d'une nouvelle playlist. */
+/**
+ * Feuille « Ajouter à une playlist » : playlists locales + création d'une nouvelle playlist.
+ * [onAdded] est appelé quand les titres ont réellement été ajoutés (pas quand la feuille est simplement fermée).
+ */
 @Composable
 fun AddToPlaylistSheet(
     tracks: List<Track>,
     onDismiss: () -> Unit,
+    onAdded: () -> Unit = {},
     viewModel: TrackActionsViewModel = hiltViewModel(),
 ) {
     val playlists by viewModel.playlists.collectAsStateWithLifecycle()
     AddToPlaylistSheetContent(
         playlists = playlists,
         onDismiss = onDismiss,
-        onPlaylistSelected = { viewModel.addToPlaylist(it, tracks) },
-        onCreatePlaylist = { name -> viewModel.createPlaylist(name, tracks) },
+        onPlaylistSelected = {
+            viewModel.addToPlaylist(it, tracks)
+            onAdded()
+        },
+        onCreatePlaylist = { name ->
+            viewModel.createPlaylist(name, tracks)
+            onAdded()
+        },
     )
 }
 

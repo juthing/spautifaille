@@ -245,6 +245,7 @@ class PlaybackControllerImpl @Inject constructor(
             isCurrentOffline = published.offline && currentTrack != null,
             hasNext = c.hasNextMediaItem(),
             hasPrevious = c.hasPreviousMediaItem(),
+            queueSourceId = c.currentMediaItem?.let(MediaItemMapper::sourceId),
         )
     }
 
@@ -262,9 +263,9 @@ class PlaybackControllerImpl @Inject constructor(
 
     // --- Commandes ------------------------------------------------------------------------------------------------
 
-    override fun play(tracks: List<Track>, startIndex: Int, shuffle: Boolean) {
+    override fun play(tracks: List<Track>, startIndex: Int, shuffle: Boolean, sourceId: String?) {
         if (tracks.isEmpty()) return
-        val items = MediaItemMapper.toMediaItems(tracks)
+        val items = MediaItemMapper.toMediaItems(tracks, sourceId)
         withController { c ->
             QueueCommands.setQueue(c, items, startIndex, shuffle)
             c.prepare()

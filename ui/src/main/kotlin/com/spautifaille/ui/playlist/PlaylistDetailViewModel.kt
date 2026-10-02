@@ -9,9 +9,15 @@ import com.spautifaille.domain.model.PlaylistEntry
 import com.spautifaille.domain.model.PlaylistWithTracks
 import com.spautifaille.domain.model.Track
 import com.spautifaille.domain.player.PlaybackController
+import com.spautifaille.domain.player.QueueSources
 import com.spautifaille.domain.repository.DownloadRepository
+import com.spautifaille.domain.repository.LibraryRepository
+import com.spautifaille.domain.repository.OfflineAvailability
 import com.spautifaille.domain.repository.PlaylistRepository
+import com.spautifaille.ui.R
 import com.spautifaille.ui.common.NotificationPermissionRequester
+import com.spautifaille.ui.common.UiMessenger
+import com.spautifaille.ui.common.UiText
 import com.spautifaille.ui.library.PlaylistNameValidator
 import com.spautifaille.ui.network.NetworkMonitor
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -22,14 +28,28 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+
+/** Ce que fait le bouton principal selon que cette playlist est (ou non) celle en cours de lecture. */
+enum class PlaylistPlayAction {
+    /** La playlist n'est pas en cours de lecture : lancer depuis le début. */
+    PLAY,
+
+    /** Elle est en cours de lecture : mettre en pause. */
+    PAUSE,
+
+    /** Elle est la file en cours mais en pause : reprendre. */
+    RESUME,
+}
 
 @Immutable
 data class PlaylistDetailUiState(
@@ -40,11 +60,22 @@ data class PlaylistDetailUiState(
     val entries: List<PlaylistEntry> = emptyList(),
     /** Ids des titres dont le téléchargement est terminé. */
     val downloadedIds: Set<String> = emptySet(),
-    /** Aucun réseau : seuls les titres téléchargés sont lisibles. */
+    /**
+     * Ids des titres lisibles sans réseau : téléchargés + présents (même en partie) dans le cache de streaming.
+     * Toujours un sur-ensemble de [downloadedIds].
+     */
+    val playableOfflineIds: Set<String> = emptySet(),
+    /** Aucun réseau : seuls les titres de [playableOfflineIds] sont lisibles. */
     val isOffline: Boolean = false,
     /** Titre actuellement chargé dans le lecteur (mise en évidence dans la liste). */
     val currentTrackId: String? = null,
     val isPlaying: Boolean = false,
+    /** La file du lecteur provient de CETTE playlist (`PlayerState.queueSourceId`). */
+    val isThisPlaylistQueue: Boolean = false,
+    /** Ids des titres aimés (action groupée « J'aime »). */
+    val likedIds: Set<String> = emptySet(),
+    /** `entryId` des lignes sélectionnées ; non vide = mode sélection. Toujours un sous-ensemble de [entries]. */
+    val selectedEntryIds: Set<Long> = emptySet(),
 ) {
     val isNotFound: Boolean get() = !isLoading && playlist == null
     val isSystem: Boolean get() = playlist?.isSystem == true
@@ -53,9 +84,17 @@ data class PlaylistDetailUiState(
     val isDownloadedPlaylist: Boolean get() = playlist?.id == Playlist.DOWNLOADED_ID
     val totalDurationMs: Long get() = entries.sumOf { it.track.durationMs ?: 0L }
 
-    /** Entrées lisibles dans les conditions réseau actuelles (hors ligne : téléchargées uniquement). */
-    val availableEntries: List<PlaylistEntry> get() = entries.availableEntries(downloadedIds, isOffline)
+    /** Entrées lisibles dans les conditions réseau actuelles (hors ligne : téléchargées ou en cache). */
+    val availableEntries: List<PlaylistEntry> get() = entries.availableEntries(playableOfflineIds, isOffline)
     val canPlay: Boolean get() = availableEntries.isNotEmpty()
+
+    /** Libellé/action du bouton principal : lecture, pause ou reprise de CETTE playlist. */
+    val playAction: PlaylistPlayAction
+        get() = when {
+            !isThisPlaylistQueue -> PlaylistPlayAction.PLAY
+            isPlaying -> PlaylistPlayAction.PAUSE
+            else -> PlaylistPlayAction.RESUME
+        }
 
     /** Tous les titres (au moins un) sont déjà téléchargés. */
     val isFullyDownloaded: Boolean
@@ -64,18 +103,43 @@ data class PlaylistDetailUiState(
     /** Le bouton « télécharger la playlist » a un sens (pas pour « Téléchargés », pas hors ligne). */
     val canDownload: Boolean get() = !isDownloadedPlaylist && !isOffline && entries.isNotEmpty() && !isFullyDownloaded
 
-    fun isAvailable(entry: PlaylistEntry): Boolean = isTrackAvailable(entry.track.id, downloadedIds, isOffline)
+    fun isAvailable(entry: PlaylistEntry): Boolean = isTrackAvailable(entry.track.id, playableOfflineIds, isOffline)
+
+    // region Sélection
+
+    val isSelecting: Boolean get() = selectedEntryIds.isNotEmpty()
+
+    /** Entrées sélectionnées, dans l'ordre de la liste. */
+    val selectedEntries: List<PlaylistEntry> get() = entries.filter { it.entryId in selectedEntryIds }
+    val selectedTracks: List<Track> get() = selectedEntries.map { it.track }
+    val allSelected: Boolean get() = entries.isNotEmpty() && selectedEntryIds.size == entries.size
+
+    /** Au moins un titre sélectionné est lisible (hors ligne : téléchargé ou en cache). */
+    val canPlaySelection: Boolean get() = selectedEntries.any { isAvailable(it) }
+    val canDownloadSelection: Boolean
+        get() = !isDownloadedPlaylist && !isOffline && selectedEntries.any { it.track.id !in downloadedIds }
+
+    /** Tous les titres sélectionnés sont déjà aimés : l'action devient « Je n'aime plus ». */
+    val allSelectedLiked: Boolean get() = isSelecting && selectedEntries.all { it.track.id in likedIds }
+
+    // endregion
 }
+
+/** Titre retiré d'une playlist, avec sa position d'origine (pour l'annulation). */
+data class RemovedTrack(val track: Track, val position: Int)
 
 /** Événements ponctuels (snackbar, navigation). */
 sealed interface PlaylistDetailEvent {
-    /** Titre retiré : proposer « Annuler » qui rappelle [PlaylistDetailViewModel.undoRemove]. */
-    data class TrackRemoved(val track: Track, val position: Int) : PlaylistDetailEvent
+    /** Titres retirés : proposer « Annuler » qui rappelle [PlaylistDetailViewModel.undoRemove]. */
+    data class TracksRemoved(val items: List<RemovedTrack>) : PlaylistDetailEvent
     data class DownloadsQueued(val count: Int) : PlaylistDetailEvent
     data object PlaylistDeleted : PlaylistDetailEvent
 
-    /** Appui sur un titre non téléchargé alors que l'appareil est hors ligne. */
+    /** Appui sur un titre injouable alors que l'appareil est hors ligne (ni téléchargé ni en cache). */
     data object TrackUnavailableOffline : PlaylistDetailEvent
+
+    /** J'aime / je n'aime plus groupé : [count] titres, [liked] = nouvel état. */
+    data class TracksLiked(val count: Int, val liked: Boolean) : PlaylistDetailEvent
 }
 
 @HiltViewModel
@@ -83,13 +147,18 @@ class PlaylistDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val playlistRepository: PlaylistRepository,
     private val downloadRepository: DownloadRepository,
+    private val libraryRepository: LibraryRepository,
     private val playbackController: PlaybackController,
     private val notificationPermission: NotificationPermissionRequester,
     private val networkMonitor: NetworkMonitor,
+    private val offlineAvailability: OfflineAvailability,
+    private val messenger: UiMessenger,
 ) : ViewModel() {
 
     /** Argument de navigation `id` (Long). `-1` si absent → état « introuvable ». */
     val playlistId: Long = savedStateHandle.get<Long>(ARG_ID) ?: -1L
+
+    private val queueSourceId: String = QueueSources.playlist(playlistId)
 
     /**
      * Réordonnancement optimiste. [baseIds] = ordre des `entryId` du repository au début du glissement :
@@ -99,8 +168,12 @@ class PlaylistDetailViewModel @Inject constructor(
     private data class Override(val baseIds: List<Long>, val entries: List<PlaylistEntry>)
 
     private val override = MutableStateFlow<Override?>(null)
+    private val selection = MutableStateFlow<Set<Long>>(emptySet())
     private var dragEntryId: Long? = null
     private var dragOrigin: Int = -1
+
+    /** Ligne sur laquelle un appui long vient de commencer (sert à distinguer « sélection » de « réorganisation »). */
+    private var longPressEntryId: Long? = null
 
     /** Dernier contenu publié par le repository (base de comparaison de l'override). */
     private var latestRemoteEntries: List<PlaylistEntry> = emptyList()
@@ -115,30 +188,57 @@ class PlaylistDetailViewModel @Inject constructor(
     private val _events = Channel<PlaylistDetailEvent>(Channel.BUFFERED)
     val events: Flow<PlaylistDetailEvent> = _events.receiveAsFlow()
 
-    /** Données « vivantes » indépendantes du contenu de la playlist : téléchargements, réseau, lecture. */
+    /** Données « vivantes » indépendantes du contenu de la playlist : téléchargements, réseau, lecture, likes. */
     private data class Live(
         val downloadedIds: Set<String>,
+        val playableOfflineIds: Set<String>,
         val isOffline: Boolean,
         val currentTrackId: String?,
         val isPlaying: Boolean,
+        val isThisPlaylistQueue: Boolean,
+        val likedIds: Set<String>,
+    )
+
+    private data class PlayerSlice(
+        val currentId: String?,
+        val playing: Boolean,
+        val fromThisPlaylist: Boolean,
     )
 
     private val completedDownloads = downloadRepository.observeDownloads()
         .map { it.completedDownloads() }
         .distinctUntilChanged()
 
+    /**
+     * Ces deux sources sont secondaires : si elles tardent ou échouent, la liste doit quand même s'afficher
+     * (un `combine` attend toutes ses sources : une source muette bloquerait tout l'écran).
+     */
+    private val cachedPlayableIds: Flow<Set<String>> = offlineAvailability.observePlayableIds()
+        .catch { emit(emptySet()) }
+        .onStart { emit(emptySet()) }
+
+    private val likedIds: Flow<Set<String>> = libraryRepository.observeLikedIds()
+        .catch { emit(emptySet()) }
+        .onStart { emit(emptySet()) }
+
     private val live: Flow<Live> = combine(
         completedDownloads,
         networkMonitor.isOnline,
         playbackController.state
-            .map { it.currentTrack?.id to it.isPlaying }
+            .map { PlayerSlice(it.currentTrack?.id, it.isPlaying || (it.playWhenReady && it.isBuffering), it.queueSourceId == queueSourceId) }
             .distinctUntilChanged(),
-    ) { downloads, isOnline, (currentId, playing) ->
+        cachedPlayableIds,
+        likedIds,
+    ) { downloads, isOnline, player, cached, liked ->
+        val downloaded = downloads.mapTo(HashSet()) { it.track.id }
         Live(
-            downloadedIds = downloads.mapTo(HashSet()) { it.track.id },
+            downloadedIds = downloaded,
+            playableOfflineIds = downloaded + cached,
             isOffline = !isOnline,
-            currentTrackId = currentId,
-            isPlaying = playing,
+            currentTrackId = player.currentId,
+            isPlaying = player.playing,
+            isThisPlaylistQueue = player.fromThisPlaylist,
+            likedIds = liked,
         )
     }
 
@@ -157,20 +257,27 @@ class PlaylistDetailViewModel @Inject constructor(
         source.onEach { loaded -> latestRemoteEntries = loaded?.entries.orEmpty() },
         override,
         live,
-    ) { loaded, override, live ->
+        selection,
+    ) { loaded, override, live, selected ->
         if (loaded == null) {
             PlaylistDetailUiState(isLoading = false)
         } else {
             val remoteIds = loaded.entries.map { it.entryId }
             val shown = if (override != null && override.baseIds == remoteIds) override.entries else loaded.entries
+            val shownIds = shown.mapTo(HashSet()) { it.entryId }
             PlaylistDetailUiState(
                 isLoading = false,
                 playlist = loaded.playlist,
                 entries = shown,
                 downloadedIds = live.downloadedIds,
+                playableOfflineIds = live.playableOfflineIds,
                 isOffline = live.isOffline,
                 currentTrackId = live.currentTrackId,
                 isPlaying = live.isPlaying,
+                isThisPlaylistQueue = live.isThisPlaylistQueue,
+                likedIds = live.likedIds,
+                // Une ligne disparue (retirée ailleurs) ne peut plus rester sélectionnée.
+                selectedEntryIds = selected.filterTo(HashSet()) { it in shownIds },
             )
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), PlaylistDetailUiState())
@@ -179,7 +286,7 @@ class PlaylistDetailViewModel @Inject constructor(
 
     /**
      * Joue la playlist à partir de l'entrée affichée à [startIndex]. Hors ligne, la file ne contient que les
-     * titres téléchargés ; si l'entrée touchée n'en fait pas partie, rien n'est lu et
+     * titres lisibles (téléchargés ou en cache) ; si l'entrée touchée n'en fait pas partie, rien n'est lu et
      * [PlaylistDetailEvent.TrackUnavailableOffline] est émis.
      */
     fun playFrom(startIndex: Int) {
@@ -191,14 +298,26 @@ class PlaylistDetailViewModel @Inject constructor(
             _events.trySend(PlaylistDetailEvent.TrackUnavailableOffline)
             return
         }
-        playbackController.play(playable.map { it.track }, index, false)
+        playbackController.play(playable.map { it.track }, index, false, queueSourceId)
     }
 
-    /** Lit toute la playlist (hors ligne : ses titres téléchargés uniquement). */
+    /** Lit toute la playlist (hors ligne : ses titres lisibles uniquement). */
     fun playAll(shuffle: Boolean) {
         val tracks = uiState.value.availableEntries.map { it.track }
         if (tracks.isEmpty()) return
-        playbackController.play(tracks, 0, shuffle)
+        playbackController.play(tracks, 0, shuffle, queueSourceId)
+    }
+
+    /**
+     * Bouton principal : lance la playlist si ce n'est pas elle qui joue, sinon met en pause / reprend la lecture
+     * en cours (sans relancer la file depuis le début).
+     */
+    fun onPlayButton() {
+        when (uiState.value.playAction) {
+            PlaylistPlayAction.PLAY -> playAll(shuffle = false)
+            PlaylistPlayAction.PAUSE -> playbackController.pause()
+            PlaylistPlayAction.RESUME -> playbackController.play()
+        }
     }
 
     /** Télécharge les titres pas encore téléchargés. Sans effet hors ligne ou sur « Téléchargés ». */
@@ -242,7 +361,15 @@ class PlaylistDetailViewModel @Inject constructor(
 
     // endregion
 
-    // region Réordonnancement / suppression
+    // region Réordonnancement (appui long + glisser) / suppression
+
+    /**
+     * Début d'un appui long sur [entryId] (la poignée de glissement s'active après l'appui long). Si le doigt est
+     * relâché sans que la ligne ait changé de place, c'est une sélection (voir [onDragEnd]).
+     */
+    fun onDragStart(entryId: Long) {
+        longPressEntryId = entryId
+    }
 
     /** Déplacement optimiste local pendant le glissement (indices dans la liste affichée). */
     fun onMove(from: Int, to: Int) {
@@ -256,9 +383,18 @@ class PlaylistDetailViewModel @Inject constructor(
         override.value = Override(latestRemoteIds, reordered)
     }
 
-    /** Fin du glissement : persiste le déplacement (origine → position finale). */
+    /**
+     * Fin du glissement : persiste le déplacement (origine → position finale), une seule fois au relâchement.
+     * Sans aucun déplacement, l'appui long devient « entrer en mode sélection avec cette ligne ».
+     */
     fun onDragEnd() {
-        val movedId = dragEntryId ?: return
+        val pressed = longPressEntryId
+        longPressEntryId = null
+        val movedId = dragEntryId
+        if (movedId == null) {
+            if (pressed != null) startSelection(pressed)
+            return
+        }
         val origin = dragOrigin
         dragEntryId = null
         dragOrigin = -1
@@ -280,30 +416,143 @@ class PlaylistDetailViewModel @Inject constructor(
     }
 
     /**
-     * Retire une entrée et propose l'annulation via [PlaylistDetailEvent.TrackRemoved]. Dans « Téléchargés »,
+     * Retire une entrée et propose l'annulation via [PlaylistDetailEvent.TracksRemoved]. Dans « Téléchargés »,
      * supprime le fichier téléchargé du titre (pas d'annulation possible).
      */
-    fun removeEntry(entry: PlaylistEntry) {
+    fun removeEntry(entry: PlaylistEntry) = removeEntries(listOf(entry))
+
+    private fun removeEntries(entries: List<PlaylistEntry>) {
+        if (entries.isEmpty()) return
         if (playlistId == Playlist.DOWNLOADED_ID) {
-            viewModelScope.launch { downloadRepository.delete(entry.track.id) }
+            viewModelScope.launch { entries.forEach { downloadRepository.delete(it.track.id) } }
             return
         }
-        val position = displayedEntries().indexOfFirst { it.entryId == entry.entryId }.coerceAtLeast(0)
+        val displayed = displayedEntries()
+        val removed = entries
+            .map { entry -> RemovedTrack(entry.track, displayed.indexOfFirst { it.entryId == entry.entryId }.coerceAtLeast(0)) }
+            .sortedBy { it.position }
         viewModelScope.launch {
-            playlistRepository.removeEntry(playlistId, entry.entryId)
-            _events.send(PlaylistDetailEvent.TrackRemoved(entry.track, position))
+            entries.forEach { playlistRepository.removeEntry(playlistId, it.entryId) }
+            _events.send(PlaylistDetailEvent.TracksRemoved(removed))
         }
     }
 
-    /** Annule un retrait : ré-ajoute le titre à la fin puis le replace à [position]. */
-    fun undoRemove(track: Track, position: Int) {
+    /** Annule un retrait d'un seul titre (voir [undoRemove] pour plusieurs). */
+    fun undoRemove(track: Track, position: Int) = undoRemove(listOf(RemovedTrack(track, position)))
+
+    /**
+     * Annule un retrait : ré-ajoute les titres à la fin puis replace chacun à sa position d'origine (dans l'ordre
+     * croissant des positions, ce qui rétablit exactement l'ordre initial).
+     */
+    fun undoRemove(items: List<RemovedTrack>) {
+        if (items.isEmpty()) return
+        val sorted = items.sortedBy { it.position }
         viewModelScope.launch {
-            playlistRepository.addTracks(playlistId, listOf(track))
+            playlistRepository.addTracks(playlistId, sorted.map { it.track })
             val size = playlistRepository.observePlaylist(playlistId).first()?.entries?.size ?: return@launch
-            val appendedAt = size - 1
-            val target = position.coerceIn(0, appendedAt)
-            if (appendedAt != target) playlistRepository.moveEntry(playlistId, appendedAt, target)
+            val firstAppended = size - sorted.size
+            sorted.forEachIndexed { index, item ->
+                val from = firstAppended + index
+                val to = item.position.coerceIn(0, from)
+                if (from != to) playlistRepository.moveEntry(playlistId, from, to)
+            }
         }
+    }
+
+    // endregion
+
+    // region Sélection multiple
+
+    /** Entre en mode sélection avec cette ligne sélectionnée (sans effet si déjà en sélection : elle est basculée). */
+    fun startSelection(entryId: Long) {
+        if (uiState.value.entries.none { it.entryId == entryId }) return
+        selection.value = selection.value + entryId
+    }
+
+    /** Ajoute ou retire une ligne ; quitter la sélection = désélectionner la dernière. */
+    fun toggleSelection(entryId: Long) {
+        if (uiState.value.entries.none { it.entryId == entryId }) return
+        val current = selection.value
+        selection.value = if (entryId in current) current - entryId else current + entryId
+    }
+
+    /** « Tout sélectionner » ; si tout l'est déjà, désélectionne tout (et quitte le mode). */
+    fun toggleSelectAll() {
+        val state = uiState.value
+        selection.value = if (state.allSelected) emptySet() else state.entries.mapTo(HashSet()) { it.entryId }
+    }
+
+    fun clearSelection() {
+        selection.value = emptySet()
+    }
+
+    /** Lit la sélection (titres lisibles uniquement, dans l'ordre de la liste) comme nouvelle file. */
+    fun playSelection() {
+        val tracks = uiState.value.selectedEntries.filter { uiState.value.isAvailable(it) }.map { it.track }
+        if (tracks.isEmpty()) return
+        playbackController.play(tracks)
+        clearSelection()
+    }
+
+    /** « Lire ensuite » pour la sélection. */
+    fun playSelectionNext() {
+        val tracks = playableSelection()
+        if (tracks.isEmpty()) return
+        playbackController.playNext(tracks)
+        messenger.show(UiText.of(R.string.snack_play_next))
+        clearSelection()
+    }
+
+    fun addSelectionToQueue() {
+        val tracks = playableSelection()
+        if (tracks.isEmpty()) return
+        playbackController.addToQueue(tracks)
+        messenger.show(UiText.of(R.string.snack_added_to_queue))
+        clearSelection()
+    }
+
+    /** Télécharge les titres sélectionnés pas encore téléchargés. Sans effet hors ligne ou sur « Téléchargés ». */
+    fun downloadSelection() {
+        val state = uiState.value
+        if (state.isDownloadedPlaylist || state.isOffline) return
+        val tracks = state.selectedTracks.filterNot { it.id in state.downloadedIds }
+        if (tracks.isEmpty()) {
+            messenger.show(UiText.of(R.string.lib_downloads_nothing_to_do))
+            clearSelection()
+            return
+        }
+        notificationPermission.requestIfNeeded()
+        clearSelection()
+        viewModelScope.launch {
+            downloadRepository.enqueue(tracks)
+            _events.send(PlaylistDetailEvent.DownloadsQueued(tracks.size))
+        }
+    }
+
+    /** Aime tous les titres sélectionnés ; s'ils le sont déjà tous, les « désaime ». */
+    fun likeSelection() {
+        val state = uiState.value
+        val tracks = state.selectedTracks.distinctBy { it.id }
+        if (tracks.isEmpty()) return
+        val like = !state.allSelectedLiked
+        clearSelection()
+        viewModelScope.launch {
+            tracks.forEach { libraryRepository.setLiked(it, like) }
+            _events.send(PlaylistDetailEvent.TracksLiked(tracks.size, like))
+        }
+    }
+
+    /** Retire la sélection de la playlist (avec annulation) ; dans « Téléchargés », supprime les fichiers. */
+    fun removeSelection() {
+        val entries = uiState.value.selectedEntries
+        clearSelection()
+        removeEntries(entries)
+    }
+
+    /** Titres sélectionnés à pousser dans la file : seuls les lisibles (hors ligne, pas de titre qui échouerait). */
+    private fun playableSelection(): List<Track> {
+        val state = uiState.value
+        return state.selectedEntries.filter { state.isAvailable(it) }.map { it.track }
     }
 
     // endregion

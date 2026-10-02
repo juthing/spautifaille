@@ -24,11 +24,20 @@ object MediaItemMapper {
     /** Identifiant du dossier de navigation (likés, playlist, récents) d'où provient un titre de l'arbre Android Auto. */
     const val EXTRA_PARENT_ID = "com.spautifaille.player.PARENT_ID"
 
+    /** Origine de la file (voir `QueueSources`) portée par chaque titre posé par `PlaybackController.play`. */
+    const val EXTRA_SOURCE_ID = "com.spautifaille.player.SOURCE_ID"
+
     fun newUid(): String = UUID.randomUUID().toString()
 
-    fun toMediaItem(track: Track, uid: String = newUid(), parentId: String? = null): MediaItem {
+    fun toMediaItem(
+        track: Track,
+        uid: String = newUid(),
+        parentId: String? = null,
+        sourceId: String? = null,
+    ): MediaItem {
         val extras = Bundle().apply {
             parentId?.let { putString(EXTRA_PARENT_ID, it) }
+            sourceId?.let { putString(EXTRA_SOURCE_ID, it) }
             track.artistUrl?.let { putString(EXTRA_ARTIST_URL, it) }
             putString(EXTRA_QUEUE_UID, uid)
         }
@@ -50,7 +59,8 @@ object MediaItemMapper {
             .build()
     }
 
-    fun toMediaItems(tracks: List<Track>): List<MediaItem> = tracks.map { toMediaItem(it) }
+    fun toMediaItems(tracks: List<Track>, sourceId: String? = null): List<MediaItem> =
+        tracks.map { toMediaItem(it, sourceId = sourceId) }
 
     fun toTrack(item: MediaItem): Track {
         val metadata = item.mediaMetadata
@@ -67,6 +77,9 @@ object MediaItemMapper {
 
     /** Identifiant unique de l'occurrence dans la file, ou null pour un item créé hors de ce mapper. */
     fun queueUid(item: MediaItem): String? = item.mediaMetadata.extras?.getString(EXTRA_QUEUE_UID)
+
+    /** Origine de la file (`QueueSources`) de ce titre, ou null. */
+    fun sourceId(item: MediaItem): String? = item.mediaMetadata.extras?.getString(EXTRA_SOURCE_ID)
 
     /** Dossier de navigation d'origine du titre (arbre de bibliothèque), ou null. */
     fun parentId(item: MediaItem): String? = item.mediaMetadata.extras?.getString(EXTRA_PARENT_ID)
