@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Paroles -->
+    <string name="player_lyrics">Paroles</string>
+    <string name="lyrics_close_cd">Revenir à la pochette</string>
+    <string name="lyrics_seek_action">Aller à ce passage</string>
+    <string name="lyrics_instrumental_break">Passage instrumental</string>
+    <string name="lyrics_source">Paroles : %1$s</string>
+    <string name="lyrics_loading">Chargement des paroles</string>
+    <string name="lyrics_unavailable_title">Paroles indisponibles pour ce titre</string>
+    <string name="lyrics_unavailable_message">Aucune parole n\'a été trouvée pour ce morceau.</string>
+    <string name="lyrics_instrumental_title">Morceau instrumental</string>
+    <string name="lyrics_instrumental_message">Ce titre n\'a pas de paroles.</string>
+    <string name="lyrics_offline_title">Paroles indisponibles</string>
+    <string name="lyrics_offline_message">Tu es hors ligne ou le service de paroles ne répond pas. Réessaie dans un instant.</string>
+</resources>
