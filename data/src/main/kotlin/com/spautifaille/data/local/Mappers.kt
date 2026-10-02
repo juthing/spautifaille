@@ -38,6 +38,7 @@ fun PlaylistRow.toDomain(trackCount: Int = this.trackCount) = Playlist(
     isSystem = isSystem,
     createdAt = createdAt,
     updatedAt = updatedAt,
+    isLinkedToYouTube = isLinked,
 )
 
 fun EntryWithTrack.toDomain() = PlaylistEntry(entryId = entryId, position = position, track = track.toDomain())

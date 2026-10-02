@@ -7,6 +7,7 @@ import com.spautifaille.data.local.SpautifailleDatabase
 import com.spautifaille.data.local.TrackDao
 import com.spautifaille.data.local.toDomain
 import com.spautifaille.data.local.toEntity
+import com.spautifaille.data.youtube.sync.RemoteSyncRecorder
 import com.spautifaille.domain.model.Playlist
 import com.spautifaille.domain.model.PlaylistWithTracks
 import com.spautifaille.domain.model.Track
@@ -25,12 +26,18 @@ class PlaylistRepositoryImpl internal constructor(
     private val clock: () -> Long,
 ) : PlaylistRepository {
 
+    /** Propage les modifications des playlists liées et des likes vers le compte YouTube (sans compte : sans effet). */
+    internal var remoteSync: RemoteSyncRecorder = RemoteSyncRecorder.None
+
     @Inject
     constructor(
         db: SpautifailleDatabase,
         playlistDao: PlaylistDao,
         trackDao: TrackDao,
-    ) : this(db, playlistDao, trackDao, System::currentTimeMillis)
+        remoteSync: RemoteSyncRecorder,
+    ) : this(db, playlistDao, trackDao, System::currentTimeMillis) {
+        this.remoteSync = remoteSync
+    }
 
     override fun observePlaylists(): Flow<List<Playlist>> =
         playlistDao.observePlaylists().map { rows -> rows.map { it.toDomain() } }
@@ -71,14 +78,27 @@ class PlaylistRepositoryImpl internal constructor(
     override suspend fun addTracks(playlistId: Long, tracks: List<Track>) {
         if (tracks.isEmpty()) return
         db.withTransaction { addTracksInTransaction(playlistId, tracks, clock()) }
+        if (playlistId == Playlist.LIKED_ID) {
+            tracks.distinctBy { it.id }.forEach { remoteSync.likeChanged(it.id, true) }
+        } else {
+            remoteSync.playlistChanged(playlistId)
+        }
     }
 
     override suspend fun removeEntry(playlistId: Long, entryId: Long) {
+        val removedTrackId = if (playlistId == Playlist.LIKED_ID) playlistDao.trackIdOfEntry(playlistId, entryId) else null
         playlistDao.removeEntry(playlistId, entryId, clock())
+        if (playlistId == Playlist.LIKED_ID) {
+            // Retirer le dernier exemplaire = ne plus aimer le titre.
+            removedTrackId?.takeUnless { playlistDao.contains(playlistId, it) }?.let { remoteSync.likeChanged(it, false) }
+        } else {
+            remoteSync.playlistChanged(playlistId)
+        }
     }
 
     override suspend fun moveEntry(playlistId: Long, fromPosition: Int, toPosition: Int) {
         playlistDao.moveEntry(playlistId, fromPosition, toPosition, clock())
+        if (playlistId != Playlist.LIKED_ID) remoteSync.playlistChanged(playlistId)
     }
 
     override suspend fun containsTrack(playlistId: Long, trackId: String): Boolean =

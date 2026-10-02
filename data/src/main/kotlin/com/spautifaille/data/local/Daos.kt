@@ -29,7 +29,8 @@ private const val PLAYLIST_ROW_SELECT = """
                     JOIN tracks t ON t.id = e.track_id
                     WHERE e.playlist_id = p.id
                     ORDER BY e.position ASC, e.entry_id ASC LIMIT 1)
-           ) AS thumbnail_url
+           ) AS thumbnail_url,
+           EXISTS(SELECT 1 FROM yt_playlist_links l WHERE l.playlist_id = p.id) AS is_linked
     FROM playlists p
 """
 
@@ -81,6 +82,9 @@ abstract class PlaylistDao {
 
     @Query("SELECT position FROM playlist_entries WHERE playlist_id = :playlistId AND entry_id = :entryId")
     abstract suspend fun positionOf(playlistId: Long, entryId: Long): Int?
+
+    @Query("SELECT track_id FROM playlist_entries WHERE playlist_id = :playlistId AND entry_id = :entryId")
+    abstract suspend fun trackIdOfEntry(playlistId: Long, entryId: Long): String?
 
     @Query("SELECT entry_id FROM playlist_entries WHERE playlist_id = :playlistId AND position = :position")
     abstract suspend fun entryIdAt(playlistId: Long, position: Int): Long?

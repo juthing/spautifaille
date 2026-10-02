@@ -9,6 +9,7 @@ import com.spautifaille.data.local.SubscriptionDao
 import com.spautifaille.data.local.TrackDao
 import com.spautifaille.data.local.toDomain
 import com.spautifaille.data.local.toEntity
+import com.spautifaille.data.youtube.sync.RemoteSyncRecorder
 import com.spautifaille.domain.model.Artist
 import com.spautifaille.domain.model.HistoryEntry
 import com.spautifaille.domain.model.PlayCount
@@ -31,6 +32,9 @@ class LibraryRepositoryImpl internal constructor(
     private val clock: () -> Long,
 ) : LibraryRepository {
 
+    /** Propage likes et abonnements vers le compte YouTube (sans effet si aucun compte n'est connecté). */
+    internal var remoteSync: RemoteSyncRecorder = RemoteSyncRecorder.None
+
     @Inject
     constructor(
         db: SpautifailleDatabase,
@@ -38,7 +42,10 @@ class LibraryRepositoryImpl internal constructor(
         playlistDao: PlaylistDao,
         historyDao: HistoryDao,
         subscriptionDao: SubscriptionDao,
-    ) : this(db, trackDao, playlistDao, historyDao, subscriptionDao, System::currentTimeMillis)
+        remoteSync: RemoteSyncRecorder,
+    ) : this(db, trackDao, playlistDao, historyDao, subscriptionDao, System::currentTimeMillis) {
+        this.remoteSync = remoteSync
+    }
 
     private val likedId = Playlist.LIKED_ID
 
@@ -52,16 +59,23 @@ class LibraryRepositoryImpl internal constructor(
 
     override suspend fun isLiked(trackId: String): Boolean = playlistDao.contains(likedId, trackId)
 
-    override suspend fun toggleLike(track: Track): Boolean = db.withTransaction {
-        val liked = !playlistDao.contains(likedId, track.id)
-        applyLike(track, liked)
-        liked
+    override suspend fun toggleLike(track: Track): Boolean {
+        val liked = db.withTransaction {
+            val liked = !playlistDao.contains(likedId, track.id)
+            applyLike(track, liked)
+            liked
+        }
+        remoteSync.likeChanged(track.id, liked)
+        return liked
     }
 
     override suspend fun setLiked(track: Track, liked: Boolean) {
-        db.withTransaction {
-            if (playlistDao.contains(likedId, track.id) != liked) applyLike(track, liked)
+        val changed = db.withTransaction {
+            val changed = playlistDao.contains(likedId, track.id) != liked
+            if (changed) applyLike(track, liked)
+            changed
         }
+        if (changed) remoteSync.likeChanged(track.id, liked)
     }
 
     /** Doit être appelé dans une transaction. */
@@ -113,9 +127,15 @@ class LibraryRepositoryImpl internal constructor(
     override fun observeIsSubscribed(artistUrl: String): Flow<Boolean> =
         subscriptionDao.observeIsSubscribed(artistUrl).distinctUntilChanged()
 
-    override suspend fun subscribe(artist: Artist) = subscriptionDao.upsert(artist.toEntity(clock()))
+    override suspend fun subscribe(artist: Artist) {
+        subscriptionDao.upsert(artist.toEntity(clock()))
+        remoteSync.subscriptionChanged(artist.url, true)
+    }
 
-    override suspend fun unsubscribe(artistUrl: String) = subscriptionDao.delete(artistUrl)
+    override suspend fun unsubscribe(artistUrl: String) {
+        subscriptionDao.delete(artistUrl)
+        remoteSync.subscriptionChanged(artistUrl, false)
+    }
 
     // endregion
 }

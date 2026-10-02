@@ -29,6 +29,8 @@ internal class DownloadMessages(private val context: Context) {
             is AppError.Unknown,
             AppError.MicrophoneUnavailable,
             AppError.RecognitionUnavailable,
+            AppError.YouTubeAuthRequired,
+            is AppError.YouTubeSyncFailed,
             -> R.string.data_download_error_unknown
         },
     )

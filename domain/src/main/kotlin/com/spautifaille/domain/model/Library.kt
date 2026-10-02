@@ -8,6 +8,8 @@ data class Playlist(
     val isSystem: Boolean,
     val createdAt: Long,
     val updatedAt: Long,
+    /** Playlist liée à une playlist du compte YouTube (synchronisation bidirectionnelle). */
+    val isLinkedToYouTube: Boolean = false,
 ) {
     companion object {
         /** Playlist système « Titres likés », créée à l'initialisation de la base, non supprimable. */
