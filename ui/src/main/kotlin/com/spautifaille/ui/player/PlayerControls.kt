@@ -48,6 +48,7 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.SliderState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -138,7 +139,9 @@ internal fun SeekBar(
     val thumbWidth by animateDpAsState(if (dragging) 3.dp else 5.dp, sizeSpec, label = "seekThumbW")
     val thumbHeight by animateDpAsState(if (dragging) 44.dp else 32.dp, sizeSpec, label = "seekThumbH")
     val colors = MaterialTheme.colorScheme
-    val activeColor = if (duration > 0) colors.primary else colors.onSurface.copy(alpha = 0.38f)
+    val sliderColors = SliderDefaults.colors()
+    val activeColor = if (duration > 0) sliderColors.activeTrackColor else sliderColors.disabledActiveTrackColor
+    val inactiveColor = if (duration > 0) sliderColors.inactiveTrackColor else sliderColors.disabledInactiveTrackColor
     val seekLabel = stringResource(R.string.player_seek_label)
     val seekState = stringResource(R.string.player_seek_state, formatDuration(shownMs), formatDuration(duration))
 
@@ -186,7 +189,7 @@ internal fun SeekBar(
                     thumbWidth = thumbWidth,
                     height = trackHeight,
                     activeColor = activeColor,
-                    inactiveColor = colors.onSurface.copy(alpha = 0.16f),
+                    inactiveColor = inactiveColor,
                 )
             },
         )
@@ -269,8 +272,8 @@ private fun SeekTrack(
 }
 
 private val PlayButtonSize = 80.dp
-private val PlayingCorner = 26.dp
-private val PausedCorner = 40.dp
+private const val PLAYING_CORNER_FRACTION = 0.325f
+private const val BUFFERING_RING_FACTOR = 1.15f
 
 /**
  * Commandes hiérarchisées : grand bouton lecture / pause au centre (sa forme passe de rond à carré arrondi
@@ -356,17 +359,29 @@ internal fun PlayerControls(state: PlayerState, actions: PlayerActions, modifier
     }
 }
 
+/**
+ * Bouton lecture / pause M3 Expressive : sa forme passe de carré arrondi (lecture) à cercle (pause), avec un
+ * léger rebond ; l'icône fait un fondu avec zoom. L'état initial est directement la forme finale (aucune
+ * animation à l'ouverture). Un anneau de chargement entoure le bouton pendant la mise en mémoire tampon.
+ */
 @Composable
-private fun PlayPauseButton(isPlaying: Boolean, isBuffering: Boolean, onClick: () -> Unit) {
+internal fun PlayPauseButton(
+    isPlaying: Boolean,
+    isBuffering: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    size: Dp = PlayButtonSize,
+    iconSize: Dp = 44.dp,
+) {
     val corner by animateDpAsState(
-        targetValue = if (isPlaying) PlayingCorner else PausedCorner,
+        targetValue = if (isPlaying) size * PLAYING_CORNER_FRACTION else size / 2,
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
         label = "playCorner",
     )
-    Box(contentAlignment = Alignment.Center) {
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
         FilledIconButton(
             onClick = onClick,
-            modifier = Modifier.size(PlayButtonSize),
+            modifier = Modifier.size(size),
             shape = RoundedCornerShape(corner),
         ) {
             AnimatedContent(
@@ -380,12 +395,12 @@ private fun PlayPauseButton(isPlaying: Boolean, isBuffering: Boolean, onClick: (
                 Icon(
                     imageVector = if (playing) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                     contentDescription = stringResource(if (playing) R.string.common_action_pause else R.string.common_action_play),
-                    modifier = Modifier.size(44.dp),
+                    modifier = Modifier.size(iconSize),
                 )
             }
         }
         if (isBuffering) {
-            CircularProgressIndicator(modifier = Modifier.size(PlayButtonSize + 12.dp), strokeWidth = 3.dp)
+            CircularProgressIndicator(modifier = Modifier.size(size * BUFFERING_RING_FACTOR), strokeWidth = 3.dp)
         }
     }
 }
@@ -444,7 +459,7 @@ internal fun PlayerActionBar(
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
-        color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.55f),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
     ) {
         Row(
             modifier = Modifier.padding(horizontal = Spacing.s, vertical = Spacing.xs),

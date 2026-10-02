@@ -1,6 +1,8 @@
 package com.spautifaille.ui.player
 
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -64,6 +66,7 @@ import sh.calvin.reorderable.rememberReorderableLazyListState
 import com.spautifaille.ui.theme.Spacing
 
 private val QueueHorizontalPadding = 16.dp
+private const val NOW_PLAYING_CROSSFADE_MS = 300
 
 /**
  * File de lecture : le titre en cours est mis en avant dans une carte, puis « À suivre » (réordonnable par
@@ -267,29 +270,39 @@ private fun NowPlayingCard(item: QueueItem, isPlaying: Boolean) {
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Artwork(
-                url = item.track.thumbnailUrl,
-                modifier = Modifier.size(64.dp),
-                shape = MaterialTheme.shapes.medium,
-            )
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = Spacing.m),
-            ) {
-                Text(
-                    text = item.track.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text = item.track.artist,
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+            // Fondu enchaîné quand le titre en cours change pendant que la file est ouverte.
+            Crossfade(
+                targetState = item.track,
+                modifier = Modifier.weight(1f),
+                animationSpec = tween(NOW_PLAYING_CROSSFADE_MS),
+                label = "queueNowPlaying",
+            ) { track ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Artwork(
+                        url = track.thumbnailUrl,
+                        modifier = Modifier.size(64.dp),
+                        shape = MaterialTheme.shapes.medium,
+                    )
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = Spacing.m),
+                    ) {
+                        Text(
+                            text = track.title,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            text = track.artist,
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
             }
             NowPlayingIndicator(
                 isAnimating = isPlaying,

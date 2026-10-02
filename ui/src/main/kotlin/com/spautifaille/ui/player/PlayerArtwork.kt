@@ -2,7 +2,8 @@ package com.spautifaille.ui.player
 
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animate
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.Orientation
@@ -10,6 +11,7 @@ import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -33,13 +35,17 @@ import kotlin.math.abs
 
 private val SwipeThreshold = 72.dp
 private val SwipeFlingVelocity = 700.dp
-private const val PAUSED_SCALE = 0.86f
+private val PlayingElevation = 20.dp
+private val PausedElevation = 6.dp
+private const val ELEVATION_MS = 350
+private const val TRACK_CROSSFADE_MS = 300
 private const val RUBBER_BAND = 0.25f
 private const val SLIDE_OUT_MS = 130
 private const val TRACK_CHANGE_TIMEOUT_MS = 600L
 
 /**
- * Grande pochette du lecteur : coins arrondis, ombre douce, légèrement réduite en pause. On la fait glisser
+ * Grande pochette du lecteur : coins arrondis, ombre douce, dont l'ombre s'adoucit en pause (sans changement de taille : l'état initial est toujours le bon, rien
+ * ne bouge à l'ouverture). On la fait glisser
  * horizontalement pour passer au titre suivant (vers la gauche) ou précédent (vers la droite) : la pochette
  * suit le doigt, un cran haptique signale le franchissement du seuil, puis elle sort, et la nouvelle entre
  * dès que le titre a changé. Sans titre suivant, le glissement vers la gauche oppose une résistance.
@@ -71,10 +77,10 @@ internal fun SwipeableArtwork(
     var offsetX by remember { mutableFloatStateOf(0f) }
     var widthPx by remember { mutableFloatStateOf(1f) }
     var crossed by remember { mutableFloatStateOf(0f) } // 0 = en deçà du seuil, 1 = au-delà
-    val scale by animateFloatAsState(
-        targetValue = if (isPlaying) 1f else PAUSED_SCALE,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessLow),
-        label = "artworkScale",
+    val elevation by animateDpAsState(
+        targetValue = if (isPlaying) PlayingElevation else PausedElevation,
+        animationSpec = tween(ELEVATION_MS),
+        label = "artworkElevation",
     )
     val shape = MaterialTheme.shapes.extraLarge
 
@@ -115,20 +121,30 @@ internal fun SwipeableArtwork(
             ),
         contentAlignment = Alignment.Center,
     ) {
-        Artwork(
-            url = thumbnailUrl,
-            contentDescription = title,
-            shape = shape,
+        Box(
             modifier = Modifier
                 .aspectRatio(1f)
                 .graphicsLayer {
                     translationX = offsetX
-                    scaleX = scale
-                    scaleY = scale
                     alpha = (1f - abs(offsetX) / widthPx * 1.3f).coerceIn(0f, 1f)
                 }
                 .playerSharedElement(PlayerSharedKeys.Artwork, transition)
-                .shadow(elevation = 16.dp, shape = shape, clip = false),
-        )
+                .shadow(elevation = elevation, shape = shape, clip = false),
+        ) {
+            // Fondu enchaîné d'une pochette à l'autre (changement automatique, notification, file d'attente).
+            Crossfade(
+                targetState = trackId to thumbnailUrl,
+                animationSpec = tween(TRACK_CROSSFADE_MS),
+                label = "artworkCrossfade",
+            ) { (_, url) ->
+                Artwork(
+                    url = url,
+                    contentDescription = title,
+                    shape = shape,
+                    highResolution = true,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+        }
     }
 }

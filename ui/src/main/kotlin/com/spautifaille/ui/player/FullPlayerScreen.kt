@@ -3,8 +3,6 @@ package com.spautifaille.ui.player
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.spring
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
@@ -339,28 +337,24 @@ private fun PlayerTopBar(
 }
 
 /** Titre en gras qui défile s'il est trop long, artiste cliquable (page artiste) en dessous. */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun TrackInfo(track: Track, onArtistClick: (() -> Unit)?, transition: PlayerTransition?) {
     val haptics = LocalAppHaptics.current
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
-        Text(
+        CrossfadeText(
             text = track.title,
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
-            maxLines = 1,
-            overflow = TextOverflow.Clip,
+            marquee = true,
             modifier = Modifier
                 .fillMaxWidth()
-                .playerSharedBounds(PlayerSharedKeys.Title, transition)
-                .basicMarquee(iterations = Int.MAX_VALUE, initialDelayMillis = 1_500),
+                .playerSharedBounds(PlayerSharedKeys.Title, transition),
         )
-        Text(
+        CrossfadeText(
             text = track.artist,
             style = MaterialTheme.typography.titleMedium,
             color = if (onArtistClick != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
+            marquee = true,
             modifier = if (onArtistClick != null) {
                 Modifier
                     .clip(MaterialTheme.shapes.extraSmall)
