@@ -66,6 +66,12 @@ CI : `.github/workflows/android.yml` (tests, lint, APK debug + release en artefa
 - Bouton like dans la notification via `setMediaButtonPreferences` + `SessionCommand` custom.
 - Reprise : file persistée (`QueueStateStore`) + `onPlaybackResumption`.
 
+## Reconnaissance musicale (bouton de la recherche)
+- `:domain/recognition` : `MusicRecognizer`, `AudioCapture`, `RecognizeMusicUseCase` (tentatives à 4 s, 8 s puis 12 s d'audio, arrêt à la première correspondance). `:data/recognition` : `SignatureGenerator` + `SignatureFormat` (portage Kotlin de l'algorithme de **SongRec**, GPL-3.0, en-têtes de provenance à conserver), `ShazamMusicRecognizer` (endpoint **non officiel** `amp.shazam.com/discovery/v5/...`, sans clé), `AudioRecordCapture` (16 kHz mono PCM16). `:ui` : `RecognitionViewModel` + `RecognitionSheet` ; permission `RECORD_AUDIO` demandée au clic seulement.
+- Aucune URL/audio n'est persisté ; seule l'empreinte (signature) part vers Shazam, avec une géolocalisation fictive fixe (comme SongRec).
+- Test de référence : `data/src/test/resources/recognition/ref_songrec.sig` a été produit par le code Rust de SongRec (mêmes pics que le portage Kotlin). Test réel : `SPAUTIFAILLE_LIVE_TESTS=1 ./gradlew :data:testDebugUnitTest --tests "*LiveShazamTest*"` (`SPAUTIFAILLE_LIVE_PCM=<fichier.pcm>` pour un vrai extrait).
+- Si l'endpoint change ou disparaît : `AppError.RecognitionUnavailable` s'affiche, rien d'autre n'est impacté.
+
 ## Mettre à jour NewPipeExtractor
 On suit le commit épinglé par l'app NewPipe (testé en production) :
 1. Lire `https://raw.githubusercontent.com/TeamNewPipe/NewPipe/dev/gradle/libs.versions.toml` → clé `teamnewpipe-newpipe-extractor`.

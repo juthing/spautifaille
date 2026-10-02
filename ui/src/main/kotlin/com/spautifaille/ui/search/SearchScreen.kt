@@ -29,6 +29,7 @@ import androidx.compose.material.icons.automirrored.filled.CallMade
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
@@ -58,6 +59,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -103,8 +105,19 @@ fun SearchScreenRoot(
     onOpenArtist: (url: String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SearchViewModel = hiltViewModel(),
+    recognitionViewModel: RecognitionViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val recognitionState by recognitionViewModel.uiState.collectAsStateWithLifecycle()
+    val startRecognition = rememberRecognitionStarter(recognitionViewModel, recognitionState)
+    // Un titre reconnu lance la recherche « titre artiste » dans cet écran.
+    LaunchedEffect(recognitionViewModel) {
+        recognitionViewModel.events.collect { event ->
+            when (event) {
+                is RecognitionEvent.SearchFor -> viewModel.onRecognizedQuery(event.query)
+            }
+        }
+    }
     SearchScreen(
         state = state,
         onBack = onBack,
@@ -118,8 +131,19 @@ fun SearchScreenRoot(
         onRemoveRecent = viewModel::onRemoveRecent,
         onOpenPlaylist = onOpenPlaylist,
         onOpenArtist = onOpenArtist,
+        onRecognizeClick = startRecognition,
         modifier = modifier,
     )
+    if (recognitionState != RecognitionUiState.Idle) {
+        RecognitionSheet(
+            state = recognitionState,
+            bestResult = state.results.filterIsInstance<SearchResult.TrackResult>().firstOrNull()?.track,
+            isSearching = state.isLoading,
+            onRetry = startRecognition,
+            onDismiss = recognitionViewModel::dismiss,
+            onPlay = viewModel::onTrackClick,
+        )
+    }
 }
 
 /**
@@ -143,7 +167,10 @@ fun SearchScreen(
     onOpenArtist: (String) -> Unit,
     modifier: Modifier = Modifier,
     onRemoveRecent: (String) -> Unit = {},
+    onRecognizeClick: () -> Unit = {},
 ) {
+    val focusManager = LocalFocusManager.current
+    val haptics = LocalAppHaptics.current
     // Vrai tant que le champ a le focus (saisie en cours).
     var typing by remember { mutableStateOf(false) }
     // Focus automatique une seule fois : pas à chaque recomposition ni au retour depuis un résultat.
@@ -221,12 +248,23 @@ fun SearchScreen(
                         }
                     },
                     trailingIcon = {
-                        if (state.query.isNotEmpty()) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (state.query.isNotEmpty()) {
+                                IconButton(onClick = {
+                                    onQueryChange("")
+                                    focusRequester.requestFocus()
+                                }) {
+                                    Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.common_action_clear))
+                                }
+                            }
+                            // Reconnaissance musicale : on referme le clavier pour laisser place à la feuille d'écoute.
                             IconButton(onClick = {
-                                onQueryChange("")
-                                focusRequester.requestFocus()
+                                haptics.click()
+                                typing = false
+                                focusManager.clearFocus()
+                                onRecognizeClick()
                             }) {
-                                Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.common_action_clear))
+                                Icon(Icons.Filled.GraphicEq, contentDescription = stringResource(R.string.search_recognize_action))
                             }
                         }
                     },
