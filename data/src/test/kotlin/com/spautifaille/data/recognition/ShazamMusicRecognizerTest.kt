@@ -3,6 +3,11 @@ package com.spautifaille.data.recognition
 import com.spautifaille.domain.error.AppError
 import com.spautifaille.domain.error.AppException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
@@ -10,6 +15,8 @@ import kotlinx.serialization.json.jsonPrimitive
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
 import okhttp3.OkHttpClient
+import okhttp3.ResponseBody.Companion.asResponseBody
+import okio.buffer
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -156,6 +163,110 @@ class ShazamMusicRecognizerTest {
         // `track` sans titre : pas de correspondance exploitable.
         assertNull(ShazamMusicRecognizer.parseResponse("""{"track":{"subtitle":"B"}}"""))
         assertNull(ShazamMusicRecognizer.parseResponse("""{"matches":[]}"""))
+    }
+
+    @Test
+    fun `parseResponse lit une vraie reponse Shazam avec correspondance`() {
+        // Réponse réelle (voir resources/recognition/README.txt).
+        val text = javaClass.getResourceAsStream("/recognition/shazam_match_local_forecast.json")!!
+            .readBytes().toString(Charsets.UTF_8)
+        val track = ShazamMusicRecognizer.parseResponse(text)!!
+        assertEquals("Local Forecast", track.title)
+        assertEquals("Kevin MacLeod", track.artist)
+        assertEquals("Groovy", track.album)
+        assertEquals("2014", track.releaseYear)
+        assertEquals("Electronic", track.genre)
+        assertTrue(track.artworkUrl!!.startsWith("https://is1-ssl.mzstatic.com/"))
+    }
+
+    /**
+     * Régression : le corps de la réponse (lecture réseau bloquante) était lu sur le thread de l'appelant, c'est-à-dire
+     * le thread principal puisque le use case est collecté dans `viewModelScope`. Sur Android cela lève
+     * `NetworkOnMainThreadException` (non `AppException` -> « Une erreur inattendue s'est produite ») dès que le corps
+     * n'est pas déjà entièrement en tampon, ce qui arrive avec la réponse volumineuse d'une correspondance.
+     */
+    @Test
+    fun `le corps de la reponse n'est jamais lu sur le thread de l'appelant`() {
+        val readThreads = java.util.Collections.synchronizedSet(mutableSetOf<String>())
+        val tracingClient = OkHttpClient.Builder().addInterceptor { chain ->
+            val response = chain.proceed(chain.request())
+            val body = response.body
+            val traced = object : okio.ForwardingSource(body.source()) {
+                override fun read(sink: okio.Buffer, byteCount: Long): Long {
+                    readThreads += Thread.currentThread().name
+                    return super.read(sink, byteCount)
+                }
+            }
+            response.newBuilder()
+                .body(traced.buffer().asResponseBody(body.contentType(), body.contentLength()))
+                .build()
+        }.build()
+        val tracing = ShazamMusicRecognizer(
+            client = tracingClient,
+            defaultDispatcher = Dispatchers.Default,
+            endpoint = server.url("/tag").toString().trimEnd('/'),
+        )
+        server.enqueue(
+            MockResponse.Builder().code(200).body(MATCH_JSON)
+                .throttleBody(64, 5, java.util.concurrent.TimeUnit.MILLISECONDS).build(),
+        )
+
+        val callerThread = "fake-main"
+        val executor = java.util.concurrent.Executors.newSingleThreadExecutor { Thread(it, callerThread) }
+        try {
+            val track = kotlinx.coroutines.runBlocking(executor.asCoroutineDispatcher()) {
+                tracing.recognize(audio, 16_000)
+            }
+            assertEquals("Papaoutai", track!!.title)
+        } finally {
+            executor.shutdown()
+        }
+        assertTrue("Le corps n'a jamais été lu", readThreads.isNotEmpty())
+        // Les noms de threads portent un suffixe « @coroutine#n » en mode debug des coroutines.
+        assertTrue("Corps lu sur le thread de l'appelant : $readThreads", readThreads.none { it.startsWith(callerThread) })
+    }
+
+    @Test
+    fun `une coupure pendant la lecture du corps devient Network`() = runTest {
+        val cutting = OkHttpClient.Builder().addInterceptor { chain ->
+            val response = chain.proceed(chain.request())
+            val body = response.body
+            val failing = object : okio.ForwardingSource(body.source()) {
+                override fun read(sink: okio.Buffer, byteCount: Long): Long = throw java.io.IOException("coupure")
+            }
+            response.newBuilder().body(failing.buffer().asResponseBody(body.contentType(), body.contentLength())).build()
+        }.build()
+        val cut = ShazamMusicRecognizer(
+            client = cutting,
+            defaultDispatcher = Dispatchers.Default,
+            endpoint = server.url("/tag").toString().trimEnd('/'),
+        )
+        server.enqueue(json(MATCH_JSON))
+        val e = runCatching { cut.recognize(audio, 16_000) }.exceptionOrNull()
+        assertEquals(AppError.Network, (e as AppException).error)
+    }
+
+    @Test
+    fun `une exception inattendue de la chaine devient RecognitionUnavailable avec sa cause`() = runTest {
+        val boom = IllegalStateException("inattendu")
+        val failing = ShazamMusicRecognizer(
+            client = OkHttpClient(),
+            defaultDispatcher = Dispatchers.Default,
+            endpoint = server.url("/tag").toString().trimEnd('/'),
+            clock = { throw boom },
+        )
+        val e = runCatching { failing.recognize(audio, 16_000) }.exceptionOrNull()
+        assertEquals(AppError.RecognitionUnavailable, (e as AppException).error)
+        assertEquals(boom, e.cause)
+    }
+
+    @Test
+    fun `annuler la coroutine reste une annulation`() = runBlocking {
+        server.enqueue(MockResponse.Builder().code(200).body(NO_MATCH_JSON).bodyDelay(5, java.util.concurrent.TimeUnit.SECONDS).build())
+        val job = launch(Dispatchers.Default) { recognizer.recognize(audio, 16_000) }
+        delay(300)
+        job.cancelAndJoin()
+        assertTrue(job.isCancelled)
     }
 
     private companion object {
