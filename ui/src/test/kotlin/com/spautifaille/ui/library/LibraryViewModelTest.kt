@@ -4,7 +4,9 @@ import com.spautifaille.domain.model.Download
 import com.spautifaille.domain.model.DownloadState
 import com.spautifaille.domain.model.Playlist
 import com.spautifaille.domain.player.PlaybackController
+import com.spautifaille.domain.player.QueueSources
 import com.spautifaille.domain.repository.DownloadRepository
+import com.spautifaille.domain.repository.OfflineAvailability
 import com.spautifaille.ui.R
 import com.spautifaille.ui.common.NotificationPermissionRequester
 import com.spautifaille.ui.common.UiMessenger
@@ -48,8 +50,14 @@ class LibraryViewModelTest {
         override val isOnline: Flow<Boolean> = online
     }
 
-    private fun viewModel() =
-        LibraryViewModel(playlists, downloadRepository, playback, network, notificationPermission, messenger)
+    private val cachedIds = MutableStateFlow<Set<String>>(emptySet())
+    private val offlineAvailability = object : OfflineAvailability {
+        override fun observePlayableIds(): Flow<Set<String>> = cachedIds
+    }
+
+    private fun viewModel() = LibraryViewModel(
+        playlists, downloadRepository, playback, network, offlineAvailability, notificationPermission, messenger,
+    )
 
     private fun userPlaylist(id: Long, name: String, count: Int = 0) =
         Playlist(id, name, count, null, false, 0, 0)
@@ -192,14 +200,14 @@ class LibraryViewModelTest {
         vm.playPlaylist(10, shuffle = false)
         vm.playPlaylist(10, shuffle = true)
 
-        verify { playback.play(tracks, 0, false) }
-        verify { playback.play(tracks, 0, true) }
+        verify { playback.play(tracks, 0, false, QueueSources.playlist(10)) }
+        verify { playback.play(tracks, 0, true, QueueSources.playlist(10)) }
     }
 
     @Test
     fun `playPlaylist does nothing for an empty playlist`() = runTest {
         viewModel().playPlaylist(Playlist.LIKED_ID, shuffle = false)
-        verify(exactly = 0) { playback.play(any(), any(), any()) }
+        verify(exactly = 0) { playback.play(any(), any(), any(), any()) }
     }
 
     @Test
@@ -210,7 +218,7 @@ class LibraryViewModelTest {
         vm.playPlaylist(Playlist.DOWNLOADED_ID, shuffle = true)
 
         // Du plus récent au plus ancien.
-        verify { playback.play(listOf(track(3), track(1)), 0, true) }
+        verify { playback.play(listOf(track(3), track(1)), 0, true, QueueSources.playlist(Playlist.DOWNLOADED_ID)) }
     }
 
     @Test
@@ -222,7 +230,20 @@ class LibraryViewModelTest {
 
         viewModel().playPlaylist(10, shuffle = false)
 
-        verify { playback.play(listOf(track(2)), 0, false) }
+        verify { playback.play(listOf(track(2)), 0, false, QueueSources.playlist(10)) }
+    }
+
+    @Test
+    fun `offline playPlaylist also plays tracks present in the streaming cache`() = runTest {
+        val tracks = listOf(track(1), track(2), track(3))
+        playlists.seed(userPlaylist(10, "P", 3), tracks)
+        downloads.value = listOf(download(2))
+        cachedIds.value = setOf("video3")
+        online.value = false
+
+        viewModel().playPlaylist(10, shuffle = false)
+
+        verify { playback.play(listOf(track(2), track(3)), 0, false, QueueSources.playlist(10)) }
     }
 
     @Test
@@ -234,7 +255,7 @@ class LibraryViewModelTest {
 
         viewModel().playPlaylist(10, shuffle = false)
 
-        verify(exactly = 0) { playback.play(any(), any(), any()) }
+        verify(exactly = 0) { playback.play(any(), any(), any(), any()) }
         assertEquals(listOf<UiText>(UiText.of(R.string.lib_nothing_playable_offline)), messages)
     }
 

@@ -33,6 +33,16 @@ class MediaItemMapperTest {
     }
 
     @Test
+    fun `source id round trips on the media item and is absent by default`() {
+        val withSource = MediaItemMapper.toMediaItems(listOf(track), sourceId = "playlist:7").single()
+        assertEquals("playlist:7", MediaItemMapper.sourceId(withSource))
+        assertEquals(track, MediaItemMapper.toTrack(withSource))
+        assertNull(MediaItemMapper.sourceId(MediaItemMapper.toMediaItem(track)))
+        // ensureUid ne perd pas l'origine.
+        assertEquals("playlist:7", MediaItemMapper.sourceId(MediaItemMapper.ensureUid(withSource)))
+    }
+
+    @Test
     fun `round trip with only mandatory fields`() {
         val minimal = Track(id = "abc", title = "T", artist = "A")
         assertEquals(minimal, MediaItemMapper.toTrack(MediaItemMapper.toMediaItem(minimal)))

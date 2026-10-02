@@ -82,3 +82,13 @@ interface DownloadRepository {
      */
     fun localFileBlocking(trackId: String): String?
 }
+
+/**
+ * Titres lisibles sans réseau : téléchargés (fichier complet) ou présents, entièrement ou en partie, dans le
+ * cache de streaming. Implémentée dans `:player` (le cache Media3 y vit) et consommée par l'UI pour griser les
+ * titres injouables hors ligne.
+ */
+interface OfflineAvailability {
+    /** Ids des titres lisibles hors ligne ; émet l'état courant à l'abonnement puis à chaque changement. */
+    fun observePlayableIds(): Flow<Set<String>>
+}

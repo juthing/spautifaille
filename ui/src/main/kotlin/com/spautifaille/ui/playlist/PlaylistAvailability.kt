@@ -7,21 +7,22 @@ import com.spautifaille.domain.model.PlaylistEntry
 import com.spautifaille.domain.model.Track
 
 /**
- * Logique pure de disponibilité des titres selon le réseau : hors ligne, seuls les titres téléchargés
- * peuvent être lus. Partagée par la liste des playlists et la page d'une playlist.
+ * Logique pure de disponibilité des titres selon le réseau : hors ligne, seuls les titres lisibles sans réseau
+ * (téléchargés ou présents dans le cache de streaming, voir `OfflineAvailability`) peuvent être lus.
+ * Partagée par la liste des playlists, la page d'une playlist et l'historique.
  */
 
-/** Un titre est lisible s'il est téléchargé ou si l'appareil est en ligne. */
-internal fun isTrackAvailable(trackId: String, downloadedIds: Set<String>, isOffline: Boolean): Boolean =
-    !isOffline || trackId in downloadedIds
+/** Un titre est lisible s'il est dans [playableOfflineIds] ou si l'appareil est en ligne. */
+internal fun isTrackAvailable(trackId: String, playableOfflineIds: Set<String>, isOffline: Boolean): Boolean =
+    !isOffline || trackId in playableOfflineIds
 
 /** Entrées lisibles, ordre conservé. En ligne : toutes. */
-internal fun List<PlaylistEntry>.availableEntries(downloadedIds: Set<String>, isOffline: Boolean): List<PlaylistEntry> =
-    if (!isOffline) this else filter { it.track.id in downloadedIds }
+internal fun List<PlaylistEntry>.availableEntries(playableOfflineIds: Set<String>, isOffline: Boolean): List<PlaylistEntry> =
+    if (!isOffline) this else filter { it.track.id in playableOfflineIds }
 
 /** Titres lisibles, ordre conservé. En ligne : tous. */
-internal fun List<Track>.availableTracks(downloadedIds: Set<String>, isOffline: Boolean): List<Track> =
-    if (!isOffline) this else filter { it.id in downloadedIds }
+internal fun List<Track>.availableTracks(playableOfflineIds: Set<String>, isOffline: Boolean): List<Track> =
+    if (!isOffline) this else filter { it.id in playableOfflineIds }
 
 /** Téléchargements terminés, du plus récent au plus ancien (ordre de la playlist « Téléchargés »). */
 internal fun List<Download>.completedDownloads(): List<Download> =

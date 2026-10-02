@@ -25,10 +25,40 @@
     <string name="lib_downloads_empty_body">Télécharge des titres pour les écouter hors connexion.</string>
 
     <!-- Détail de playlist -->
-    <string name="lib_reorder">Réorganiser</string>
+    <string name="lib_resume">Reprendre</string>
+    <string name="lib_move_up">Monter</string>
+    <string name="lib_move_down">Descendre</string>
+    <string name="lib_select">Sélectionner</string>
     <string name="lib_download_all">Tout télécharger</string>
     <string name="lib_remove_from_playlist">Retirer de la playlist</string>
     <string name="lib_track_removed">« %1$s » retiré de la playlist</string>
+    <plurals name="lib_tracks_removed">
+        <item quantity="one">%d titre retiré de la playlist</item>
+        <item quantity="other">%d titres retirés de la playlist</item>
+    </plurals>
+    <plurals name="lib_tracks_liked">
+        <item quantity="one">%d titre ajouté aux Titres likés</item>
+        <item quantity="other">%d titres ajoutés aux Titres likés</item>
+    </plurals>
+    <plurals name="lib_tracks_unliked">
+        <item quantity="one">%d titre retiré des Titres likés</item>
+        <item quantity="other">%d titres retirés des Titres likés</item>
+    </plurals>
+
+    <!-- Détail de playlist : sélection multiple -->
+    <plurals name="lib_selection_count">
+        <item quantity="one">%d sélectionné</item>
+        <item quantity="other">%d sélectionnés</item>
+    </plurals>
+    <string name="lib_selection_close">Quitter la sélection</string>
+    <string name="lib_select_all">Tout sélectionner</string>
+    <string name="lib_deselect_all">Tout désélectionner</string>
+    <string name="lib_selection_more">Plus d\'actions</string>
+    <string name="lib_delete_downloads_title">Supprimer les téléchargements ?</string>
+    <plurals name="lib_delete_downloads_message">
+        <item quantity="one">Le fichier de ce titre sera supprimé de l\'appareil.</item>
+        <item quantity="other">Les fichiers de ces %d titres seront supprimés de l\'appareil.</item>
+    </plurals>
     <plurals name="lib_downloads_queued">
         <item quantity="one">%d titre ajouté aux téléchargements</item>
         <item quantity="other">%d titres ajoutés aux téléchargements</item>
@@ -49,9 +79,9 @@
     <string name="lib_empty_playlists_body">Crée ta première playlist ou importe-en une avec le bouton +.</string>
     <string name="lib_downloads_started">Téléchargement lancé</string>
     <string name="lib_downloads_nothing_to_do">Tous les titres sont déjà téléchargés</string>
-    <string name="lib_offline_banner">Hors ligne — seuls les titres téléchargés sont disponibles</string>
-    <string name="lib_track_unavailable_offline">Ce titre n\'est pas téléchargé : indisponible hors ligne</string>
+    <string name="lib_offline_banner">Hors ligne : seuls les titres téléchargés ou déjà en cache sont lisibles</string>
+    <string name="lib_track_unavailable_offline">Ce titre n\'est ni téléchargé ni en cache : indisponible hors ligne</string>
     <string name="lib_downloaded_indicator">Téléchargé</string>
     <string name="lib_downloaded_all">Playlist entièrement téléchargée</string>
-    <string name="lib_nothing_playable_offline">Aucun titre téléchargé dans cette playlist</string>
+    <string name="lib_nothing_playable_offline">Aucun titre lisible hors ligne dans cette playlist</string>
 </resources>

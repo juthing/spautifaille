@@ -8,8 +8,12 @@ import com.spautifaille.domain.model.Playlist
 import com.spautifaille.domain.model.Track
 import com.spautifaille.domain.player.PlaybackController
 import com.spautifaille.domain.player.PlayerState
+import com.spautifaille.domain.player.QueueSources
 import com.spautifaille.domain.repository.DownloadRepository
+import com.spautifaille.domain.repository.LibraryRepository
+import com.spautifaille.domain.repository.OfflineAvailability
 import com.spautifaille.ui.common.NotificationPermissionRequester
+import com.spautifaille.ui.common.UiMessenger
 import com.spautifaille.ui.library.FakePlaylistRepository
 import com.spautifaille.ui.library.MainDispatcherRule
 import com.spautifaille.ui.library.collectInBackground
@@ -49,13 +53,25 @@ class PlaylistDetailViewModelTest {
         override val isOnline: Flow<Boolean> = online
     }
     private val notificationPermission = mockk<NotificationPermissionRequester>(relaxed = true)
+    private val cachedIds = MutableStateFlow<Set<String>>(emptySet())
+    private val offlineAvailability = object : OfflineAvailability {
+        override fun observePlayableIds(): Flow<Set<String>> = cachedIds
+    }
+    private val likedIds = MutableStateFlow<Set<String>>(emptySet())
+    private val library = mockk<LibraryRepository>(relaxed = true) {
+        every { observeLikedIds() } returns likedIds
+    }
+    private val messenger = UiMessenger()
     private val tracks = (1..4).map { track(it, durationMs = 60_000L * it) }
 
     private fun userPlaylist() = Playlist(PLAYLIST_ID, "Road trip", 4, "https://img/1.jpg", false, 0, 0)
 
     private fun viewModel(id: Long? = PLAYLIST_ID): PlaylistDetailViewModel {
         val args = if (id != null) mapOf(PlaylistDetailViewModel.ARG_ID to id) else emptyMap()
-        return PlaylistDetailViewModel(SavedStateHandle(args), repository, downloads, playback, notificationPermission, network)
+        return PlaylistDetailViewModel(
+            SavedStateHandle(args), repository, downloads, library, playback, notificationPermission, network,
+            offlineAvailability, messenger,
+        )
     }
 
     private fun ids(vm: PlaylistDetailViewModel) = vm.uiState.value.entries.map { it.track.id }
@@ -97,8 +113,8 @@ class PlaylistDetailViewModelTest {
         vm.playAll(shuffle = false)
         vm.playAll(shuffle = true)
 
-        verify { playback.play(tracks, 0, false) }
-        verify { playback.play(tracks, 0, true) }
+        verify { playback.play(tracks, 0, false, SOURCE) }
+        verify { playback.play(tracks, 0, true, SOURCE) }
     }
 
     @Test
@@ -109,7 +125,7 @@ class PlaylistDetailViewModelTest {
 
         vm.playFrom(2)
 
-        verify { playback.play(tracks, 2, false) }
+        verify { playback.play(tracks, 2, false, SOURCE) }
     }
 
     @Test
@@ -121,7 +137,7 @@ class PlaylistDetailViewModelTest {
         vm.playAll(true)
         vm.playFrom(0)
 
-        verify(exactly = 0) { playback.play(any(), any(), any()) }
+        verify(exactly = 0) { playback.play(any(), any(), any(), any()) }
     }
 
     @Test
@@ -223,7 +239,7 @@ class PlaylistDetailViewModelTest {
 
         vm.events.test {
             vm.removeEntry(entry)
-            assertEquals(PlaylistDetailEvent.TrackRemoved(tracks[1], position = 1), awaitItem())
+            assertEquals(PlaylistDetailEvent.TracksRemoved(listOf(RemovedTrack(tracks[1], position = 1))), awaitItem())
         }
         assertEquals(listOf("video1", "video3", "video4"), ids(vm))
     }
@@ -321,8 +337,8 @@ class PlaylistDetailViewModelTest {
         vm.playAll(shuffle = false)
         vm.playFrom(3)
 
-        verify { playback.play(tracks, 0, false) }
-        verify { playback.play(tracks, 3, false) }
+        verify { playback.play(tracks, 0, false, SOURCE) }
+        verify { playback.play(tracks, 3, false, SOURCE) }
     }
 
     @Test
@@ -336,7 +352,7 @@ class PlaylistDetailViewModelTest {
         assertTrue(vm.uiState.value.isOffline)
         vm.playAll(shuffle = true)
 
-        verify { playback.play(listOf(tracks[1], tracks[3]), 0, true) }
+        verify { playback.play(listOf(tracks[1], tracks[3]), 0, true, SOURCE) }
     }
 
     @Test
@@ -349,7 +365,7 @@ class PlaylistDetailViewModelTest {
 
         vm.playFrom(3)
 
-        verify { playback.play(listOf(tracks[1], tracks[3]), 1, false) }
+        verify { playback.play(listOf(tracks[1], tracks[3]), 1, false, SOURCE) }
     }
 
     @Test
@@ -364,7 +380,7 @@ class PlaylistDetailViewModelTest {
             vm.playFrom(0)
             assertEquals(PlaylistDetailEvent.TrackUnavailableOffline, awaitItem())
         }
-        verify(exactly = 0) { playback.play(any(), any(), any()) }
+        verify(exactly = 0) { playback.play(any(), any(), any(), any()) }
     }
 
     @Test
@@ -377,7 +393,7 @@ class PlaylistDetailViewModelTest {
         vm.playAll(shuffle = false)
 
         assertFalse(vm.uiState.value.canPlay)
-        verify(exactly = 0) { playback.play(any(), any(), any()) }
+        verify(exactly = 0) { playback.play(any(), any(), any(), any()) }
     }
 
     @Test
@@ -468,8 +484,8 @@ class PlaylistDetailViewModelTest {
         vm.playFrom(1)
         vm.downloadAll()
 
-        verify { playback.play(listOf(tracks[0], tracks[1]), 0, true) }
-        verify { playback.play(listOf(tracks[0], tracks[1]), 1, false) }
+        verify { playback.play(listOf(tracks[0], tracks[1]), 0, true, QueueSources.playlist(Playlist.DOWNLOADED_ID)) }
+        verify { playback.play(listOf(tracks[0], tracks[1]), 1, false, QueueSources.playlist(Playlist.DOWNLOADED_ID)) }
         assertFalse(vm.uiState.value.canDownload)
         coVerify(exactly = 0) { downloads.enqueue(any()) }
     }
@@ -491,5 +507,6 @@ class PlaylistDetailViewModelTest {
 
     private companion object {
         const val PLAYLIST_ID = 10L
+        val SOURCE = QueueSources.playlist(PLAYLIST_ID)
     }
 }

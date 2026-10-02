@@ -115,7 +115,7 @@ class StreamResolver internal constructor(
      */
     fun cacheKey(videoId: String): String {
         val quality = lastKnownQuality ?: runBlocking { settings.current().audioQuality }.also { lastKnownQuality = it }
-        return "$videoId#${quality.name}"
+        return StreamCacheKeys.of(videoId, quality)
     }
 
     private fun freshEntry(videoId: String, quality: AudioQuality): Entry? {

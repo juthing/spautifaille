@@ -4,6 +4,8 @@ import com.spautifaille.domain.model.HistoryEntry
 import com.spautifaille.domain.player.PlaybackController
 import com.spautifaille.domain.player.PlayerState
 import com.spautifaille.domain.repository.LibraryRepository
+import com.spautifaille.domain.repository.OfflineAvailability
+import com.spautifaille.ui.network.NetworkMonitor
 import com.spautifaille.ui.library.MainDispatcherRule
 import com.spautifaille.ui.library.collectInBackground
 import com.spautifaille.ui.library.track
@@ -11,6 +13,7 @@ import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -41,7 +44,17 @@ class HistoryViewModelTest {
         every { state } returns playerState
     }
 
-    private fun viewModel() = HistoryViewModel(library, playback, { today }, { zone })
+    private val online = MutableStateFlow(true)
+    private val network = object : NetworkMonitor {
+        override val isUnmetered: Flow<Boolean> = online
+        override val isOnline: Flow<Boolean> = online
+    }
+    private val cachedIds = MutableStateFlow<Set<String>>(emptySet())
+    private val offlineAvailability = object : OfflineAvailability {
+        override fun observePlayableIds(): Flow<Set<String>> = cachedIds
+    }
+
+    private fun viewModel() = HistoryViewModel(library, playback, network, offlineAvailability, { today }, { zone })
 
     private fun entry(id: Long, date: LocalDate, hour: Int = 12) = HistoryEntry(
         id = id,
@@ -111,6 +124,44 @@ class HistoryViewModelTest {
         vm.playFrom(5)
 
         verify(exactly = 0) { playback.play(any(), any(), any()) }
+    }
+
+    @Test
+    fun `offline playFrom only queues downloaded or cached tracks`() = runTest {
+        history.value = listOf(entry(1, today), entry(2, today), entry(3, today), entry(4, today))
+        cachedIds.value = setOf("video2", "video4")
+        online.value = false
+        val vm = viewModel()
+        collectInBackground(vm.uiState)
+
+        assertTrue(vm.uiState.value.isOffline)
+        assertFalse(vm.uiState.value.isAvailable("video1"))
+        assertTrue(vm.uiState.value.isAvailable("video2"))
+        vm.playFrom(1)
+
+        verify { playback.play(listOf(track(2), track(4)), 0, false) }
+    }
+
+    @Test
+    fun `offline playFrom on an unplayable entry does nothing`() = runTest {
+        history.value = listOf(entry(1, today), entry(2, today))
+        cachedIds.value = setOf("video2")
+        online.value = false
+        val vm = viewModel()
+        collectInBackground(vm.uiState)
+
+        vm.playFrom(0)
+
+        verify(exactly = 0) { playback.play(any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun `every entry is available online`() = runTest {
+        history.value = listOf(entry(1, today))
+        val vm = viewModel()
+        collectInBackground(vm.uiState)
+
+        assertTrue(vm.uiState.value.isAvailable("video1"))
     }
 
     @Test

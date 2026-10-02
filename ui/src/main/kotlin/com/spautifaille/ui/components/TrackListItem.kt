@@ -1,10 +1,7 @@
 package com.spautifaille.ui.components
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -22,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DownloadDone
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -29,14 +27,18 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.State
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -47,15 +49,22 @@ import com.spautifaille.ui.common.LocalAppHaptics
 import com.spautifaille.ui.theme.ArtworkSize
 import com.spautifaille.ui.theme.Spacing
 import com.spautifaille.ui.theme.SpautifailleTheme
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 
 /**
  * Ligne de titre : pochette arrondie, titre, « artiste · durée » et menu d'actions.
  *
- * - [isCurrent] : titre de la file en cours, mis en évidence (fond tonal, titre en gras, indicateur sur la pochette) ;
- * - [isPlaying] : n'a d'effet qu'avec [isCurrent] ; anime l'indicateur « en cours de lecture » (sinon il est figé) ;
+ * - [isCurrent] : titre de la file en cours, mis en évidence (fond légèrement teinté de la couleur primaire, titre
+ *   en couleur primaire, égaliseur animé sur la pochette) ;
+ * - [isPlaying] : n'a d'effet qu'avec [isCurrent] ; anime l'égaliseur (sinon il est figé) ;
  * - [isDownloaded] : affiche une petite icône « téléchargé » devant le sous-titre ;
+ * - [isAvailable] : `false` = titre injouable (par exemple hors ligne) : contenu estompé à 38 % (le bouton ⋮ reste
+ *   actif). Le clic reste transmis : à l'appelant de l'ignorer ou d'expliquer pourquoi ;
+ * - [selectionMode] / [isSelected] : sélection multiple : le ⋮ est remplacé par une case à cocher et la ligne
+ *   sélectionnée prend le fond `secondaryContainer` ;
  * - [onLongClick] : appui long (avec retour haptique). Par défaut ouvre le même menu que [onMoreClick] ;
- *   passer `null` pour désactiver l'appui long ;
+ *   passer `null` pour désactiver l'appui long (par exemple quand un parent gère « appui long + glisser ») ;
  * - [clickFeedback] : retour haptique au toucher de la ligne (désactiver quand l'appelant fournit lui-même
  *   un retour, par exemple un refus sur un titre indisponible). Les appelants n'ajoutent pas leur propre `click()`.
  */
@@ -69,6 +78,9 @@ fun TrackListItem(
     isCurrent: Boolean = false,
     isPlaying: Boolean = false,
     isDownloaded: Boolean = false,
+    isAvailable: Boolean = true,
+    selectionMode: Boolean = false,
+    isSelected: Boolean = false,
     onLongClick: (() -> Unit)? = onMoreClick,
     clickFeedback: Boolean = true,
 ) {
@@ -76,9 +88,22 @@ fun TrackListItem(
     val subtitle = track.durationMs?.let { stringResource(R.string.common_track_subtitle, track.artist, formatDuration(it)) }
         ?: track.artist
     val colors = MaterialTheme.colorScheme
+    val contentAlpha = if (isAvailable) 1f else UnavailableAlpha
+    val highlighted = selectionMode && isSelected
+    val containerColor = when {
+        highlighted -> colors.secondaryContainer
+        isCurrent -> colors.primary.copy(alpha = CurrentContainerAlpha)
+        else -> Color.Transparent
+    }
+    val headlineColor = when {
+        highlighted -> colors.onSecondaryContainer
+        isCurrent -> colors.primary
+        else -> colors.onSurface
+    }
     ListItem(
         modifier = modifier
             .clip(MaterialTheme.shapes.large)
+            .semantics { if (selectionMode) selected = isSelected }
             .combinedClickable(
                 onClick = {
                     if (clickFeedback) haptics.click()
@@ -92,13 +117,13 @@ fun TrackListItem(
                 },
             ),
         colors = ListItemDefaults.colors(
-            containerColor = if (isCurrent) colors.secondaryContainer else Color.Transparent,
-            headlineColor = if (isCurrent) colors.onSecondaryContainer else colors.onSurface,
-            supportingColor = if (isCurrent) colors.onSecondaryContainer.copy(alpha = 0.8f) else colors.onSurfaceVariant,
-            trailingIconColor = if (isCurrent) colors.onSecondaryContainer else colors.onSurfaceVariant,
+            containerColor = containerColor,
+            headlineColor = headlineColor,
+            supportingColor = if (highlighted) colors.onSecondaryContainer.copy(alpha = 0.8f) else colors.onSurfaceVariant,
+            trailingIconColor = colors.onSurfaceVariant,
         ),
         leadingContent = {
-            Box(contentAlignment = Alignment.Center) {
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.alpha(contentAlpha)) {
                 Artwork(url = track.thumbnailUrl, modifier = Modifier.size(ArtworkSize.Row))
                 if (isCurrent) {
                     NowPlayingOverlay(isPlaying = isPlaying, modifier = Modifier.size(ArtworkSize.Row))
@@ -112,16 +137,17 @@ fun TrackListItem(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 fontWeight = if (isCurrent) FontWeight.SemiBold else FontWeight.Medium,
+                modifier = Modifier.alpha(contentAlpha),
             )
         },
         supportingContent = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.alpha(contentAlpha)) {
                 if (isDownloaded) {
                     Icon(
                         imageVector = Icons.Filled.DownloadDone,
                         contentDescription = stringResource(R.string.lib_downloaded_indicator),
                         modifier = Modifier.size(DownloadedIconSize),
-                        tint = if (isCurrent) colors.onSecondaryContainer else colors.primary,
+                        tint = colors.primary,
                     )
                     Spacer(Modifier.width(Spacing.xs))
                 }
@@ -129,11 +155,16 @@ fun TrackListItem(
             }
         },
         trailingContent = {
-            IconButton(onClick = {
-                haptics.click()
-                onMoreClick()
-            }) {
-                Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.common_action_more))
+            if (selectionMode) {
+                // Case purement indicative : toute la ligne est cliquable (onCheckedChange = null).
+                Checkbox(checked = isSelected, onCheckedChange = null)
+            } else {
+                IconButton(onClick = {
+                    haptics.click()
+                    onMoreClick()
+                }) {
+                    Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.common_action_more))
+                }
             }
         },
     )
@@ -153,9 +184,9 @@ private fun NowPlayingOverlay(isPlaying: Boolean, modifier: Modifier = Modifier)
 }
 
 /**
- * Indicateur « en cours de lecture » : trois barres d'égaliseur qui oscillent quand [isAnimating],
- * figées sinon (aucune animation tournante dans ce cas). À placer sur une pochette (voir [TrackListItem])
- * ou à côté d'un titre.
+ * Indicateur « en cours de lecture » : trois barres d'égaliseur qui oscillent (durées différentes, donc déphasées)
+ * quand [isAnimating], et qui **se figent sur place** dès qu'il passe à `false` (lecture en pause) : plus aucune
+ * animation ne tourne dans ce cas. À placer sur une pochette (voir [TrackListItem]) ou à côté d'un titre.
  */
 @Composable
 fun NowPlayingIndicator(
@@ -163,20 +194,27 @@ fun NowPlayingIndicator(
     isAnimating: Boolean = true,
     color: Color = MaterialTheme.colorScheme.primary,
 ) {
-    if (isAnimating) {
-        val transition = rememberInfiniteTransition(label = "nowPlaying")
-        val bars: List<State<Float>> = BarDurationsMillis.mapIndexed { index, duration ->
-            transition.animateFloat(
-                initialValue = 0.3f,
-                targetValue = 1f,
-                animationSpec = infiniteRepeatable(tween(duration, easing = LinearEasing), RepeatMode.Reverse),
-                label = "bar$index",
-            )
+    val bars = remember { BarSpecs.map { Animatable(it.rest) } }
+    LaunchedEffect(isAnimating) {
+        // Quand l'effet est annulé (pause), chaque Animatable s'arrête là où il est : les barres restent figées.
+        if (!isAnimating) return@LaunchedEffect
+        coroutineScope {
+            bars.forEachIndexed { index, bar ->
+                launch {
+                    val spec = BarSpecs[index]
+                    var up = bar.value < spec.peak - BarEpsilon
+                    while (true) {
+                        bar.animateTo(
+                            targetValue = if (up) spec.peak else spec.low,
+                            animationSpec = tween(spec.durationMs, easing = FastOutSlowInEasing),
+                        )
+                        up = !up
+                    }
+                }
+            }
         }
-        EqualizerBars(modifier, color) { index -> bars[index].value }
-    } else {
-        EqualizerBars(modifier, color) { StoppedBarFraction }
     }
+    EqualizerBars(modifier, color) { index -> bars[index].value }
 }
 
 @Composable
@@ -188,7 +226,7 @@ private fun EqualizerBars(modifier: Modifier, color: Color, fraction: (Int) -> F
         horizontalArrangement = Arrangement.spacedBy(BarGap),
         verticalAlignment = Alignment.Bottom,
     ) {
-        repeat(BarDurationsMillis.size) { index ->
+        repeat(BarSpecs.size) { index ->
             Box(
                 Modifier
                     .width(BarWidth)
@@ -204,9 +242,19 @@ private fun EqualizerBars(modifier: Modifier, color: Color, fraction: (Int) -> F
     }
 }
 
+/** Barre d'égaliseur : hauteur relative initiale (celle qu'on voit figée), bornes de l'oscillation, durée d'un aller. */
+private class BarSpec(val rest: Float, val low: Float, val peak: Float, val durationMs: Int)
+
+private val BarSpecs = listOf(
+    BarSpec(rest = 0.55f, low = 0.25f, peak = 0.85f, durationMs = 460),
+    BarSpec(rest = 0.9f, low = 0.35f, peak = 1f, durationMs = 620),
+    BarSpec(rest = 0.4f, low = 0.2f, peak = 0.75f, durationMs = 520),
+)
+
+private const val BarEpsilon = 0.01f
+private const val UnavailableAlpha = 0.38f
+private const val CurrentContainerAlpha = 0.10f
 private val DownloadedIconSize = 16.dp
-private const val StoppedBarFraction = 0.6f
-private val BarDurationsMillis = listOf(420, 560, 480)
 private val BarsHeight = 18.dp
 private val BarWidth = 4.dp
 private val BarGap = 3.dp
@@ -220,6 +268,10 @@ private fun TrackListItemPreview() {
         Column {
             TrackListItem(track, onClick = {}, onMoreClick = {})
             TrackListItem(track, onClick = {}, onMoreClick = {}, isCurrent = true, isPlaying = true)
+            TrackListItem(track, onClick = {}, onMoreClick = {}, isCurrent = true, isPlaying = false)
+            TrackListItem(track, onClick = {}, onMoreClick = {}, isAvailable = false)
+            TrackListItem(track, onClick = {}, onMoreClick = {}, selectionMode = true, isSelected = true)
+            TrackListItem(track, onClick = {}, onMoreClick = {}, selectionMode = true)
         }
     }
 }

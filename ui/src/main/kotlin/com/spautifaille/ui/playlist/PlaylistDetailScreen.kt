@@ -1,9 +1,11 @@
 package com.spautifaille.ui.playlist
 
+import android.os.SystemClock
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,14 +24,21 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
+import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.DownloadDone
-import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
@@ -46,16 +55,15 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.rememberSwipeToDismissBoxState
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -63,9 +71,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -77,6 +88,8 @@ import com.spautifaille.domain.model.PlaylistEntry
 import com.spautifaille.domain.model.Track
 import com.spautifaille.ui.R
 import com.spautifaille.ui.common.LocalAppHaptics
+import com.spautifaille.ui.components.AddToPlaylistSheet
+import com.spautifaille.ui.components.AppButtonDefaults
 import com.spautifaille.ui.components.EmptyState
 import com.spautifaille.ui.components.LoadingState
 import com.spautifaille.ui.components.OfflineBanner
@@ -104,18 +117,34 @@ data class PlaylistDetailActions(
     val onBack: () -> Unit = {},
     val onOpenArtist: (String) -> Unit = {},
     val onPlayFrom: (Int) -> Unit = {},
-    val onPlayAll: (shuffle: Boolean) -> Unit = {},
+    /** Bouton principal : lecture / pause / reprise de CETTE playlist. */
+    val onPlayButton: () -> Unit = {},
+    val onShuffle: () -> Unit = {},
     val onDownloadAll: () -> Unit = {},
     val onRename: (String) -> Unit = {},
     val onDelete: () -> Unit = {},
+    val onDragStart: (entryId: Long) -> Unit = {},
     val onMove: (from: Int, to: Int) -> Unit = { _, _ -> },
     val onDragEnd: () -> Unit = {},
     val onRemove: (PlaylistEntry) -> Unit = {},
+    // Sélection multiple
+    val onToggleSelect: (entryId: Long) -> Unit = {},
+    val onSelectAll: () -> Unit = {},
+    val onClearSelection: () -> Unit = {},
+    val onPlaySelection: () -> Unit = {},
+    val onPlaySelectionNext: () -> Unit = {},
+    val onAddSelectionToQueue: () -> Unit = {},
+    val onDownloadSelection: () -> Unit = {},
+    val onLikeSelection: () -> Unit = {},
+    val onRemoveSelection: () -> Unit = {},
 )
 
 /**
  * Détail d'une playlist : locale, « Titres likés » ou « Téléchargés » (virtuelle, `Playlist.DOWNLOADED_ID`).
  * Argument de navigation lu par le ViewModel : `SavedStateHandle["id"]` (Long).
+ *
+ * Gestes sur une ligne : toucher = lire (ou basculer la sélection en mode sélection) ; ⋮ = menu du titre ;
+ * appui long puis glisser = réorganiser ; appui long relâché sans déplacement = entrer en mode sélection.
  */
 @Composable
 fun PlaylistDetailRoute(
@@ -133,20 +162,30 @@ fun PlaylistDetailRoute(
     LaunchedEffect(viewModel) {
         viewModel.events.collect { event ->
             when (event) {
-                is PlaylistDetailEvent.TrackRemoved -> scope.launch {
+                is PlaylistDetailEvent.TracksRemoved -> scope.launch {
                     snackbarHostState.currentSnackbarData?.dismiss()
+                    val message = if (event.items.size == 1) {
+                        resources.getString(R.string.lib_track_removed, event.items.first().track.title)
+                    } else {
+                        resources.getQuantityString(R.plurals.lib_tracks_removed, event.items.size, event.items.size)
+                    }
                     val result = snackbarHostState.showSnackbar(
-                        message = resources.getString(R.string.lib_track_removed, event.track.title),
+                        message = message,
                         actionLabel = resources.getString(R.string.lib_undo),
                         duration = SnackbarDuration.Long,
                     )
-                    if (result == SnackbarResult.ActionPerformed) viewModel.undoRemove(event.track, event.position)
+                    if (result == SnackbarResult.ActionPerformed) viewModel.undoRemove(event.items)
                 }
                 is PlaylistDetailEvent.DownloadsQueued -> scope.launch {
                     snackbarHostState.currentSnackbarData?.dismiss()
                     snackbarHostState.showSnackbar(
                         resources.getQuantityString(R.plurals.lib_downloads_queued, event.count, event.count),
                     )
+                }
+                is PlaylistDetailEvent.TracksLiked -> scope.launch {
+                    snackbarHostState.currentSnackbarData?.dismiss()
+                    val plural = if (event.liked) R.plurals.lib_tracks_liked else R.plurals.lib_tracks_unliked
+                    snackbarHostState.showSnackbar(resources.getQuantityString(plural, event.count, event.count))
                 }
                 PlaylistDetailEvent.TrackUnavailableOffline -> {
                     haptics.reject()
@@ -165,13 +204,24 @@ fun PlaylistDetailRoute(
             onBack = onBack,
             onOpenArtist = onOpenArtist,
             onPlayFrom = viewModel::playFrom,
-            onPlayAll = viewModel::playAll,
+            onPlayButton = viewModel::onPlayButton,
+            onShuffle = { viewModel.playAll(shuffle = true) },
             onDownloadAll = viewModel::downloadAll,
             onRename = { viewModel.rename(it) },
             onDelete = { viewModel.delete() },
+            onDragStart = viewModel::onDragStart,
             onMove = viewModel::onMove,
             onDragEnd = viewModel::onDragEnd,
             onRemove = viewModel::removeEntry,
+            onToggleSelect = viewModel::toggleSelection,
+            onSelectAll = viewModel::toggleSelectAll,
+            onClearSelection = viewModel::clearSelection,
+            onPlaySelection = viewModel::playSelection,
+            onPlaySelectionNext = viewModel::playSelectionNext,
+            onAddSelectionToQueue = viewModel::addSelectionToQueue,
+            onDownloadSelection = viewModel::downloadSelection,
+            onLikeSelection = viewModel::likeSelection,
+            onRemoveSelection = viewModel::removeSelection,
         )
     }
     PlaylistDetailScreen(
@@ -193,66 +243,85 @@ fun PlaylistDetailScreen(
     val haptics = LocalAppHaptics.current
     var showRename by rememberSaveable { mutableStateOf(false) }
     var showDelete by rememberSaveable { mutableStateOf(false) }
+    // Titres figés à l'ouverture de la feuille : la sélection se vide dès l'ajout, la feuille finit son animation.
+    var addToPlaylistTracks by remember { mutableStateOf<List<Track>?>(null) }
+    var showRemoveDownloads by rememberSaveable { mutableStateOf(false) }
     var menuOpen by remember { mutableStateOf(false) }
     var sheetEntry by remember { mutableStateOf<PlaylistEntry?>(null) }
     val listState = rememberLazyListState()
     val showTitle by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
     val playlist = state.playlist
 
+    // Le retour système quitte d'abord la sélection.
+    BackHandler(enabled = state.isSelecting) { actions.onClearSelection() }
+
     Scaffold(
         modifier = modifier,
         topBar = {
-            TopAppBar(
-                title = {
-                    AnimatedVisibility(visible = showTitle, enter = fadeIn(), exit = fadeOut()) {
-                        Text(playlist?.displayName().orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = {
-                        haptics.click()
-                        actions.onBack()
-                    }) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.common_action_back),
-                        )
-                    }
-                },
-                actions = {
-                    if (playlist != null && !state.isSystem) {
-                        Box {
+            Crossfade(targetState = state.isSelecting, label = "playlistTopBar") { selecting ->
+                if (selecting) {
+                    SelectionTopBar(
+                        state = state,
+                        actions = actions,
+                        onAddToPlaylist = { addToPlaylistTracks = state.selectedTracks },
+                        onRemove = {
+                            if (state.isDownloadedPlaylist) showRemoveDownloads = true else actions.onRemoveSelection()
+                        },
+                    )
+                } else {
+                    TopAppBar(
+                        title = {
+                            AnimatedVisibility(visible = showTitle, enter = fadeIn(), exit = fadeOut()) {
+                                Text(playlist?.displayName().orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                        },
+                        navigationIcon = {
                             IconButton(onClick = {
                                 haptics.click()
-                                menuOpen = true
+                                actions.onBack()
                             }) {
                                 Icon(
-                                    Icons.Filled.MoreVert,
-                                    contentDescription = stringResource(R.string.lib_more_options),
+                                    Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = stringResource(R.string.common_action_back),
                                 )
                             }
-                            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.lib_rename)) },
-                                    leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null) },
-                                    onClick = {
-                                        menuOpen = false
-                                        showRename = true
-                                    },
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.common_action_delete)) },
-                                    leadingIcon = { Icon(Icons.Filled.Delete, contentDescription = null) },
-                                    onClick = {
-                                        menuOpen = false
-                                        showDelete = true
-                                    },
-                                )
+                        },
+                        actions = {
+                            if (playlist != null && !state.isSystem) {
+                                Box {
+                                    IconButton(onClick = {
+                                        haptics.click()
+                                        menuOpen = true
+                                    }) {
+                                        Icon(
+                                            Icons.Filled.MoreVert,
+                                            contentDescription = stringResource(R.string.lib_more_options),
+                                        )
+                                    }
+                                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                                        DropdownMenuItem(
+                                            text = { Text(stringResource(R.string.lib_rename)) },
+                                            leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null) },
+                                            onClick = {
+                                                menuOpen = false
+                                                showRename = true
+                                            },
+                                        )
+                                        DropdownMenuItem(
+                                            text = { Text(stringResource(R.string.common_action_delete)) },
+                                            leadingIcon = { Icon(Icons.Filled.Delete, contentDescription = null) },
+                                            onClick = {
+                                                menuOpen = false
+                                                showDelete = true
+                                            },
+                                        )
+                                    }
+                                }
                             }
-                        }
-                    }
-                },
-            )
+                        },
+                    )
+                }
+            }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { innerPadding ->
@@ -291,6 +360,32 @@ fun PlaylistDetailScreen(
             onRemove = if (state.isDownloadedPlaylist) null else ({ actions.onRemove(entryForSheet) }),
         )
     }
+    val tracksToAdd = addToPlaylistTracks
+    if (tracksToAdd != null) {
+        AddToPlaylistSheet(
+            tracks = tracksToAdd,
+            onDismiss = { addToPlaylistTracks = null },
+            // La sélection ne se vide qu'une fois les titres réellement ajoutés (pas si la feuille est fermée).
+            onAdded = actions.onClearSelection,
+        )
+    }
+    if (showRemoveDownloads) {
+        LibraryConfirmDialog(
+            title = stringResource(R.string.lib_delete_downloads_title),
+            text = pluralStringResource(
+                R.plurals.lib_delete_downloads_message,
+                state.selectedEntryIds.size,
+                state.selectedEntryIds.size,
+            ),
+            confirmLabel = stringResource(R.string.common_action_delete),
+            onConfirm = {
+                haptics.confirm()
+                actions.onRemoveSelection()
+                showRemoveDownloads = false
+            },
+            onDismiss = { showRemoveDownloads = false },
+        )
+    }
     if (showRename && playlist != null) {
         PlaylistNameDialog(
             title = stringResource(R.string.lib_rename_playlist),
@@ -317,6 +412,133 @@ fun PlaylistDetailScreen(
             onDismiss = { showDelete = false },
         )
     }
+}
+
+/**
+ * Barre contextuelle du mode sélection : fermer, « N sélectionnés », tout sélectionner, lire, retirer, et un menu
+ * pour le reste (lire ensuite, ajouter à la file / à une playlist, télécharger, aimer).
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SelectionTopBar(
+    state: PlaylistDetailUiState,
+    actions: PlaylistDetailActions,
+    onAddToPlaylist: () -> Unit,
+    onRemove: () -> Unit,
+) {
+    val haptics = LocalAppHaptics.current
+    var menuOpen by remember { mutableStateOf(false) }
+    val count = state.selectedEntryIds.size
+    TopAppBar(
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            titleContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            navigationIconContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            actionIconContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        ),
+        title = {
+            Text(
+                pluralStringResource(R.plurals.lib_selection_count, count, count),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        },
+        navigationIcon = {
+            IconButton(onClick = {
+                haptics.click()
+                actions.onClearSelection()
+            }) {
+                Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.lib_selection_close))
+            }
+        },
+        actions = {
+            IconButton(onClick = {
+                haptics.click()
+                actions.onSelectAll()
+            }) {
+                Icon(
+                    Icons.Filled.SelectAll,
+                    contentDescription = stringResource(if (state.allSelected) R.string.lib_deselect_all else R.string.lib_select_all),
+                )
+            }
+            IconButton(onClick = actions.onPlaySelection, enabled = state.canPlaySelection) {
+                Icon(Icons.Filled.PlayArrow, contentDescription = stringResource(R.string.common_action_play))
+            }
+            IconButton(onClick = {
+                haptics.click()
+                onRemove()
+            }) {
+                Icon(
+                    Icons.Filled.Delete,
+                    contentDescription = stringResource(
+                        if (state.isDownloadedPlaylist) R.string.common_action_delete_download else R.string.lib_remove_from_playlist,
+                    ),
+                )
+            }
+            Box {
+                IconButton(onClick = {
+                    haptics.click()
+                    menuOpen = true
+                }) {
+                    Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.lib_selection_more))
+                }
+                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.common_action_play_next)) },
+                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistPlay, contentDescription = null) },
+                        enabled = state.canPlaySelection,
+                        onClick = {
+                            menuOpen = false
+                            actions.onPlaySelectionNext()
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.common_action_add_to_queue)) },
+                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = null) },
+                        enabled = state.canPlaySelection,
+                        onClick = {
+                            menuOpen = false
+                            actions.onAddSelectionToQueue()
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.common_action_add_to_playlist)) },
+                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null) },
+                        onClick = {
+                            menuOpen = false
+                            onAddToPlaylist()
+                        },
+                    )
+                    if (!state.isDownloadedPlaylist) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.common_action_download)) },
+                            leadingIcon = { Icon(Icons.Filled.Download, contentDescription = null) },
+                            enabled = state.canDownloadSelection,
+                            onClick = {
+                                menuOpen = false
+                                actions.onDownloadSelection()
+                            },
+                        )
+                    }
+                    DropdownMenuItem(
+                        text = {
+                            Text(stringResource(if (state.allSelectedLiked) R.string.common_action_unlike else R.string.common_action_like))
+                        },
+                        leadingIcon = {
+                            Icon(
+                                if (state.allSelectedLiked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                                contentDescription = null,
+                            )
+                        },
+                        onClick = {
+                            menuOpen = false
+                            actions.onLikeSelection()
+                        },
+                    )
+                }
+            }
+        },
+    )
 }
 
 @Composable
@@ -378,7 +600,7 @@ private fun PlaylistContent(
             }
         }
         itemsIndexed(entries, key = { _, entry -> entry.entryId }) { index, entry ->
-            ReorderableItem(reorderState, key = entry.entryId) { isDragging ->
+            ReorderableItem(reorderState, key = entry.entryId, enabled = reorderable && !state.isSelecting) { isDragging ->
                 PlaylistEntryRow(
                     entry = entry,
                     isDragging = isDragging,
@@ -387,12 +609,20 @@ private fun PlaylistContent(
                     isCurrent = entry.track.id == state.currentTrackId,
                     isPlaying = state.isPlaying,
                     reorderable = reorderable,
-                    removable = reorderable,
+                    selectionMode = state.isSelecting,
+                    isSelected = entry.entryId in state.selectedEntryIds,
+                    canMoveUp = index > 0,
+                    canMoveDown = index < entries.lastIndex,
                     onClick = { actions.onPlayFrom(index) },
+                    onToggleSelect = { actions.onToggleSelect(entry.entryId) },
                     onMore = { onTrackMore(entry) },
-                    onRemove = { actions.onRemove(entry) },
+                    onDragStarted = { actions.onDragStart(entry.entryId) },
                     onDragStopped = {
                         haptics.tick()
+                        actions.onDragEnd()
+                    },
+                    onMoveBy = { delta ->
+                        actions.onMove(index, index + delta)
                         actions.onDragEnd()
                     },
                 )
@@ -452,23 +682,41 @@ private fun PlaylistHeader(
             horizontalArrangement = Arrangement.spacedBy(Spacing.s),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            // Lecture / Pause / Reprendre : « Pause » et « Reprendre » concernent la file en cours si elle vient de
+            // cette playlist (sinon « Lecture » relance la playlist depuis le début).
+            val playAction = state.playAction
             Button(
                 onClick = {
                     haptics.click()
-                    actions.onPlayAll(false)
+                    actions.onPlayButton()
                 },
-                enabled = state.canPlay,
+                enabled = state.canPlay || playAction != PlaylistPlayAction.PLAY,
+                colors = AppButtonDefaults.filledColors(),
                 modifier = Modifier.weight(1f).height(ActionButtonHeight),
             ) {
-                Icon(Icons.Filled.PlayArrow, contentDescription = null, Modifier.size(20.dp))
-                Text(stringResource(R.string.lib_play), Modifier.padding(start = Spacing.s))
+                Icon(
+                    if (playAction == PlaylistPlayAction.PAUSE) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                )
+                Text(
+                    stringResource(
+                        when (playAction) {
+                            PlaylistPlayAction.PLAY -> R.string.lib_play
+                            PlaylistPlayAction.PAUSE -> R.string.common_action_pause
+                            PlaylistPlayAction.RESUME -> R.string.lib_resume
+                        },
+                    ),
+                    Modifier.padding(start = Spacing.s),
+                )
             }
             FilledTonalButton(
                 onClick = {
                     haptics.click()
-                    actions.onPlayAll(true)
+                    actions.onShuffle()
                 },
                 enabled = state.canPlay,
+                colors = AppButtonDefaults.tonalColors(),
                 modifier = Modifier.weight(1f).height(ActionButtonHeight),
             ) {
                 Icon(Icons.Filled.Shuffle, contentDescription = null, Modifier.size(20.dp))
@@ -481,6 +729,7 @@ private fun PlaylistHeader(
                         actions.onDownloadAll()
                     },
                     enabled = state.canDownload,
+                    colors = AppButtonDefaults.tonalIconColors(),
                     modifier = Modifier.size(ActionButtonHeight),
                 ) {
                     if (state.isFullyDownloaded) {
@@ -494,7 +743,15 @@ private fun PlaylistHeader(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * Ligne de la playlist. Gestes :
+ * - toucher : lire (ou basculer la sélection en mode sélection) ;
+ * - ⋮ : menu du titre ;
+ * - appui long puis glisser (playlists réordonnables) : réorganiser ; relâché sans déplacement : sélectionner ;
+ * - « Téléchargés » (non réordonnable) : appui long = sélectionner.
+ * Pas de balayage pour retirer : trop facile à déclencher en faisant défiler la liste (retrait via ⋮ ou sélection,
+ * avec annulation).
+ */
 @Composable
 private fun ReorderableCollectionItemScope.PlaylistEntryRow(
     entry: PlaylistEntry,
@@ -504,90 +761,84 @@ private fun ReorderableCollectionItemScope.PlaylistEntryRow(
     isCurrent: Boolean,
     isPlaying: Boolean,
     reorderable: Boolean,
-    removable: Boolean,
+    selectionMode: Boolean,
+    isSelected: Boolean,
+    canMoveUp: Boolean,
+    canMoveDown: Boolean,
     onClick: () -> Unit,
+    onToggleSelect: () -> Unit,
     onMore: () -> Unit,
-    onRemove: () -> Unit,
+    onDragStarted: () -> Unit,
     onDragStopped: () -> Unit,
+    onMoveBy: (delta: Int) -> Unit,
 ) {
     val haptics = LocalAppHaptics.current
-    val dismissState = rememberSwipeToDismissBoxState()
-    // Cran quand le balayage franchit le seuil de retrait, confirmation quand le titre est retiré.
-    LaunchedEffect(dismissState.targetValue) {
-        if (dismissState.targetValue == SwipeToDismissBoxValue.EndToStart) haptics.gestureThreshold()
-    }
-    LaunchedEffect(dismissState.currentValue) {
-        if (dismissState.currentValue == SwipeToDismissBoxValue.EndToStart) {
-            haptics.confirm()
-            onRemove()
+
+    // La poignée d'appui long ne consomme pas le « relâcher » : sans garde, lever le doigt après un appui long sans
+    // mouvement déclencherait aussi le clic de la ligne (donc la lecture du titre).
+    var longPressActive by remember { mutableStateOf(false) }
+    var suppressClickUntil by remember { mutableLongStateOf(0L) }
+    val dragEnabled = reorderable && !selectionMode
+
+    val moveUpLabel = stringResource(R.string.lib_move_up)
+    val moveDownLabel = stringResource(R.string.lib_move_down)
+    val selectLabel = stringResource(R.string.lib_select)
+
+    val gestureModifier = Modifier
+        .semantics {
+            val custom = mutableListOf<CustomAccessibilityAction>()
+            if (!selectionMode) custom += CustomAccessibilityAction(selectLabel) { onToggleSelect(); true }
+            if (dragEnabled && canMoveUp) custom += CustomAccessibilityAction(moveUpLabel) { onMoveBy(-1); true }
+            if (dragEnabled && canMoveDown) custom += CustomAccessibilityAction(moveDownLabel) { onMoveBy(1); true }
+            customActions = custom
         }
-    }
-    val row: @Composable () -> Unit = {
-        Surface(
-            tonalElevation = if (isDragging) 6.dp else 0.dp,
-            shadowElevation = if (isDragging) 6.dp else 0.dp,
-            color = MaterialTheme.colorScheme.surface,
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = Spacing.s),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                TrackListItem(
-                    track = entry.track,
-                    onClick = onClick,
-                    onMoreClick = onMore,
-                    modifier = Modifier
-                        .weight(1f)
-                        .alpha(if (isAvailable) 1f else UnavailableAlpha),
-                    isCurrent = isCurrent,
-                    isPlaying = isPlaying,
-                    isDownloaded = isDownloaded,
-                    // Titre indisponible hors ligne : le refus (reject) tient lieu de retour haptique.
-                    clickFeedback = isAvailable,
-                )
-                if (reorderable) {
-                    IconButton(
-                        modifier = Modifier.draggableHandle(onDragStopped = { onDragStopped() }),
-                        onClick = {},
-                    ) {
-                        Icon(
-                            Icons.Filled.DragHandle,
-                            contentDescription = stringResource(R.string.lib_reorder),
-                        )
-                    }
-                }
-            }
-        }
-    }
-    if (removable) {
-        SwipeToDismissBox(
-            state = dismissState,
-            enableDismissFromStartToEnd = false,
-            backgroundContent = {
-                Box(
-                    Modifier
-                        .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.errorContainer)
-                        .padding(horizontal = Spacing.l),
-                    contentAlignment = Alignment.CenterEnd,
-                ) {
-                    Icon(
-                        Icons.Filled.Delete,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onErrorContainer,
-                    )
-                }
+        .longPressDraggableHandle(
+            enabled = dragEnabled,
+            onDragStarted = {
+                longPressActive = true
+                haptics.longPress()
+                onDragStarted()
             },
-        ) { row() }
-    } else {
-        row()
+            onDragStopped = {
+                longPressActive = false
+                suppressClickUntil = SystemClock.uptimeMillis() + CLICK_SUPPRESSION_MS
+                onDragStopped()
+            },
+        )
+
+    Surface(
+        tonalElevation = if (isDragging) 6.dp else 0.dp,
+        shadowElevation = if (isDragging) 6.dp else 0.dp,
+        color = MaterialTheme.colorScheme.surface,
+    ) {
+        TrackListItem(
+            track = entry.track,
+            onClick = {
+                if (longPressActive || SystemClock.uptimeMillis() < suppressClickUntil) return@TrackListItem
+                if (selectionMode) onToggleSelect() else onClick()
+            },
+            onMoreClick = onMore,
+            modifier = Modifier
+                .padding(horizontal = Spacing.s)
+                .then(gestureModifier),
+            isCurrent = isCurrent,
+            isPlaying = isPlaying,
+            isDownloaded = isDownloaded,
+            isAvailable = isAvailable,
+            selectionMode = selectionMode,
+            isSelected = isSelected,
+            // Réordonnable : l'appui long appartient à la poignée. Sinon (« Téléchargés ») : sélection directe.
+            onLongClick = if (!reorderable && !selectionMode) onToggleSelect else null,
+            // Titre indisponible hors ligne : le refus (reject) tient lieu de retour haptique.
+            clickFeedback = isAvailable || selectionMode,
+        )
     }
 }
 
 private const val HEADER_KEY = "header"
 private const val EMPTY_KEY = "empty"
 private const val MOSAIC_TILES = 4
-private const val UnavailableAlpha = 0.38f
+private const val CLICK_SUPPRESSION_MS = 350L
 private val CoverMaxSize = 260.dp
 private val ActionButtonHeight = 52.dp
 private val EmptyStateHeight = 280.dp
@@ -608,6 +859,9 @@ private fun previewState(
     count: Int = 6,
     offline: Boolean = false,
     downloaded: Set<String> = setOf("id1", "id2", "id3"),
+    selected: Set<Long> = emptySet(),
+    thisQueue: Boolean = true,
+    playing: Boolean = true,
 ) = PlaylistDetailUiState(
     isLoading = false,
     playlist = Playlist(
@@ -621,9 +875,12 @@ private fun previewState(
     ),
     entries = previewEntries(count),
     downloadedIds = downloaded,
+    playableOfflineIds = downloaded + "id4",
     isOffline = offline,
     currentTrackId = "id2",
-    isPlaying = true,
+    isPlaying = playing,
+    isThisPlaylistQueue = thisQueue,
+    selectedEntryIds = selected,
 )
 
 @Composable
@@ -636,6 +893,18 @@ private fun PreviewHost(state: PlaylistDetailUiState) {
 @Preview(showBackground = true, widthDp = 360, heightDp = 720)
 @Composable
 private fun PlaylistDetailPreview() = PreviewHost(previewState())
+
+@Preview(showBackground = true, widthDp = 360, heightDp = 720)
+@Composable
+private fun PlaylistDetailPausedPreview() = PreviewHost(previewState(playing = false))
+
+@Preview(showBackground = true, widthDp = 360, heightDp = 720)
+@Composable
+private fun PlaylistDetailOtherQueuePreview() = PreviewHost(previewState(thisQueue = false))
+
+@Preview(showBackground = true, widthDp = 360, heightDp = 720)
+@Composable
+private fun PlaylistDetailSelectionPreview() = PreviewHost(previewState(selected = setOf(1L, 3L)))
 
 @Preview(showBackground = true, widthDp = 360, heightDp = 720)
 @Composable
@@ -659,6 +928,6 @@ private fun PlaylistDetailOfflinePreview() = PreviewHost(previewState(offline = 
 
 @Preview(showBackground = true, widthDp = 360, heightDp = 720)
 @Composable
-private fun PlaylistDetailEmptyPreview() = PreviewHost(previewState(count = 0))
+private fun PlaylistDetailEmptyPreview() = PreviewHost(previewState(count = 0, thisQueue = false))
 
 // endregion

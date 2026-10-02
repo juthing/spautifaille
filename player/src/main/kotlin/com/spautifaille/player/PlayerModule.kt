@@ -2,6 +2,8 @@ package com.spautifaille.player
 
 import android.content.Context
 import com.spautifaille.domain.player.PlaybackController
+import com.spautifaille.domain.repository.OfflineAvailability
+import com.spautifaille.player.datasource.CachedOfflineAvailability
 import com.spautifaille.player.error.AndroidConnectivityObserver
 import com.spautifaille.player.error.ConnectivityObserver
 import dagger.Binds
@@ -28,6 +30,10 @@ abstract class PlayerModule {
     @Binds
     @Singleton
     abstract fun bindPlaybackController(impl: PlaybackControllerImpl): PlaybackController
+
+    @Binds
+    @Singleton
+    abstract fun bindOfflineAvailability(impl: CachedOfflineAvailability): OfflineAvailability
 
     companion object {
         @Provides
