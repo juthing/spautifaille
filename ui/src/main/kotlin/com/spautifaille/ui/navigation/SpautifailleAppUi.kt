@@ -64,6 +64,7 @@ import com.spautifaille.domain.player.PlaybackPosition
 import com.spautifaille.domain.player.PlayerState
 import com.spautifaille.ui.common.LocalAppHaptics
 import com.spautifaille.ui.common.rememberAppHaptics
+import com.spautifaille.ui.lyrics.LyricsRoute
 import com.spautifaille.ui.player.FullPlayerScreen
 import com.spautifaille.ui.player.MiniPlayer
 import com.spautifaille.ui.player.MiniPlayerHeight
@@ -248,6 +249,7 @@ private fun AppShell(
                         navController.navigate(ArtistRoute(url))
                     },
                     transition = PlayerTransition(sharedScope, this),
+                    lyricsContent = { lyricsModifier -> LyricsRoute(lyricsModifier) },
                     modifier = Modifier.graphicsLayer {
                         val scale = 1f - 0.1f * backProgress
                         scaleX = scale

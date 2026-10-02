@@ -1,8 +1,14 @@
 package com.spautifaille.ui.player
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
@@ -17,6 +23,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -64,6 +71,7 @@ import com.spautifaille.domain.player.SleepTimer
 import com.spautifaille.ui.R
 import com.spautifaille.ui.common.LocalAppHaptics
 import com.spautifaille.ui.components.AddToPlaylistSheet
+import com.spautifaille.ui.components.Artwork
 import com.spautifaille.ui.theme.Spacing
 import com.spautifaille.ui.theme.SpautifailleTheme
 
@@ -92,6 +100,7 @@ fun FullPlayerScreen(
     modifier: Modifier = Modifier,
     transition: PlayerTransition? = null,
     sleepRemainingProvider: () -> Long? = { null },
+    lyricsContent: (@Composable (Modifier) -> Unit)? = null,
 ) {
     val track = state.currentTrack ?: return
     val seedColor by rememberArtworkSeedColor(track.thumbnailUrl)
@@ -105,6 +114,7 @@ fun FullPlayerScreen(
         modifier = modifier,
         transition = transition,
         sleepRemainingProvider = sleepRemainingProvider,
+        lyricsContent = lyricsContent,
     )
 }
 
@@ -119,9 +129,14 @@ internal fun FullPlayerContent(
     modifier: Modifier = Modifier,
     transition: PlayerTransition? = null,
     sleepRemainingProvider: () -> Long? = { null },
+    lyricsContent: (@Composable (Modifier) -> Unit)? = null,
 ) {
     val track = state.currentTrack ?: return
     var sheet by rememberSaveable { mutableStateOf(PlayerSheet.None) }
+    // Paroles affichées à la place de la pochette ; revient à la pochette à chaque ouverture du lecteur.
+    var showLyrics by rememberSaveable { mutableStateOf(false) }
+    val lyricsEnabled = lyricsContent != null
+    val onToggleLyrics: (() -> Unit)? = if (lyricsEnabled) ({ showLyrics = !showLyrics }) else null
 
     PlayerColorScheme(seed = seedColor) { backgroundTop ->
         val haptics = LocalAppHaptics.current
@@ -205,18 +220,44 @@ internal fun FullPlayerContent(
                             horizontalArrangement = Arrangement.spacedBy(Spacing.xxl),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            artwork(Modifier.weight(1f).fillMaxSize().padding(bottom = Spacing.m))
+                            LyricsOrArtwork(
+                                showLyrics = showLyrics && lyricsEnabled,
+                                lyricsContent = lyricsContent,
+                                artwork = artwork,
+                                modifier = Modifier.weight(1f).fillMaxSize(),
+                                artworkModifier = Modifier.fillMaxSize().padding(bottom = Spacing.m),
+                                lyricsModifier = Modifier.fillMaxSize(),
+                            )
                             Column(
                                 modifier = Modifier.weight(1f),
                                 verticalArrangement = Arrangement.spacedBy(Spacing.m),
                             ) {
-                                PlayerBody(state, track, positionProvider, sleepRemainingProvider, actions, openArtist, transition) { sheet = it }
+                                PlayerBody(
+                                    state, track, positionProvider, sleepRemainingProvider, actions, openArtist, transition,
+                                    showTrackInfo = true,
+                                    lyricsActive = showLyrics,
+                                    onToggleLyrics = onToggleLyrics,
+                                ) { sheet = it }
                             }
                         }
                     } else {
-                        artwork(Modifier.weight(1f).fillMaxWidth().padding(vertical = Spacing.s))
+                        val lyricsVisible = showLyrics && lyricsEnabled
+                        LyricsOrArtwork(
+                            showLyrics = lyricsVisible,
+                            lyricsContent = lyricsContent,
+                            artwork = artwork,
+                            modifier = Modifier.weight(1f).fillMaxWidth(),
+                            artworkModifier = Modifier.fillMaxSize().padding(vertical = Spacing.s),
+                            lyricsModifier = Modifier.fillMaxSize(),
+                            lyricsHeader = { LyricsHeader(track, onClose = { showLyrics = false }) },
+                        )
                         Column(verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
-                            PlayerBody(state, track, positionProvider, sleepRemainingProvider, actions, openArtist, transition) { sheet = it }
+                            PlayerBody(
+                                state, track, positionProvider, sleepRemainingProvider, actions, openArtist, transition,
+                                showTrackInfo = !lyricsVisible,
+                                lyricsActive = showLyrics,
+                                onToggleLyrics = onToggleLyrics,
+                            ) { sheet = it }
                         }
                     }
                     Spacer(Modifier.height(Spacing.m))
@@ -254,9 +295,15 @@ private fun PlayerBody(
     actions: PlayerActions,
     onOpenArtist: (() -> Unit)?,
     transition: PlayerTransition?,
+    showTrackInfo: Boolean,
+    lyricsActive: Boolean,
+    onToggleLyrics: (() -> Unit)?,
     openSheet: (PlayerSheet) -> Unit,
 ) {
-    TrackInfo(track = track, onArtistClick = onOpenArtist, transition = transition)
+    // Les paroles affichent déjà titre et artiste dans leur en-tête : on libère la place pour les lignes.
+    AnimatedVisibility(visible = showTrackInfo) {
+        TrackInfo(track = track, onArtistClick = onOpenArtist, transition = transition)
+    }
     SeekBar(
         positionProvider = positionProvider,
         fallbackDurationMs = state.durationMs,
@@ -273,8 +320,82 @@ private fun PlayerBody(
         onSleep = { openSheet(PlayerSheet.Sleep) },
         onSpeed = { openSheet(PlayerSheet.Speed) },
         onToggleLike = actions.onToggleLike,
+        lyricsActive = lyricsActive,
+        onLyrics = onToggleLyrics,
     )
 }
+
+/**
+ * Zone centrale : pochette ou paroles, avec fondu enchaîné. En portrait, les paroles sont précédées d'un
+ * en-tête compact (vignette, titre, artiste) qui remplace le titre sous la pochette.
+ */
+@Composable
+private fun LyricsOrArtwork(
+    showLyrics: Boolean,
+    lyricsContent: (@Composable (Modifier) -> Unit)?,
+    artwork: @Composable (Modifier) -> Unit,
+    modifier: Modifier = Modifier,
+    artworkModifier: Modifier = Modifier,
+    lyricsModifier: Modifier = Modifier,
+    lyricsHeader: (@Composable () -> Unit)? = null,
+) {
+    AnimatedContent(
+        targetState = showLyrics,
+        modifier = modifier,
+        transitionSpec = { fadeIn(tween(LYRICS_TRANSITION_MS)) togetherWith fadeOut(tween(LYRICS_TRANSITION_MS)) },
+        label = "lyricsOrArtwork",
+    ) { lyricsVisible ->
+        if (lyricsVisible && lyricsContent != null) {
+            Column(Modifier.fillMaxSize()) {
+                lyricsHeader?.invoke()
+                lyricsContent(lyricsModifier.weight(1f))
+            }
+        } else {
+            artwork(artworkModifier)
+        }
+    }
+}
+
+/** En-tête compact au-dessus des paroles : pochette réduite, titre, artiste ; toucher revient à la pochette. */
+@Composable
+private fun LyricsHeader(track: Track, onClose: () -> Unit) {
+    val haptics = LocalAppHaptics.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = Spacing.s)
+            .clip(MaterialTheme.shapes.large)
+            .clickable(onClickLabel = stringResource(R.string.lyrics_close_cd)) {
+                haptics.click()
+                onClose()
+            },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Spacing.m),
+    ) {
+        Artwork(
+            url = track.thumbnailUrl,
+            shape = MaterialTheme.shapes.medium,
+            modifier = Modifier.size(LyricsHeaderArtworkSize),
+        )
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Spacing.xxs)) {
+            CrossfadeText(
+                text = track.title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                marquee = true,
+            )
+            CrossfadeText(
+                text = track.artist,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                marquee = true,
+            )
+        }
+    }
+}
+
+private val LyricsHeaderArtworkSize = 56.dp
+private const val LYRICS_TRANSITION_MS = 300
 
 /** Chevron pour réduire, « En cours de lecture » au centre, menu (ajout à une playlist, page de l'artiste). */
 @Composable

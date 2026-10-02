@@ -31,6 +31,7 @@ import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Lyrics
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Repeat
@@ -441,7 +442,7 @@ private fun ToggleIconButton(
 }
 
 /**
- * Barre d'actions du bas : file d'attente, minuterie de sommeil (temps restant si active), vitesse (valeur si
+ * Barre d'actions du bas : paroles (si [onLyrics] est fourni, teinté quand [lyricsActive]), file d'attente, minuterie de sommeil (temps restant si active), vitesse (valeur si
  * différente de 1×) et j'aime (cœur animé).
  */
 @Composable
@@ -454,6 +455,8 @@ internal fun PlayerActionBar(
     onSpeed: () -> Unit,
     onToggleLike: () -> Unit,
     modifier: Modifier = Modifier,
+    lyricsActive: Boolean = false,
+    onLyrics: (() -> Unit)? = null,
 ) {
     val haptics = LocalAppHaptics.current
     Surface(
@@ -465,6 +468,18 @@ internal fun PlayerActionBar(
             modifier = Modifier.padding(horizontal = Spacing.s, vertical = Spacing.xs),
             horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
+            if (onLyrics != null) {
+                PlayerActionButton(
+                    icon = Icons.Filled.Lyrics,
+                    label = stringResource(R.string.player_lyrics),
+                    active = lyricsActive,
+                    onClick = {
+                        haptics.click()
+                        onLyrics()
+                    },
+                    modifier = Modifier.weight(1f),
+                )
+            }
             PlayerActionButton(
                 icon = Icons.AutoMirrored.Filled.QueueMusic,
                 label = stringResource(R.string.player_queue),
