@@ -43,7 +43,6 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -56,12 +55,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.navigation.NavDestination.Companion.hasRoute
-import androidx.navigation.NavDestination.Companion.hierarchy
-import androidx.navigation.NavGraph.Companion.findStartDestination
-import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.spautifaille.domain.model.ColorSource
+import com.spautifaille.domain.model.ThemeMode
 import com.spautifaille.domain.model.Track
 import com.spautifaille.domain.player.PlaybackPosition
 import com.spautifaille.domain.player.PlayerState
@@ -74,12 +71,13 @@ import com.spautifaille.ui.player.PlayerActions
 import com.spautifaille.ui.player.PlayerTransition
 import com.spautifaille.ui.player.PlayerViewModel
 import com.spautifaille.ui.theme.Spacing
+import com.spautifaille.ui.theme.rememberNowPlayingSchemes
 import com.spautifaille.ui.theme.SpautifailleTheme
 import kotlinx.coroutines.flow.collectLatest
 
 /**
  * Point d'entrée de l'UI : à appeler depuis `setContent { SpautifailleAppUi() }` dans `MainActivity`
- * (annotée `@AndroidEntryPoint`). Gère seul le thème (clair / sombre / dynamique, lus dans les réglages),
+ * (annotée `@AndroidEntryPoint`). Gère seul le thème (clair / sombre, origine des couleurs : normal / dynamique / musique en cours, lus dans les réglages),
  * la navigation, le mini lecteur, le lecteur plein écran, les snackbars et la permission de notifications.
  */
 @Composable
@@ -90,9 +88,15 @@ fun SpautifailleAppUi(
 ) {
     val theme by appViewModel.themeSettings.collectAsStateWithLifecycle()
     val loaded = theme
+    val colorSource = loaded?.colorSource ?: ColorSource.DYNAMIC
+    val nowPlayingSchemes by rememberNowPlayingSchemes(
+        artworkUrl = loaded?.nowPlayingArtworkUrl,
+        enabled = colorSource == ColorSource.NOW_PLAYING,
+    )
     SpautifailleTheme(
-        themeMode = loaded?.themeMode ?: com.spautifaille.domain.model.ThemeMode.SYSTEM,
-        dynamicColor = loaded?.dynamicColor ?: true,
+        themeMode = loaded?.themeMode ?: ThemeMode.SYSTEM,
+        colorSource = colorSource,
+        nowPlayingSchemes = nowPlayingSchemes,
     ) {
         if (loaded == null) {
             // Réglages en cours de chargement : fond neutre pour éviter un flash du mauvais thème.
@@ -161,16 +165,9 @@ private fun AppShell(
     var lastTrack by remember { mutableStateOf(playerState.currentTrack) }
     playerState.currentTrack?.let { lastTrack = it }
 
-    val backStackEntry by navController.currentBackStackEntryAsState()
-    val currentDestination = backStackEntry?.destination
-    var selectedTop by rememberSaveable { mutableIntStateOf(0) }
-    LaunchedEffect(currentDestination) {
-        TopLevelDestination.entries.forEachIndexed { index, destination ->
-            if (currentDestination?.hierarchy?.any { it.hasRoute(destination.routeClass) } == true) {
-                selectedTop = index
-            }
-        }
-    }
+    // Onglet sélectionné : toujours dérivé de la pile de navigation (voir [selectedTopLevel]).
+    val currentEntry by navController.currentBackStackEntryAsState()
+    val selectedTop = remember(currentEntry) { navController.selectedTopLevel() }
 
     val navigationSuiteType = NavigationSuiteScaffoldDefaults.navigationSuiteType(currentWindowAdaptiveInfoV2())
     val isBottomBar = navigationSuiteType == NavigationSuiteType.ShortNavigationBarCompact ||
@@ -184,12 +181,12 @@ private fun AppShell(
                 modifier = Modifier.fillMaxSize(),
                 navigationSuiteType = navigationSuiteType,
                 navigationItems = {
-                    TopLevelDestination.entries.forEachIndexed { index, destination ->
+                    TopLevelDestination.entries.forEach { destination ->
                         NavigationSuiteItem(
-                            selected = index == selectedTop,
+                            selected = destination == selectedTop,
                             onClick = {
                                 haptics.click()
-                                navController.navigateToTopLevel(destination, reselected = index == selectedTop)
+                                navController.navigateToTopLevel(destination, reselected = destination == selectedTop)
                             },
                             icon = { Icon(destination.icon, contentDescription = null) },
                             label = { Text(stringResource(destination.label)) },
@@ -335,19 +332,6 @@ private fun MiniPlayerTransition(visible: Boolean, content: @Composable (Animate
 private fun PlaybackPosition.progressFraction(fallbackDurationMs: Long): Float {
     val duration = if (durationMs > 0) durationMs else fallbackDurationMs
     return if (duration > 0) (positionMs.toFloat() / duration).coerceIn(0f, 1f) else 0f
-}
-
-private fun NavHostController.navigateToTopLevel(destination: TopLevelDestination, reselected: Boolean) {
-    if (reselected) {
-        // Re-toucher l'onglet courant revient à sa racine.
-        popBackStack(destination.route, inclusive = false)
-        return
-    }
-    navigate(destination.route) {
-        popUpTo(graph.findStartDestination().id) { saveState = true }
-        launchSingleTop = true
-        restoreState = true
-    }
 }
 
 @Composable

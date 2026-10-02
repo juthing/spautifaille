@@ -23,6 +23,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -181,7 +182,11 @@ internal fun SettingsInfoRow(
     )
 }
 
-/** Groupe de boutons radio (choix unique) directement sur la page. Un cran haptique accompagne un nouveau choix. */
+/**
+ * Groupe de boutons radio (choix unique) directement sur la page. Un cran haptique accompagne un nouveau choix.
+ * Les options pour lesquelles [isEnabled] renvoie faux sont grisées et non sélectionnables (leur [description]
+ * doit alors en expliquer la raison).
+ */
 @Composable
 internal fun <T> SettingsRadioGroup(
     options: List<T>,
@@ -190,18 +195,22 @@ internal fun <T> SettingsRadioGroup(
     onSelect: (T) -> Unit,
     modifier: Modifier = Modifier,
     description: (@Composable (T) -> String?)? = null,
+    isEnabled: (T) -> Boolean = { true },
 ) {
     val haptics = LocalAppHaptics.current
     Column(modifier.fillMaxWidth().selectableGroup()) {
         options.forEach { option ->
             val isSelected = option == selected
             val optionDescription = description?.invoke(option)
+            val enabled = isEnabled(option)
+            val contentAlpha = if (enabled) 1f else DisabledContentAlpha
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = 56.dp)
                     .selectable(
                         selected = isSelected,
+                        enabled = enabled,
                         role = Role.RadioButton,
                         onClick = {
                             if (!isSelected) {
@@ -213,8 +222,8 @@ internal fun <T> SettingsRadioGroup(
                     .padding(horizontal = ScreenHorizontalPadding, vertical = Spacing.s),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                RadioButton(selected = isSelected, onClick = null)
-                Column(Modifier.padding(start = Spacing.m)) {
+                RadioButton(selected = isSelected, onClick = null, enabled = enabled)
+                Column(Modifier.padding(start = Spacing.m).alpha(contentAlpha)) {
                     Text(label(option), style = MaterialTheme.typography.bodyLarge)
                     if (optionDescription != null) {
                         Text(
@@ -280,3 +289,6 @@ internal fun List<SummaryPart>.resolveSummary(): String {
     }
     return parts.joinToString(separator = " · ")
 }
+
+/** Opacité du contenu d'une option désactivée (valeur M3 des composants désactivés). */
+private const val DisabledContentAlpha = 0.38f

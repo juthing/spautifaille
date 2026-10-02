@@ -18,6 +18,7 @@
     <string name="set_summary_theme_light">Thème clair</string>
     <string name="set_summary_theme_dark">Thème sombre</string>
     <string name="set_summary_dynamic_color">Couleurs dynamiques</string>
+    <string name="set_summary_now_playing_color">Couleurs de la pochette</string>
     <string name="set_summary_cache">Cache de lecture : %1$s</string>
     <string name="set_summary_lastfm_on">Last.fm configuré</string>
     <string name="set_summary_lastfm_off">Last.fm non configuré</string>
@@ -47,9 +48,14 @@
     <string name="set_theme_light">Clair</string>
     <string name="set_theme_dark">Sombre</string>
     <string name="set_section_colors">Couleurs</string>
-    <string name="set_dynamic_color">Couleurs dynamiques</string>
-    <string name="set_dynamic_color_summary">Utiliser les couleurs de ton fond d\'écran</string>
-    <string name="set_dynamic_color_unavailable">Disponible à partir d\'Android 12</string>
+    <string name="set_color_source_static">Normal</string>
+    <string name="set_color_source_static_desc">Les couleurs de Spautifaille</string>
+    <string name="set_color_source_dynamic">Dynamique</string>
+    <string name="set_color_source_dynamic_desc">Les couleurs de ton fond d\'écran</string>
+    <string name="set_color_source_dynamic_unavailable">Disponible à partir d\'Android 12</string>
+    <string name="set_color_source_now_playing">Musique en cours</string>
+    <string name="set_color_source_now_playing_desc">Les couleurs de la pochette du titre écouté</string>
+    <string name="set_color_source_note">Sans musique en cours, « Musique en cours » utilise le thème Dynamique (ou Normal sous Android 11).</string>
 
     <!-- Stockage -->
     <string name="set_section_cache">Cache de lecture</string>

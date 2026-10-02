@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.spautifaille.domain.model.AppSettings
 import com.spautifaille.domain.model.AudioQuality
+import com.spautifaille.domain.model.ColorSource
 import com.spautifaille.domain.model.ThemeMode
 import com.spautifaille.domain.repository.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -44,8 +45,8 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { settingsRepository.setThemeMode(mode) }
     }
 
-    fun setDynamicColor(enabled: Boolean) {
-        viewModelScope.launch { settingsRepository.setDynamicColor(enabled) }
+    fun setColorSource(source: ColorSource) {
+        viewModelScope.launch { settingsRepository.setColorSource(source) }
     }
 
     /** Ignore les tailles hors des choix proposés par l'UI (garde-fou contre une valeur absurde). */

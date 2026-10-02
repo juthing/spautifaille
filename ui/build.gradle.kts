@@ -27,6 +27,7 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
     implementation(libs.androidx.palette.ktx)
+    implementation(libs.material.color.utilities)
     implementation(libs.reorderable)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.datastore.preferences)
@@ -36,6 +37,7 @@ dependencies {
     testImplementation(libs.turbine)
     testImplementation(libs.mockk)
     testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.navigation.testing)
     testImplementation(libs.compose.ui.test.junit4)
     debugImplementation(libs.compose.ui.test.manifest)
 }

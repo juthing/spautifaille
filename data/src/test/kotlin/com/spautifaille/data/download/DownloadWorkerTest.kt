@@ -19,6 +19,7 @@ import com.spautifaille.domain.error.AppError
 import com.spautifaille.domain.error.AppException
 import com.spautifaille.domain.model.AppSettings
 import com.spautifaille.domain.model.AudioQuality
+import com.spautifaille.domain.model.ColorSource
 import com.spautifaille.domain.model.DownloadState
 import com.spautifaille.domain.model.ResolvedStream
 import com.spautifaille.domain.model.ThemeMode
@@ -63,7 +64,7 @@ class DownloadWorkerTest {
         override suspend fun setAudioQuality(quality: AudioQuality) = Unit
         override suspend fun setDownloadOverWifiOnly(enabled: Boolean) = Unit
         override suspend fun setThemeMode(mode: ThemeMode) = Unit
-        override suspend fun setDynamicColor(enabled: Boolean) = Unit
+        override suspend fun setColorSource(source: ColorSource) = Unit
         override suspend fun setStreamCacheSizeMb(sizeMb: Int) = Unit
         override suspend fun setLastFmApiKey(key: String?) = Unit
     }

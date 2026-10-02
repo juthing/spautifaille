@@ -2,6 +2,7 @@ package com.spautifaille.ui.settings
 
 import com.spautifaille.domain.model.AppSettings
 import com.spautifaille.domain.model.AudioQuality
+import com.spautifaille.domain.model.ColorSource
 import com.spautifaille.domain.model.ThemeMode
 import com.spautifaille.ui.R
 import org.junit.Assert.assertEquals
@@ -20,7 +21,7 @@ class SettingsSummaryTest {
 
     @Test
     fun `appearance summary combines theme and dynamic colors`() {
-        val dark = AppSettings(themeMode = ThemeMode.DARK, dynamicColor = true)
+        val dark = AppSettings(themeMode = ThemeMode.DARK, colorSource = ColorSource.DYNAMIC)
         assertEquals(
             listOf(SummaryPart.Text(R.string.set_summary_theme_dark), SummaryPart.Text(R.string.set_summary_dynamic_color)),
             summary(SettingsCategory.APPEARANCE, dark),
@@ -29,13 +30,22 @@ class SettingsSummaryTest {
 
     @Test
     fun `appearance summary omits dynamic colors when disabled or unavailable`() {
-        val light = AppSettings(themeMode = ThemeMode.LIGHT, dynamicColor = false)
+        val light = AppSettings(themeMode = ThemeMode.LIGHT, colorSource = ColorSource.STATIC)
         assertEquals(listOf(SummaryPart.Text(R.string.set_summary_theme_light)), summary(SettingsCategory.APPEARANCE, light))
 
-        val system = AppSettings(themeMode = ThemeMode.SYSTEM, dynamicColor = true)
+        val system = AppSettings(themeMode = ThemeMode.SYSTEM, colorSource = ColorSource.DYNAMIC)
         assertEquals(
             listOf(SummaryPart.Text(R.string.set_summary_theme_system)),
             summary(SettingsCategory.APPEARANCE, system, dynamic = false),
+        )
+    }
+
+    @Test
+    fun `appearance summary names the now playing color source`() {
+        val nowPlaying = AppSettings(themeMode = ThemeMode.DARK, colorSource = ColorSource.NOW_PLAYING)
+        assertEquals(
+            listOf(SummaryPart.Text(R.string.set_summary_theme_dark), SummaryPart.Text(R.string.set_summary_now_playing_color)),
+            summary(SettingsCategory.APPEARANCE, nowPlaying, dynamic = false),
         )
     }
 

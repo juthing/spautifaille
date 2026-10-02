@@ -3,6 +3,7 @@ package com.spautifaille.domain.repository
 import com.spautifaille.domain.model.AppSettings
 import com.spautifaille.domain.model.Artist
 import com.spautifaille.domain.model.AudioQuality
+import com.spautifaille.domain.model.ColorSource
 import com.spautifaille.domain.model.Download
 import com.spautifaille.domain.model.HistoryEntry
 import com.spautifaille.domain.model.PlayCount
@@ -62,7 +63,7 @@ interface SettingsRepository {
     suspend fun setAudioQuality(quality: AudioQuality)
     suspend fun setDownloadOverWifiOnly(enabled: Boolean)
     suspend fun setThemeMode(mode: ThemeMode)
-    suspend fun setDynamicColor(enabled: Boolean)
+    suspend fun setColorSource(source: ColorSource)
     suspend fun setStreamCacheSizeMb(sizeMb: Int)
     suspend fun setLastFmApiKey(key: String?)
 }
