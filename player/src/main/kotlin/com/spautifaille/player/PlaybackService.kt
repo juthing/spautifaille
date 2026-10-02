@@ -10,6 +10,7 @@ import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DataSourceBitmapLoader
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
@@ -24,6 +25,7 @@ import com.google.common.collect.ImmutableList
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
 import com.spautifaille.domain.di.ApplicationScope
+import com.spautifaille.domain.di.DefaultDispatcher
 import com.spautifaille.domain.player.PlayerEvent
 import com.spautifaille.domain.repository.DownloadRepository
 import com.spautifaille.domain.repository.LibraryRepository
@@ -31,12 +33,15 @@ import com.spautifaille.domain.repository.PlaylistRepository
 import com.spautifaille.domain.repository.QueueStateStore
 import com.spautifaille.domain.repository.StreamRepository
 import com.spautifaille.domain.repository.TrackCache
+import com.spautifaille.player.artwork.LandscapeArtworkBitmapLoader
 import com.spautifaille.player.datasource.PlayerDataSourceFactory
 import com.spautifaille.player.datasource.StreamLoadErrorHandlingPolicy
 import com.spautifaille.player.datasource.StreamResolver
 import com.spautifaille.player.error.ConnectivityObserver
 import com.spautifaille.player.error.PlaybackErrorHandler
+import com.spautifaille.player.history.HistoryAwarePlayer
 import com.spautifaille.player.history.PlayHistoryRecorder
+import com.spautifaille.player.history.SessionHistory
 import com.spautifaille.player.library.LibraryBrowseTree
 import com.spautifaille.player.library.SiblingExpansion
 import com.spautifaille.player.queue.QueuePersister
@@ -46,6 +51,7 @@ import com.spautifaille.player.session.SessionStatePublisher
 import com.spautifaille.player.sleep.SleepTimerManager
 import com.spautifaille.player.sleep.SleepTimerPlayer
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -72,6 +78,7 @@ class PlaybackService : MediaLibraryService() {
     @Inject lateinit var queueStore: QueueStateStore
     @Inject lateinit var connectivity: ConnectivityObserver
     @Inject @field:ApplicationScope lateinit var appScope: CoroutineScope
+    @Inject @field:DefaultDispatcher lateinit var defaultDispatcher: CoroutineDispatcher
 
     /** Portée liée au service, sur le thread principal (celui du lecteur). Annulée dans [onDestroy]. */
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -85,6 +92,10 @@ class PlaybackService : MediaLibraryService() {
     private var errorHandler: PlaybackErrorHandler? = null
     private var historyRecorder: PlayHistoryRecorder? = null
 
+    /** Titres réellement écoutés pendant la session : « précédent » y revient même si la file a été remplacée. */
+    private var sessionHistory: SessionHistory? = null
+    private var artworkLoader: LandscapeArtworkBitmapLoader? = null
+
     /** Résultats de la dernière recherche, pour `onGetSearchResult` (petit cache LRU, thread principal). */
     private val searchResults = object : LinkedHashMap<String, List<MediaItem>>(4, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, List<MediaItem>>?) = size > MAX_CACHED_SEARCHES
@@ -97,7 +108,19 @@ class PlaybackService : MediaLibraryService() {
         val tree = LibraryBrowseTree(this, library, playlists, streams, trackCache)
         browseTree = tree
 
-        val mediaSession = MediaLibrarySession.Builder(this, exo, SessionCallback(exo, tree))
+        // Alimenté avant la création de la session pour ne rater aucune transition.
+        val listened = SessionHistory(onChanged = { publisher?.onHistoryAvailable(sessionHistory?.isEmpty == false) })
+        sessionHistory = listened
+        exo.addListener(listened)
+
+        val landscapeArtwork = LandscapeArtworkBitmapLoader(
+            delegate = DataSourceBitmapLoader.Builder(this).setMaximumOutputDimension(ARTWORK_MAX_SOURCE_PX).build(),
+            dispatcher = defaultDispatcher,
+        )
+        artworkLoader = landscapeArtwork
+        val mediaSession = MediaLibrarySession.Builder(this, HistoryAwarePlayer(exo, listened), SessionCallback(exo, tree))
+            // Image du lecteur système (verrouillage, notification) : affiche paysage 16:9, `artworkUri` restant carré pour l'UI.
+            .setBitmapLoader(landscapeArtwork)
             .apply { buildSessionActivity()?.let(::setSessionActivity) }
             .build()
         session = mediaSession
@@ -112,6 +135,7 @@ class PlaybackService : MediaLibraryService() {
 
         val statePublisher = SessionStatePublisher(this, mediaSession, library, downloads, serviceScope)
         publisher = statePublisher
+        listened.reset(exo.currentMediaItem)
 
         val timer = SleepTimerManager(
             scope = serviceScope,
@@ -164,6 +188,7 @@ class PlaybackService : MediaLibraryService() {
         persister?.release()
         errorHandler?.release()
         historyRecorder?.release()
+        artworkLoader?.release()
         sleepTimer?.cancel()
         publisher?.stop()
         serviceScope.cancel()
@@ -491,6 +516,9 @@ class PlaybackService : MediaLibraryService() {
     private companion object {
         const val SEEK_TO_PREVIOUS_MAX_MS = 3_000L
         const val PRELOAD_DURATION_US = 10_000_000L
+
+        /** Les sources d'affiche (maxresdefault 1280 px, pochette 1200 px) sont décodées sans sous-échantillonnage. */
+        const val ARTWORK_MAX_SOURCE_PX = 1_280
         const val MAX_CACHED_SEARCHES = 4
     }
 }

@@ -70,6 +70,26 @@ class QueueCommandsTest {
         }
     }
 
+    @Test
+    fun `window inserted before the current one is right before it in the play order`() {
+        // Ordre de lecture des fenêtres 0..4 : 3, 1, 4, 0, 2 ; courant = 1 ; on insère une fenêtre à l'index 1.
+        val result = QueueCommands.shuffleOrderWithInsertedBefore(listOf(3, 1, 4, 0, 2), currentIndex = 1)
+        // Anciens indices >= 1 décalés de 1 : 3->4, 1->2, 4->5, 2->3 ; la nouvelle fenêtre (1) juste avant 2.
+        assertArrayEquals(intArrayOf(4, 1, 2, 5, 0, 3), result)
+    }
+
+    @Test
+    fun `insertion before the first window of the order and for every current index`() {
+        assertArrayEquals(intArrayOf(0, 1, 2), QueueCommands.shuffleOrderWithInsertedBefore(listOf(0, 1), currentIndex = 0))
+        val order = listOf(2, 4, 0, 3, 1)
+        for (current in 0..4) {
+            val result = QueueCommands.shuffleOrderWithInsertedBefore(order, current)
+            assertEquals((0..5).toSet(), result.toSet())
+            assertEquals(6, result.size)
+            assertEquals(current + 1, result[result.indexOf(current) + 1])
+        }
+    }
+
     // --- playNext sur un vrai ExoPlayer ---
 
     @Test

@@ -77,4 +77,62 @@ class ArtworkUrlsTest {
         val url = "https://example.com/cover.jpg"
         assertEquals(listOf(url), ArtworkUrls.squareCandidates(url, 1000))
     }
+
+    // --- landscapeCandidates ---
+
+    @Test
+    fun `paysage - pochette googleusercontent en 1200 px puis origine`() {
+        val url = "https://lh3.googleusercontent.com/abcDEF123_-xyz=w544-h544-l90-rj"
+        assertEquals(
+            listOf("https://lh3.googleusercontent.com/abcDEF123_-xyz=w1200-h1200-l90-rj", url),
+            ArtworkUrls.landscapeCandidates("dQw4w9WgXcQ", url),
+        )
+    }
+
+    @Test
+    fun `paysage - miniature ytimg donne maxres sd hq puis origine`() {
+        val url = "https://i.ytimg.com/vi/dQw4w9WgXcQ/hq720.jpg?sqp=-oaymw&rs=AOn4"
+        assertEquals(
+            listOf(
+                "https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg",
+                "https://i.ytimg.com/vi/dQw4w9WgXcQ/sddefault.jpg",
+                "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
+                url,
+            ),
+            ArtworkUrls.landscapeCandidates(null, url),
+        )
+    }
+
+    @Test
+    fun `paysage - l url d origine deja listee n est pas dupliquee`() {
+        val url = "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg"
+        assertEquals(3, ArtworkUrls.landscapeCandidates("dQw4w9WgXcQ", url).size)
+    }
+
+    @Test
+    fun `paysage - sans miniature mais avec identifiant video`() {
+        assertEquals(
+            listOf(
+                "https://i.ytimg.com/vi/dQw4w9WgXcQ/maxresdefault.jpg",
+                "https://i.ytimg.com/vi/dQw4w9WgXcQ/sddefault.jpg",
+                "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
+            ),
+            ArtworkUrls.landscapeCandidates("dQw4w9WgXcQ", null),
+        )
+    }
+
+    @Test
+    fun `paysage - identifiant invalide ou url inconnue`() {
+        val url = "https://example.com/cover.jpg"
+        assertEquals(listOf(url), ArtworkUrls.landscapeCandidates("pas-un-id", url))
+        assertEquals(listOf(url), ArtworkUrls.landscapeCandidates("dQw4w9WgXcQ".take(5), url))
+        assertEquals(emptyList<String>(), ArtworkUrls.landscapeCandidates(null, null))
+        assertEquals(emptyList<String>(), ArtworkUrls.landscapeCandidates(null, "  "))
+    }
+
+    @Test
+    fun `paysage - la pochette google prime sur l identifiant video`() {
+        val url = "https://lh3.googleusercontent.com/abc=w120-h120-l90-rj"
+        assertEquals(url, ArtworkUrls.landscapeCandidates("dQw4w9WgXcQ", url).last())
+    }
 }
