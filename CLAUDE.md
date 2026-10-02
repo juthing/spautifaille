@@ -76,6 +76,7 @@ CI : `.github/workflows/android.yml` (tests, lint, APK debug + release en artefa
 On suit le commit épinglé par l'app NewPipe (testé en production) :
 1. Lire `https://raw.githubusercontent.com/TeamNewPipe/NewPipe/dev/gradle/libs.versions.toml` → clé `teamnewpipe-newpipe-extractor`.
 2. Reporter le hash dans `newpipeExtractor` de `gradle/libs.versions.toml`.
+   Puis copier `.pom`, `.module` et `.jar` depuis `https://jitpack.io/com/github/TeamNewPipe/NewPipeExtractor/<hash>/` dans `gradle/vendor-repo/` (même arborescence ; idem pour `nanojson` si son commit change) et supprimer l'ancienne version. JitPack renvoie parfois 404 aux runners GitHub : la CI ne dépend que de cette copie.
 3. Comparer `DownloaderImpl.java` et `player/datasource/YoutubeHttpDataSource.java` de NewPipe avec nos portages.
 4. Vérifier `app/proguard-rules.pro` de NewPipe (règles Rhino).
 
