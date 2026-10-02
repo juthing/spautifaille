@@ -6,11 +6,13 @@
  */
 package com.spautifaille.data.recognition
 
+import android.util.Log
 import com.spautifaille.domain.error.AppError
 import com.spautifaille.domain.error.AppException
 import com.spautifaille.domain.recognition.AudioCapture
 import com.spautifaille.domain.recognition.MusicRecognizer
 import com.spautifaille.domain.recognition.RecognizedTrack
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -34,7 +36,6 @@ import java.io.IOException
 import java.util.Locale
 import java.util.TimeZone
 import java.util.UUID
-import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 /**
@@ -57,24 +58,37 @@ class ShazamMusicRecognizer(
 
     override suspend fun recognize(pcm: ShortArray, sampleRate: Int): RecognizedTrack? {
         require(sampleRate == AudioCapture.SAMPLE_RATE) { "Seul le 16 kHz est supporté (reçu $sampleRate Hz)" }
-        val signature = withContext(defaultDispatcher) { SignatureGenerator.generate(pcm) }
-        // Aucun pic détecté (silence) : inutile d'interroger le service.
-        if (signature.totalPeaks == 0) return null
-        val body = buildRequestBody(signature)
-        val request = Request.Builder()
-            .url(buildUrl())
-            .header("User-Agent", USER_AGENT)
-            .header("Content-Language", "en_US")
-            .post(body.toRequestBody(JSON_MEDIA_TYPE))
-            .build()
-        val responseText = http.newCall(request).await().use { response ->
-            when {
-                response.code == 429 -> throw AppException(AppError.RecognitionUnavailable)
-                !response.isSuccessful -> throw AppException(AppError.RecognitionUnavailable)
-                else -> response.body.string()
+        try {
+            val signature = withContext(defaultDispatcher) { SignatureGenerator.generate(pcm) }
+            // Aucun pic détecté (silence) : inutile d'interroger le service.
+            if (signature.totalPeaks == 0) return null
+            val request = Request.Builder()
+                .url(buildUrl())
+                .header("User-Agent", USER_AGENT)
+                .header("Content-Language", "en_US")
+                .post(buildRequestBody(signature).toRequestBody(JSON_MEDIA_TYPE))
+                .build()
+            // Le corps est lu par `await` sur un thread d'OkHttp : `recognize` est appelée depuis le thread principal
+            // (viewModelScope), où toute lecture réseau bloquante lève `NetworkOnMainThreadException`.
+            val responseText = http.newCall(request).await { response ->
+                // 429 ou tout autre code non 2xx : le service refuse ou limite les requêtes, ou l'API a changé.
+                if (!response.isSuccessful) throw AppException(AppError.RecognitionUnavailable)
+                response.body.string()
             }
+            return withContext(defaultDispatcher) { parseResponse(responseText) }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: AppException) {
+            throw e
+        } catch (e: IOException) {
+            Log.w(TAG, "Reconnaissance : erreur d'E/S", e)
+            throw AppException(AppError.Network, e)
+        } catch (e: Exception) {
+            // Endpoint non officiel : toute anomalie inattendue = service indisponible, jamais une erreur « inconnue ».
+            // La cause d'origine reste dans les journaux (jamais d'audio ni de signature).
+            Log.e(TAG, "Reconnaissance : exception inattendue", e)
+            throw AppException(AppError.RecognitionUnavailable, e)
         }
-        return withContext(defaultDispatcher) { parseResponse(responseText) }
     }
 
     private fun buildUrl(): String {
@@ -106,6 +120,7 @@ class ShazamMusicRecognizer(
 
     companion object {
         const val DEFAULT_ENDPOINT = "https://amp.shazam.com/discovery/v5/en/US/android/-/tag"
+        private const val TAG = "ShazamRecognizer"
         private const val USER_AGENT = "Dalvik/2.1.0 (Linux; U; Android 14; Pixel 7 Build/UQ1A.240205.002)"
         private val JSON_MEDIA_TYPE = "application/json".toMediaType()
         private val json = Json { ignoreUnknownKeys = true; isLenient = true }
@@ -153,11 +168,23 @@ class ShazamMusicRecognizer(
     }
 }
 
-/** Exécute l'appel sans bloquer de thread ; annuler la coroutine annule l'appel. Les erreurs d'E/S deviennent `Network`. */
-internal suspend fun Call.await(): Response = suspendCancellableCoroutine { cont ->
+/**
+ * Exécute l'appel sans bloquer de thread appelant et lit la réponse avec [readBody], exécuté sur un thread d'OkHttp
+ * (jamais sur celui de l'appelant : une lecture réseau bloquante sur le thread principal lève
+ * `NetworkOnMainThreadException` sur Android). Annuler la coroutine annule l'appel, y compris pendant la lecture du
+ * corps. Les erreurs d'E/S deviennent `Network` ; les autres exceptions de [readBody] sont relayées telles quelles.
+ */
+internal suspend fun <T> Call.await(readBody: (Response) -> T): T = suspendCancellableCoroutine { cont ->
     enqueue(object : Callback {
         override fun onResponse(call: Call, response: Response) {
-            if (cont.isActive) cont.resume(response) else response.close()
+            val outcome: Result<T> = try {
+                Result.success(response.use(readBody))
+            } catch (e: IOException) {
+                Result.failure(AppException(AppError.Network, e))
+            } catch (e: Throwable) {
+                Result.failure(e)
+            }
+            if (!cont.isCancelled) cont.resumeWith(outcome)
         }
 
         override fun onFailure(call: Call, e: IOException) {
