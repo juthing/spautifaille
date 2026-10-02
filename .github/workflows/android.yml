@@ -50,6 +50,20 @@ jobs:
           } >> "$GITHUB_ENV"
           echo "Keystore release décodé."
 
+      - name: Préchauffer JitPack (NewPipeExtractor)
+        run: |
+          HASH="$(grep -E '^newpipeExtractor *=' gradle/libs.versions.toml | sed -E 's/.*"([^"]+)".*/\1/')"
+          BASE="https://jitpack.io/com/github/TeamNewPipe/NewPipeExtractor/$HASH/NewPipeExtractor-$HASH"
+          for ext in pom jar; do
+            for i in 1 2 3 4 5 6; do
+              code="$(curl -s -o /dev/null -m 120 -w '%{http_code}' "$BASE.$ext" || true)"
+              echo "$ext, tentative $i : HTTP $code"
+              [ "$code" = "200" ] && break
+              sleep 20
+            done
+          done
+          exit 0
+
       - name: Unit tests
         run: ./gradlew testDebugUnitTest --stacktrace --refresh-dependencies
 
