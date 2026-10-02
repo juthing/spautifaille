@@ -244,7 +244,7 @@ class PlaybackControllerImpl @Inject constructor(
             isCurrentLiked = published.liked && currentTrack != null,
             isCurrentOffline = published.offline && currentTrack != null,
             hasNext = c.hasNextMediaItem(),
-            hasPrevious = c.hasPreviousMediaItem(),
+            hasPrevious = c.hasPreviousMediaItem() || published.hasHistory,
             queueSourceId = c.currentMediaItem?.let(MediaItemMapper::sourceId),
         )
     }

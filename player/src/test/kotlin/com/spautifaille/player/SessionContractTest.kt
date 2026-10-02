@@ -48,6 +48,7 @@ class SessionContractTest {
             SessionContract.PublishedState(),
             SessionContract.PublishedState(liked = true, offline = true, sleepTimer = SleepTimerState.EndOfTrack),
             SessionContract.PublishedState(liked = true, sleepTimer = SleepTimerState.At(123_456L)),
+            SessionContract.PublishedState(hasHistory = true),
         )
         states.forEach { state ->
             assertEquals(state, SessionContract.decodeExtras(SessionContract.encodeExtras(state)))

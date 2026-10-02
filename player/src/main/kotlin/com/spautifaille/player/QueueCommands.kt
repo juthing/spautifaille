@@ -75,4 +75,21 @@ internal object QueueCommands {
         result.addAll(shifted.subList(insertAt, shifted.size))
         return result.toIntArray()
     }
+
+    /**
+     * Nouvel ordre de lecture aléatoire après insertion d'**une** fenêtre à l'index [currentIndex] (donc juste avant
+     * le titre courant, qui passe à `currentIndex + 1`) : les anciens indices >= [currentIndex] sont décalés de 1, et
+     * la nouvelle fenêtre est placée immédiatement avant le titre courant dans l'ordre de lecture.
+     *
+     * @param order ordre de lecture **avant** insertion (indices de fenêtres, dans l'ordre de lecture).
+     */
+    fun shuffleOrderWithInsertedBefore(order: List<Int>, currentIndex: Int): IntArray {
+        val shifted = order.map { if (it >= currentIndex) it + 1 else it }
+        val insertAt = shifted.indexOf(currentIndex + 1).let { if (it < 0) shifted.size else it } // défensif
+        val result = ArrayList<Int>(shifted.size + 1)
+        result.addAll(shifted.subList(0, insertAt))
+        result.add(currentIndex)
+        result.addAll(shifted.subList(insertAt, shifted.size))
+        return result.toIntArray()
+    }
 }

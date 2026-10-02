@@ -36,6 +36,7 @@ object SessionContract {
     // --- Extras de session (service -> contrôleurs) ---
     const val EXTRA_LIKED = PREFIX + "extra.LIKED"
     const val EXTRA_OFFLINE = PREFIX + "extra.OFFLINE"
+    const val EXTRA_HAS_HISTORY = PREFIX + "extra.HAS_HISTORY"
     const val EXTRA_SLEEP_MODE = PREFIX + "extra.SLEEP_MODE"
     const val EXTRA_SLEEP_ENDS_AT = PREFIX + "extra.SLEEP_ENDS_AT"
 
@@ -102,11 +103,14 @@ object SessionContract {
         val liked: Boolean = false,
         val offline: Boolean = false,
         val sleepTimer: SleepTimerState = SleepTimerState.Off,
+        /** Un titre déjà écouté (hors file) est disponible pour « précédent ». */
+        val hasHistory: Boolean = false,
     )
 
     fun encodeExtras(state: PublishedState): Bundle = Bundle().apply {
         putBoolean(EXTRA_LIKED, state.liked)
         putBoolean(EXTRA_OFFLINE, state.offline)
+        putBoolean(EXTRA_HAS_HISTORY, state.hasHistory)
         when (val timer = state.sleepTimer) {
             SleepTimerState.Off -> putString(EXTRA_SLEEP_MODE, SLEEP_MODE_OFF)
             SleepTimerState.EndOfTrack -> putString(EXTRA_SLEEP_MODE, SLEEP_MODE_END_OF_TRACK)
@@ -128,6 +132,7 @@ object SessionContract {
             liked = extras.getBoolean(EXTRA_LIKED),
             offline = extras.getBoolean(EXTRA_OFFLINE),
             sleepTimer = timer,
+            hasHistory = extras.getBoolean(EXTRA_HAS_HISTORY),
         )
     }
 

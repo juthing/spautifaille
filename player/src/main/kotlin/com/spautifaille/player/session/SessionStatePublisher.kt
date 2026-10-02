@@ -38,6 +38,7 @@ class SessionStatePublisher(
 
     private val currentMediaId = MutableStateFlow<String?>(null)
     private val sleepTimer = MutableStateFlow<SleepTimerState>(SleepTimerState.Off)
+    private val historyAvailable = MutableStateFlow(false)
     private var job: Job? = null
     private var lastButtonKey: Pair<Boolean, Boolean>? = null
 
@@ -51,13 +52,18 @@ class SessionStatePublisher(
             currentMediaId
                 .flatMapLatest { id ->
                     if (id == null) {
-                        sleepTimer.map { Snapshot(false, SessionContract.PublishedState(sleepTimer = it)) }
+                        combine(sleepTimer, historyAvailable) { sleep, history ->
+                            Snapshot(false, SessionContract.PublishedState(sleepTimer = sleep, hasHistory = history))
+                        }
                     } else {
                         combine(
                             library.observeIsLiked(id),
                             downloads.observeDownload(id).map { it?.state == DownloadState.COMPLETED && it.filePath != null },
                             sleepTimer,
-                        ) { liked, offline, sleep -> Snapshot(true, SessionContract.PublishedState(liked, offline, sleep)) }
+                            historyAvailable,
+                        ) { liked, offline, sleep, history ->
+                            Snapshot(true, SessionContract.PublishedState(liked, offline, sleep, history))
+                        }
                     }
                 }
                 .distinctUntilChanged()
@@ -71,6 +77,11 @@ class SessionStatePublisher(
 
     fun onCurrentMediaId(id: String?) {
         currentMediaId.value = id
+    }
+
+    /** Vrai quand « précédent » peut ramener à un titre déjà écouté (même hors file). */
+    fun onHistoryAvailable(available: Boolean) {
+        historyAvailable.value = available
     }
 
     fun onSleepTimerChanged(state: SleepTimerState) {
