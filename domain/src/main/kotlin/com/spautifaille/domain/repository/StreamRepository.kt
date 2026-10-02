@@ -9,6 +9,7 @@ import com.spautifaille.domain.model.ResolvedStream
 import com.spautifaille.domain.model.SearchFilter
 import com.spautifaille.domain.model.SearchResult
 import com.spautifaille.domain.model.Track
+import com.spautifaille.domain.model.TrackStats
 
 /**
  * Point d'accès unique aux contenus distants. L'implémentation NewPipe vit dans `:data` (package `newpipe`)
@@ -27,6 +28,9 @@ interface StreamRepository {
 
     /** Résout l'URL du flux audio. Appelé juste avant la lecture ; ne jamais persister le résultat. */
     suspend fun resolveAudio(videoId: String, quality: AudioQuality): ResolvedStream
+
+    /** Vues, J'aime et date de publication d'un titre (valeurs inconnues = null ; cache mémoire côté implémentation). */
+    suspend fun trackStats(videoId: String): TrackStats
 
     /** Titres liés (« À suivre » YouTube). */
     suspend fun related(videoId: String): List<Track>

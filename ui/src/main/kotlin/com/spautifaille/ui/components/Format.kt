@@ -1,5 +1,7 @@
 package com.spautifaille.ui.components
 
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 /** Nombre compact (« 1,2 k », « 3,4 M ») pour les compteurs d'abonnés. */
@@ -29,3 +31,7 @@ fun formatDuration(ms: Long): String {
         String.format(Locale.ROOT, "%d:%02d", minutes, seconds)
     }
 }
+
+/** Date longue localisée (« 12 mars 2021 » en français). */
+fun formatUploadDate(date: LocalDate, locale: Locale = Locale.getDefault()): String =
+    DateTimeFormatter.ofPattern("d MMMM yyyy", locale).format(date)

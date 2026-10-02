@@ -13,6 +13,7 @@ import com.spautifaille.domain.model.ResolvedStream
 import com.spautifaille.domain.model.SearchFilter
 import com.spautifaille.domain.model.SearchResult
 import com.spautifaille.domain.model.Track
+import com.spautifaille.domain.model.TrackStats
 import com.spautifaille.domain.repository.StreamRepository
 import dagger.Binds
 import dagger.Module
@@ -36,6 +37,8 @@ class OfflineStreamRepository @Inject constructor() : StreamRepository {
 
     override suspend fun resolveAudio(videoId: String, quality: AudioQuality): ResolvedStream =
         throw AppException(AppError.Network)
+
+    override suspend fun trackStats(videoId: String): TrackStats = throw AppException(AppError.Network)
 
     override suspend fun related(videoId: String): List<Track> = emptyList()
 

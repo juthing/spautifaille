@@ -14,6 +14,7 @@ import com.spautifaille.domain.model.ResolvedStream
 import com.spautifaille.domain.model.SearchFilter
 import com.spautifaille.domain.model.SearchResult
 import com.spautifaille.domain.model.Track
+import com.spautifaille.domain.model.TrackStats
 import com.spautifaille.domain.repository.StreamRepository
 
 /** [StreamRepository] scriptable ; seules les fonctions utilisées par l'import sont implémentées. */
@@ -40,6 +41,7 @@ internal class FakeStreamRepository : StreamRepository {
     }
 
     override suspend fun resolveAudio(videoId: String, quality: AudioQuality): ResolvedStream = error("inutilisé")
+    override suspend fun trackStats(videoId: String): TrackStats = error("inutilisé")
     override suspend fun related(videoId: String): List<Track> = emptyList()
     override suspend fun mix(videoId: String): List<Track> = emptyList()
 
