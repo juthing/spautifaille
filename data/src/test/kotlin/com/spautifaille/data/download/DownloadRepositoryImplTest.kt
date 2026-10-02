@@ -19,6 +19,7 @@ import com.spautifaille.data.local.toEntity
 import com.spautifaille.data.local.track
 import com.spautifaille.domain.model.AppSettings
 import com.spautifaille.domain.model.AudioQuality
+import com.spautifaille.domain.model.ColorSource
 import com.spautifaille.domain.model.Download
 import com.spautifaille.domain.model.DownloadState
 import com.spautifaille.domain.model.StorageUsage
@@ -59,7 +60,7 @@ class DownloadRepositoryImplTest {
             state.value = state.value.copy(downloadOverWifiOnly = enabled)
         }
         override suspend fun setThemeMode(mode: ThemeMode) = Unit
-        override suspend fun setDynamicColor(enabled: Boolean) = Unit
+        override suspend fun setColorSource(source: ColorSource) = Unit
         override suspend fun setStreamCacheSizeMb(sizeMb: Int) = Unit
         override suspend fun setLastFmApiKey(key: String?) = Unit
     }

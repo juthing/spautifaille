@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.Storage
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.spautifaille.domain.model.AppSettings
 import com.spautifaille.domain.model.AudioQuality
+import com.spautifaille.domain.model.ColorSource
 import com.spautifaille.domain.model.ThemeMode
 import com.spautifaille.ui.R
 import com.spautifaille.ui.components.IconTone
@@ -90,7 +91,11 @@ fun settingsSummary(
                 },
             ),
         )
-        if (dynamicColorAvailable && settings.dynamicColor) add(SummaryPart.Text(R.string.set_summary_dynamic_color))
+        when (settings.colorSource) {
+            ColorSource.STATIC -> Unit
+            ColorSource.DYNAMIC -> if (dynamicColorAvailable) add(SummaryPart.Text(R.string.set_summary_dynamic_color))
+            ColorSource.NOW_PLAYING -> add(SummaryPart.Text(R.string.set_summary_now_playing_color))
+        }
     }
     SettingsCategory.STORAGE -> listOf(SummaryPart.CacheSize(settings.streamCacheSizeMb))
     SettingsCategory.DISCOVERY -> listOf(

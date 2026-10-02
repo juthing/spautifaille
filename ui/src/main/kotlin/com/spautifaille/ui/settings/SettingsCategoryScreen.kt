@@ -21,7 +21,6 @@ import androidx.compose.material.icons.filled.Gavel
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -54,6 +53,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.spautifaille.domain.model.AppSettings
 import com.spautifaille.domain.model.AudioQuality
+import com.spautifaille.domain.model.ColorSource
 import com.spautifaille.domain.model.ThemeMode
 import com.spautifaille.ui.R
 import com.spautifaille.ui.common.LocalAppHaptics
@@ -72,7 +72,7 @@ data class SettingsActions(
     val onAudioQualityChange: (AudioQuality) -> Unit = {},
     val onWifiOnlyChange: (Boolean) -> Unit = {},
     val onThemeModeChange: (ThemeMode) -> Unit = {},
-    val onDynamicColorChange: (Boolean) -> Unit = {},
+    val onColorSourceChange: (ColorSource) -> Unit = {},
     val onCacheSizeChange: (Int) -> Unit = {},
     val onLastFmKeyChange: (String?) -> Unit = {},
 )
@@ -104,7 +104,7 @@ fun SettingsCategoryRoute(
             onAudioQualityChange = viewModel::setAudioQuality,
             onWifiOnlyChange = viewModel::setDownloadOverWifiOnly,
             onThemeModeChange = viewModel::setThemeMode,
-            onDynamicColorChange = viewModel::setDynamicColor,
+            onColorSourceChange = viewModel::setColorSource,
             onCacheSizeChange = viewModel::setStreamCacheSizeMb,
             onLastFmKeyChange = viewModel::setLastFmApiKey,
         )
@@ -219,16 +219,36 @@ private fun AppearanceSettings(settings: AppSettings, actions: SettingsActions, 
         onSelect = actions.onThemeModeChange,
     )
     SettingsGroupLabel(stringResource(R.string.set_section_colors))
-    SettingsSwitchRow(
-        icon = Icons.Filled.Palette,
-        title = stringResource(R.string.set_dynamic_color),
-        summary = stringResource(
-            if (dynamicColorAvailable) R.string.set_dynamic_color_summary else R.string.set_dynamic_color_unavailable,
-        ),
-        checked = settings.dynamicColor && dynamicColorAvailable,
-        onCheckedChange = actions.onDynamicColorChange,
-        enabled = dynamicColorAvailable,
+    SettingsRadioGroup(
+        options = ColorSource.entries,
+        // Sous Android 11, « Dynamique » n'existe pas : le thème appliqué est alors « Normal ».
+        selected = settings.colorSource.effectiveIn(dynamicColorAvailable),
+        label = { stringResource(it.labelRes()) },
+        description = { source -> stringResource(source.descriptionRes(dynamicColorAvailable)) },
+        isEnabled = { source -> source != ColorSource.DYNAMIC || dynamicColorAvailable },
+        onSelect = actions.onColorSourceChange,
     )
+    Spacer(Modifier.height(Spacing.s))
+    SettingsNote(stringResource(R.string.set_color_source_note))
+}
+
+/** Option mise en avant : sans couleurs dynamiques (Android 11), le choix « Dynamique » équivaut à « Normal ». */
+internal fun ColorSource.effectiveIn(dynamicColorAvailable: Boolean): ColorSource =
+    if (this == ColorSource.DYNAMIC && !dynamicColorAvailable) ColorSource.STATIC else this
+
+@StringRes
+private fun ColorSource.labelRes(): Int = when (this) {
+    ColorSource.STATIC -> R.string.set_color_source_static
+    ColorSource.DYNAMIC -> R.string.set_color_source_dynamic
+    ColorSource.NOW_PLAYING -> R.string.set_color_source_now_playing
+}
+
+@StringRes
+private fun ColorSource.descriptionRes(dynamicColorAvailable: Boolean): Int = when (this) {
+    ColorSource.STATIC -> R.string.set_color_source_static_desc
+    ColorSource.DYNAMIC ->
+        if (dynamicColorAvailable) R.string.set_color_source_dynamic_desc else R.string.set_color_source_dynamic_unavailable
+    ColorSource.NOW_PLAYING -> R.string.set_color_source_now_playing_desc
 }
 
 @Composable

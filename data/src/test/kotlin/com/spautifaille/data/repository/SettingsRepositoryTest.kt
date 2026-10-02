@@ -3,11 +3,13 @@ package com.spautifaille.data.repository
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import app.cash.turbine.test
 import com.spautifaille.domain.model.AppSettings
 import com.spautifaille.domain.model.AudioQuality
+import com.spautifaille.domain.model.ColorSource
 import com.spautifaille.domain.model.ThemeMode
 import java.io.File
 import org.junit.Assert.assertEquals
@@ -16,6 +18,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Before
@@ -56,7 +59,7 @@ class SettingsRepositoryTest {
         repo.setAudioQuality(AudioQuality.DATA_SAVER)
         repo.setDownloadOverWifiOnly(false)
         repo.setThemeMode(ThemeMode.DARK)
-        repo.setDynamicColor(false)
+        repo.setColorSource(ColorSource.NOW_PLAYING)
         repo.setStreamCacheSizeMb(2048)
         repo.setLastFmApiKey("  abc123 ")
 
@@ -65,7 +68,7 @@ class SettingsRepositoryTest {
                 audioQuality = AudioQuality.DATA_SAVER,
                 downloadOverWifiOnly = false,
                 themeMode = ThemeMode.DARK,
-                dynamicColor = false,
+                colorSource = ColorSource.NOW_PLAYING,
                 streamCacheSizeMb = 2048,
                 lastFmApiKey = "abc123",
             ),
@@ -80,8 +83,8 @@ class SettingsRepositoryTest {
             repo.setThemeMode(ThemeMode.LIGHT)
             assertEquals(ThemeMode.LIGHT, awaitItem().themeMode)
             repo.setThemeMode(ThemeMode.LIGHT) // inchangé : pas d'émission
-            repo.setDynamicColor(false)
-            assertEquals(false, awaitItem().dynamicColor)
+            repo.setColorSource(ColorSource.NOW_PLAYING)
+            assertEquals(ColorSource.NOW_PLAYING, awaitItem().colorSource)
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -113,5 +116,33 @@ class SettingsRepositoryTest {
         val result = runCatching { repo.setStreamCacheSizeMb(0) }
         assertEquals(true, result.exceptionOrNull() is IllegalArgumentException)
         assertEquals(AppSettings().streamCacheSizeMb, repo.current().streamCacheSizeMb)
+    }
+
+    @Test
+    fun legacyDynamicColorTrueMigratesToDynamic() = runTest {
+        dataStore.edit { it[booleanPreferencesKey("dynamic_color")] = true }
+        assertEquals(ColorSource.DYNAMIC, repo.current().colorSource)
+    }
+
+    @Test
+    fun legacyDynamicColorFalseMigratesToStatic() = runTest {
+        dataStore.edit { it[booleanPreferencesKey("dynamic_color")] = false }
+        assertEquals(ColorSource.STATIC, repo.current().colorSource)
+    }
+
+    @Test
+    fun newColorSourceWinsOverLegacyValueAndClearsIt() = runTest {
+        dataStore.edit { it[booleanPreferencesKey("dynamic_color")] = false }
+        repo.setColorSource(ColorSource.NOW_PLAYING)
+        assertEquals(ColorSource.NOW_PLAYING, repo.current().colorSource)
+        assertNull(dataStore.data.first()[booleanPreferencesKey("dynamic_color")])
+    }
+
+    @Test
+    fun unknownColorSourceFallsBackToLegacyThenDefault() = runTest {
+        dataStore.edit { it[stringPreferencesKey("color_source")] = "RAINBOW" }
+        assertEquals(AppSettings().colorSource, repo.current().colorSource)
+        dataStore.edit { it[booleanPreferencesKey("dynamic_color")] = false }
+        assertEquals(ColorSource.STATIC, repo.current().colorSource)
     }
 }

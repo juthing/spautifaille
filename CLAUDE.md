@@ -9,7 +9,7 @@ Priorités : robustesse, architecture propre, intégration système parfaite, Ma
 - Gradle 9.6.0, JDK 21 (bytecode 17), Kotlin 2.4.20, KSP 2.3.12
 - compileSdk/targetSdk 37, minSdk 26, core library desugaring (`desugar_jdk_libs_nio`, requis par NewPipe)
 - Compose BOM 2026.09.00 (Material 3 1.4.0), `material-icons-extended` (**toujours `Icons.Filled`**), navigation-suite, Navigation Compose 2.10 (routes typées `@Serializable`)
-- Media3 1.11.1, Room 2.8.5, Hilt 2.60.1, WorkManager 2.12.0, DataStore 1.2.1, Coil 3.6.3, OkHttp 5.5.0
+- Media3 1.11.1, Room 2.8.5, Hilt 2.60.1, WorkManager 2.12.0, DataStore 1.2.1, Coil 3.6.3, OkHttp 5.5.0, material-color-utilities 5.0.1 (thème « Musique en cours » : HCT, `SchemeTonalSpot`, quantification Celebi)
 - NewPipeExtractor : commit épinglé (voir « Mettre à jour NewPipeExtractor »)
 
 ## Modules

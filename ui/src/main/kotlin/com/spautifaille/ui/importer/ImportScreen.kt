@@ -84,6 +84,8 @@ import com.spautifaille.domain.importer.ImportJobState
 import com.spautifaille.ui.R
 import com.spautifaille.ui.common.LocalAppHaptics
 import com.spautifaille.ui.components.IconTone
+import com.spautifaille.ui.components.bringIntoViewWhenFocusedWithIme
+import com.spautifaille.ui.components.imeAwareContentWindowInsets
 import com.spautifaille.ui.components.ToneIconCircle
 import com.spautifaille.ui.theme.ContentMaxWidth
 import com.spautifaille.ui.theme.ScreenHorizontalPadding
@@ -202,6 +204,8 @@ fun ImportScreen(
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
+        // Le clavier fait partie des insets du contenu : la liste se redimensionne au-dessus du clavier.
+        contentWindowInsets = imeAwareContentWindowInsets(),
     ) { padding ->
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
             LazyColumn(
@@ -377,7 +381,7 @@ private fun LinkCard(
         OutlinedTextField(
             value = state.url,
             onValueChange = onUrlChange,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().bringIntoViewWhenFocusedWithIme(),
             shape = MaterialTheme.shapes.medium,
             label = { Text(stringResource(R.string.import_url_label)) },
             placeholder = { Text(stringResource(R.string.import_link_hint)) },

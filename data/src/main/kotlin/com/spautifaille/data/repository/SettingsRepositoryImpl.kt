@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.spautifaille.domain.model.AppSettings
 import com.spautifaille.domain.model.AudioQuality
+import com.spautifaille.domain.model.ColorSource
 import com.spautifaille.domain.model.ThemeMode
 import com.spautifaille.domain.repository.SettingsRepository
 import java.io.IOException
@@ -30,7 +31,10 @@ class SettingsRepositoryImpl @Inject constructor(
         val AUDIO_QUALITY = stringPreferencesKey("audio_quality")
         val DOWNLOAD_WIFI_ONLY = booleanPreferencesKey("download_over_wifi_only")
         val THEME_MODE = stringPreferencesKey("theme_mode")
-        val DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
+        val COLOR_SOURCE = stringPreferencesKey("color_source")
+
+        /** Ancien interrupteur « couleurs dynamiques » (remplacé par [COLOR_SOURCE]), lu pour la migration. */
+        val LEGACY_DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color")
         val STREAM_CACHE_MB = intPreferencesKey("stream_cache_size_mb")
         val LAST_FM_API_KEY = stringPreferencesKey("last_fm_api_key")
         val CONTENT_COUNTRY = stringPreferencesKey("content_country")
@@ -55,8 +59,11 @@ class SettingsRepositoryImpl @Inject constructor(
         dataStore.edit { it[Keys.THEME_MODE] = mode.name }
     }
 
-    override suspend fun setDynamicColor(enabled: Boolean) {
-        dataStore.edit { it[Keys.DYNAMIC_COLOR] = enabled }
+    override suspend fun setColorSource(source: ColorSource) {
+        dataStore.edit {
+            it[Keys.COLOR_SOURCE] = source.name
+            it.remove(Keys.LEGACY_DYNAMIC_COLOR)
+        }
     }
 
     override suspend fun setStreamCacheSizeMb(sizeMb: Int) {
@@ -77,12 +84,22 @@ class SettingsRepositoryImpl @Inject constructor(
             audioQuality = enumOrNull<AudioQuality>(this[Keys.AUDIO_QUALITY]) ?: defaults.audioQuality,
             downloadOverWifiOnly = this[Keys.DOWNLOAD_WIFI_ONLY] ?: defaults.downloadOverWifiOnly,
             themeMode = enumOrNull<ThemeMode>(this[Keys.THEME_MODE]) ?: defaults.themeMode,
-            dynamicColor = this[Keys.DYNAMIC_COLOR] ?: defaults.dynamicColor,
+            colorSource = toColorSource(defaults.colorSource),
             streamCacheSizeMb = this[Keys.STREAM_CACHE_MB] ?: defaults.streamCacheSizeMb,
             lastFmApiKey = this[Keys.LAST_FM_API_KEY] ?: defaults.lastFmApiKey,
             contentCountry = this[Keys.CONTENT_COUNTRY] ?: defaults.contentCountry,
         )
     }
+
+    /**
+     * Migration à la lecture : sans valeur [Keys.COLOR_SOURCE], l'ancien booléen `dynamic_color` donne
+     * `true` -> [ColorSource.DYNAMIC], `false` -> [ColorSource.STATIC]. La clé historique est supprimée
+     * à la première écriture de [setColorSource].
+     */
+    private fun Preferences.toColorSource(default: ColorSource): ColorSource =
+        enumOrNull<ColorSource>(this[Keys.COLOR_SOURCE])
+            ?: this[Keys.LEGACY_DYNAMIC_COLOR]?.let { if (it) ColorSource.DYNAMIC else ColorSource.STATIC }
+            ?: default
 
     private inline fun <reified E : Enum<E>> enumOrNull(name: String?): E? =
         name?.let { n -> enumValues<E>().firstOrNull { it.name == n } }

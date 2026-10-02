@@ -29,6 +29,7 @@ nanojson = "e9d656ddb49a412a5a0a5d5ef20ca7ef09549996"
 okhttp = "5.5.0"
 coil = "3.6.3"
 palette = "1.0.0"
+materialColorUtilities = "5.0.1"
 coroutines = "1.11.0"
 serialization = "1.11.0"
 desugar = "2.1.5"
@@ -58,6 +59,7 @@ androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-
 androidx-lifecycle-service = { module = "androidx.lifecycle:lifecycle-service", version.ref = "lifecycle" }
 androidx-lifecycle-process = { module = "androidx.lifecycle:lifecycle-process", version.ref = "lifecycle" }
 androidx-navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigation" }
+androidx-navigation-testing = { module = "androidx.navigation:navigation-testing", version.ref = "navigation" }
 
 # Compose
 compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
@@ -115,6 +117,8 @@ okhttp-mockwebserver = { module = "com.squareup.okhttp3:mockwebserver3", version
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
 coil-network-okhttp = { module = "io.coil-kt.coil3:coil-network-okhttp", version.ref = "coil" }
 androidx-palette-ktx = { module = "androidx.palette:palette-ktx", version.ref = "palette" }
+# Algorithme Material (HCT, SchemeTonalSpot, quantification Celebi, Score) : Kotlin pur, sans dépendance Compose
+material-color-utilities = { module = "com.materialkolor:material-color-utilities", version.ref = "materialColorUtilities" }
 
 # Kotlin
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }

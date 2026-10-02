@@ -3,6 +3,7 @@ package com.spautifaille.ui.settings
 import app.cash.turbine.test
 import com.spautifaille.domain.model.AppSettings
 import com.spautifaille.domain.model.AudioQuality
+import com.spautifaille.domain.model.ColorSource
 import com.spautifaille.domain.model.ThemeMode
 import com.spautifaille.domain.repository.SettingsRepository
 import com.spautifaille.ui.library.MainDispatcherRule
@@ -53,13 +54,13 @@ class SettingsViewModelTest {
         vm.setAudioQuality(AudioQuality.DATA_SAVER)
         vm.setDownloadOverWifiOnly(false)
         vm.setThemeMode(ThemeMode.LIGHT)
-        vm.setDynamicColor(false)
+        vm.setColorSource(ColorSource.NOW_PLAYING)
         vm.setStreamCacheSizeMb(2048)
 
         coVerify { repository.setAudioQuality(AudioQuality.DATA_SAVER) }
         coVerify { repository.setDownloadOverWifiOnly(false) }
         coVerify { repository.setThemeMode(ThemeMode.LIGHT) }
-        coVerify { repository.setDynamicColor(false) }
+        coVerify { repository.setColorSource(ColorSource.NOW_PLAYING) }
         coVerify { repository.setStreamCacheSizeMb(2048) }
     }
 

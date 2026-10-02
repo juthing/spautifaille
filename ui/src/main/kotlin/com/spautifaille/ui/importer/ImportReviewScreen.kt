@@ -91,7 +91,9 @@ import com.spautifaille.ui.common.toMessage
 import com.spautifaille.ui.components.Artwork
 import com.spautifaille.ui.components.EmptyState
 import com.spautifaille.ui.components.TrackListPlaceholder
+import com.spautifaille.ui.components.bringIntoViewWhenFocusedWithIme
 import com.spautifaille.ui.components.formatDuration
+import com.spautifaille.ui.components.imeAwareContentWindowInsets
 import com.spautifaille.ui.theme.SpautifailleTheme
 
 @Immutable
@@ -207,6 +209,8 @@ fun ImportReviewScreen(
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
+        // Le champ de recherche manuelle est dans la liste : le clavier fait partie des insets du contenu.
+        contentWindowInsets = imeAwareContentWindowInsets(),
     ) { padding ->
         Box(
             Modifier
@@ -603,7 +607,7 @@ private fun SearchPanel(search: ReviewSearchState, itemId: Long, actions: Import
         OutlinedTextField(
             value = search.query,
             onValueChange = actions.onSearchQueryChange,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().bringIntoViewWhenFocusedWithIme(),
             label = { Text(stringResource(R.string.import_review_search_label)) },
             singleLine = true,
             trailingIcon = {
