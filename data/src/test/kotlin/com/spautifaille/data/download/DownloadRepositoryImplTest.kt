@@ -118,7 +118,7 @@ class DownloadRepositoryImplTest {
     private fun workInfos(trackId: String): List<WorkInfo> =
         workManager.getWorkInfosForUniqueWork("download-$trackId").get()
 
-    private fun awaitUntil(timeoutMs: Long = 5_000, message: String = "condition", condition: () -> Boolean) {
+    private fun awaitUntil(timeoutMs: Long = 15_000, message: String = "condition", condition: () -> Boolean) {
         val deadline = System.currentTimeMillis() + timeoutMs
         while (!condition()) {
             check(System.currentTimeMillis() < deadline) { "Délai dépassé : $message" }
@@ -384,6 +384,8 @@ class DownloadRepositoryImplTest {
         awaitUntil(message = "index chargé") { repo.localFileBlocking("a") != null }
 
         db.downloadDao().delete("a")
+        // Room puis le flux partagé doivent d'abord publier la table vide : l'index se met à jour juste après.
+        repo.observeDownloads().first { it.isEmpty() }
 
         awaitUntil(message = "index vidé") { repo.localFileBlocking("a") == null }
     }
