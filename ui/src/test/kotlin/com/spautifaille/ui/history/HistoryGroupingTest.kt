@@ -1,6 +1,7 @@
-package com.spautifaille.ui.library
+package com.spautifaille.ui.history
 
 import com.spautifaille.domain.model.HistoryEntry
+import com.spautifaille.ui.library.track
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime

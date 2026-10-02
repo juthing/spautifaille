@@ -89,7 +89,7 @@ class DownloadsViewModel @Inject constructor(
 
     fun delete(trackId: String) = launchAction {
         downloadRepository.delete(trackId)
-        messenger.show(UiText.of(R.string.dl_deleted))
+        messenger.show(UiText.of(R.string.snack_download_deleted))
     }
 
     fun deleteAll() = launchAction {

@@ -10,11 +10,14 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.toRoute
 import com.spautifaille.domain.model.Playlist
 import com.spautifaille.ui.artist.ArtistRoute as ArtistScreenRoute
 import com.spautifaille.ui.discovery.DiscoveryRoute
 import com.spautifaille.ui.discovery.DiscoveryScreenRoot
 import com.spautifaille.ui.downloads.DownloadsScreenRoot
+import com.spautifaille.ui.followed.FollowedArtistsScreenRoot
+import com.spautifaille.ui.history.HistoryScreenRoot
 import com.spautifaille.ui.home.HomeScreenRoot
 import com.spautifaille.ui.importer.ImportReviewRoute
 import com.spautifaille.ui.importer.ImportReviewScreenRoot
@@ -22,6 +25,7 @@ import com.spautifaille.ui.importer.ImportScreenRoot
 import com.spautifaille.ui.library.LibraryRoute as LibraryScreenRoute
 import com.spautifaille.ui.playlist.PlaylistDetailRoute
 import com.spautifaille.ui.remoteplaylist.RemotePlaylistRoute as RemotePlaylistScreenRoute
+import com.spautifaille.ui.settings.SettingsCategoryRoute as SettingsCategoryScreenRoute
 import com.spautifaille.ui.settings.SettingsRoute as SettingsScreenRoute
 import com.spautifaille.ui.search.SearchScreenRoot
 
@@ -47,13 +51,18 @@ fun AppNavHost(
     ) {
         composable<HomeRoute> {
             HomeScreenRoot(
-                onOpenSettings = { navController.navigate(SettingsRoute) },
                 onOpenLiked = { navController.navigate(PlaylistRoute(Playlist.LIKED_ID)) },
+                onOpenPlaylist = { id -> navController.navigate(PlaylistRoute(id)) },
                 onOpenDiscovery = { navController.navigate(DiscoveryRoute) },
+                onOpenArtist = { url -> navController.navigate(ArtistRoute(url)) },
+                onOpenFollowedArtists = { navController.navigate(FollowedArtistsRoute) },
+                onOpenHistory = { navController.navigate(HistoryRoute) },
+                onOpenSearch = { navController.navigate(SearchRoute) { launchSingleTop = true } },
             )
         }
         composable<SearchRoute> {
             SearchScreenRoot(
+                onBack = { navController.navigateUp() },
                 onOpenPlaylist = { url -> navController.navigate(RemotePlaylistRoute(url)) },
                 onOpenArtist = { url -> navController.navigate(ArtistRoute(url)) },
             )
@@ -62,7 +71,7 @@ fun AppNavHost(
     }
 }
 
-/** Destinations secondaires (bibliothèque, playlists, artiste, paramètres…). */
+/** Destinations secondaires (bibliothèque, playlists, artiste, réglages…). */
 private fun androidx.navigation.NavGraphBuilder.integrationDestinations(navController: NavHostController) {
     val openPlaylist: (Long) -> Unit = { id -> navController.navigate(PlaylistRoute(id)) }
     val openArtist: (String) -> Unit = { url -> navController.navigate(ArtistRoute(url)) }
@@ -72,10 +81,7 @@ private fun androidx.navigation.NavGraphBuilder.integrationDestinations(navContr
     composable<LibraryRoute> {
         LibraryScreenRoute(
             onOpenPlaylist = openPlaylist,
-            onOpenDownloads = { navController.navigate(DownloadsRoute) },
             onOpenImport = { navController.navigate(ImportRoute) },
-            onOpenArtist = openArtist,
-            onOpenSettings = { navController.navigate(SettingsRoute) },
         )
     }
     // Les ViewModels lisent les arguments de route (`id`, `url`) depuis leur SavedStateHandle.
@@ -83,7 +89,11 @@ private fun androidx.navigation.NavGraphBuilder.integrationDestinations(navContr
     composable<RemotePlaylistRoute> { RemotePlaylistScreenRoute(onBack = back, onOpenPlaylist = openPlaylist) }
     composable<ArtistRoute> { ArtistScreenRoute(onBack = back, onOpenRemotePlaylist = openRemotePlaylist) }
     composable<SettingsRoute> {
-        SettingsScreenRoute(onBack = back, onOpenDownloads = { navController.navigate(DownloadsRoute) })
+        // Onglet racine : pas de retour.
+        SettingsScreenRoute(
+            onOpenCategory = { category -> navController.navigate(SettingsCategoryRoute(category.key)) },
+            onOpenImport = { navController.navigate(ImportRoute) },
+        )
     }
     composable<DiscoveryRoute> { DiscoveryScreenRoot(onBack = back, onOpenArtist = openArtist) }
     composable<DownloadsRoute> { DownloadsScreenRoot(onBack = back) }
@@ -95,4 +105,13 @@ private fun androidx.navigation.NavGraphBuilder.integrationDestinations(navContr
         )
     }
     composable<ImportReviewRoute> { ImportReviewScreenRoot(onBack = back) }
+    composable<HistoryRoute> { HistoryScreenRoot(onBack = back, onOpenArtist = openArtist) }
+    composable<FollowedArtistsRoute> { FollowedArtistsScreenRoot(onBack = back, onOpenArtist = openArtist) }
+    composable<SettingsCategoryRoute> { entry ->
+        SettingsCategoryScreenRoute(
+            categoryKey = entry.toRoute<SettingsCategoryRoute>().category,
+            onBack = back,
+            onOpenDownloads = { navController.navigate(DownloadsRoute) },
+        )
+    }
 }

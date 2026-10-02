@@ -6,12 +6,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.spautifaille.domain.model.Playlist
 import com.spautifaille.domain.model.PlaylistEntry
+import com.spautifaille.domain.model.PlaylistWithTracks
 import com.spautifaille.domain.model.Track
 import com.spautifaille.domain.player.PlaybackController
 import com.spautifaille.domain.repository.DownloadRepository
 import com.spautifaille.domain.repository.PlaylistRepository
 import com.spautifaille.ui.common.NotificationPermissionRequester
 import com.spautifaille.ui.library.PlaylistNameValidator
+import com.spautifaille.ui.network.NetworkMonitor
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
@@ -21,7 +23,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
@@ -34,10 +38,33 @@ data class PlaylistDetailUiState(
     val playlist: Playlist? = null,
     /** Ordre affiché (inclut le réordonnancement optimiste en cours). */
     val entries: List<PlaylistEntry> = emptyList(),
+    /** Ids des titres dont le téléchargement est terminé. */
+    val downloadedIds: Set<String> = emptySet(),
+    /** Aucun réseau : seuls les titres téléchargés sont lisibles. */
+    val isOffline: Boolean = false,
+    /** Titre actuellement chargé dans le lecteur (mise en évidence dans la liste). */
+    val currentTrackId: String? = null,
+    val isPlaying: Boolean = false,
 ) {
     val isNotFound: Boolean get() = !isLoading && playlist == null
     val isSystem: Boolean get() = playlist?.isSystem == true
+
+    /** Playlist virtuelle « Téléchargés » : ni éditable ni réordonnable. */
+    val isDownloadedPlaylist: Boolean get() = playlist?.id == Playlist.DOWNLOADED_ID
     val totalDurationMs: Long get() = entries.sumOf { it.track.durationMs ?: 0L }
+
+    /** Entrées lisibles dans les conditions réseau actuelles (hors ligne : téléchargées uniquement). */
+    val availableEntries: List<PlaylistEntry> get() = entries.availableEntries(downloadedIds, isOffline)
+    val canPlay: Boolean get() = availableEntries.isNotEmpty()
+
+    /** Tous les titres (au moins un) sont déjà téléchargés. */
+    val isFullyDownloaded: Boolean
+        get() = entries.isNotEmpty() && entries.all { it.track.id in downloadedIds }
+
+    /** Le bouton « télécharger la playlist » a un sens (pas pour « Téléchargés », pas hors ligne). */
+    val canDownload: Boolean get() = !isDownloadedPlaylist && !isOffline && entries.isNotEmpty() && !isFullyDownloaded
+
+    fun isAvailable(entry: PlaylistEntry): Boolean = isTrackAvailable(entry.track.id, downloadedIds, isOffline)
 }
 
 /** Événements ponctuels (snackbar, navigation). */
@@ -45,9 +72,10 @@ sealed interface PlaylistDetailEvent {
     /** Titre retiré : proposer « Annuler » qui rappelle [PlaylistDetailViewModel.undoRemove]. */
     data class TrackRemoved(val track: Track, val position: Int) : PlaylistDetailEvent
     data class DownloadsQueued(val count: Int) : PlaylistDetailEvent
-    data class PlayNextQueued(val track: Track) : PlaylistDetailEvent
-    data class AddedToQueue(val track: Track) : PlaylistDetailEvent
     data object PlaylistDeleted : PlaylistDetailEvent
+
+    /** Appui sur un titre non téléchargé alors que l'appareil est hors ligne. */
+    data object TrackUnavailableOffline : PlaylistDetailEvent
 }
 
 @HiltViewModel
@@ -57,6 +85,7 @@ class PlaylistDetailViewModel @Inject constructor(
     private val downloadRepository: DownloadRepository,
     private val playbackController: PlaybackController,
     private val notificationPermission: NotificationPermissionRequester,
+    private val networkMonitor: NetworkMonitor,
 ) : ViewModel() {
 
     /** Argument de navigation `id` (Long). `-1` si absent → état « introuvable ». */
@@ -86,48 +115,97 @@ class PlaylistDetailViewModel @Inject constructor(
     private val _events = Channel<PlaylistDetailEvent>(Channel.BUFFERED)
     val events: Flow<PlaylistDetailEvent> = _events.receiveAsFlow()
 
+    /** Données « vivantes » indépendantes du contenu de la playlist : téléchargements, réseau, lecture. */
+    private data class Live(
+        val downloadedIds: Set<String>,
+        val isOffline: Boolean,
+        val currentTrackId: String?,
+        val isPlaying: Boolean,
+    )
+
+    private val completedDownloads = downloadRepository.observeDownloads()
+        .map { it.completedDownloads() }
+        .distinctUntilChanged()
+
+    private val live: Flow<Live> = combine(
+        completedDownloads,
+        networkMonitor.isOnline,
+        playbackController.state
+            .map { it.currentTrack?.id to it.isPlaying }
+            .distinctUntilChanged(),
+    ) { downloads, isOnline, (currentId, playing) ->
+        Live(
+            downloadedIds = downloads.mapTo(HashSet()) { it.track.id },
+            isOffline = !isOnline,
+            currentTrackId = currentId,
+            isPlaying = playing,
+        )
+    }
+
+    /** Contenu de la playlist : base Room, ou téléchargements terminés pour la playlist virtuelle. */
+    private val source: Flow<PlaylistWithTracks?> =
+        if (playlistId == Playlist.DOWNLOADED_ID) {
+            completedDownloads.map { downloads ->
+                val entries = downloads.toPlaylistEntries()
+                PlaylistWithTracks(downloadedPlaylist(entries.size), entries)
+            }
+        } else {
+            playlistRepository.observePlaylist(playlistId)
+        }
+
     val uiState: StateFlow<PlaylistDetailUiState> = combine(
-        playlistRepository.observePlaylist(playlistId).onEach { loaded ->
-            latestRemoteEntries = loaded?.entries.orEmpty()
-        },
+        source.onEach { loaded -> latestRemoteEntries = loaded?.entries.orEmpty() },
         override,
-    ) { loaded, override ->
+        live,
+    ) { loaded, override, live ->
         if (loaded == null) {
             PlaylistDetailUiState(isLoading = false)
         } else {
             val remoteIds = loaded.entries.map { it.entryId }
             val shown = if (override != null && override.baseIds == remoteIds) override.entries else loaded.entries
-            PlaylistDetailUiState(isLoading = false, playlist = loaded.playlist, entries = shown)
+            PlaylistDetailUiState(
+                isLoading = false,
+                playlist = loaded.playlist,
+                entries = shown,
+                downloadedIds = live.downloadedIds,
+                isOffline = live.isOffline,
+                currentTrackId = live.currentTrackId,
+                isPlaying = live.isPlaying,
+            )
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), PlaylistDetailUiState())
 
     // region Lecture
 
-    /** Joue la playlist à partir de l'index [startIndex] (ordre de la playlist). */
+    /**
+     * Joue la playlist à partir de l'entrée affichée à [startIndex]. Hors ligne, la file ne contient que les
+     * titres téléchargés ; si l'entrée touchée n'en fait pas partie, rien n'est lu et
+     * [PlaylistDetailEvent.TrackUnavailableOffline] est émis.
+     */
     fun playFrom(startIndex: Int) {
-        val tracks = currentTracks()
-        if (tracks.isEmpty()) return
-        playbackController.play(tracks, startIndex.coerceIn(tracks.indices), false)
+        val state = uiState.value
+        val tapped = state.entries.getOrNull(startIndex) ?: return
+        val playable = state.availableEntries
+        val index = playable.indexOfFirst { it.entryId == tapped.entryId }
+        if (index < 0) {
+            _events.trySend(PlaylistDetailEvent.TrackUnavailableOffline)
+            return
+        }
+        playbackController.play(playable.map { it.track }, index, false)
     }
 
+    /** Lit toute la playlist (hors ligne : ses titres téléchargés uniquement). */
     fun playAll(shuffle: Boolean) {
-        val tracks = currentTracks()
+        val tracks = uiState.value.availableEntries.map { it.track }
         if (tracks.isEmpty()) return
         playbackController.play(tracks, 0, shuffle)
     }
 
-    fun playNext(track: Track) {
-        playbackController.playNext(listOf(track))
-        _events.trySend(PlaylistDetailEvent.PlayNextQueued(track))
-    }
-
-    fun addToQueue(track: Track) {
-        playbackController.addToQueue(listOf(track))
-        _events.trySend(PlaylistDetailEvent.AddedToQueue(track))
-    }
-
+    /** Télécharge les titres pas encore téléchargés. Sans effet hors ligne ou sur « Téléchargés ». */
     fun downloadAll() {
-        val tracks = currentTracks()
+        val state = uiState.value
+        if (state.isDownloadedPlaylist || state.isOffline) return
+        val tracks = state.entries.map { it.track }.filterNot { it.id in state.downloadedIds }
         if (tracks.isEmpty()) return
         notificationPermission.requestIfNeeded()
         viewModelScope.launch {
@@ -136,15 +214,13 @@ class PlaylistDetailViewModel @Inject constructor(
         }
     }
 
-    private fun currentTracks(): List<Track> = uiState.value.entries.map { it.track }
-
     // endregion
 
     // region Gestion de la playlist
 
     /** Renomme la playlist (utilisateur). Renvoie `false` si le nom est invalide ou la playlist système. */
     fun rename(name: String): Boolean {
-        if (uiState.value.isSystem || playlistId == Playlist.LIKED_ID) return false
+        if (isProtected()) return false
         if (PlaylistNameValidator.validate(name) != null) return false
         val normalized = PlaylistNameValidator.normalize(name)
         viewModelScope.launch { playlistRepository.rename(playlistId, normalized) }
@@ -153,13 +229,16 @@ class PlaylistDetailViewModel @Inject constructor(
 
     /** Supprime la playlist (utilisateur). Renvoie `false` pour une playlist système. */
     fun delete(): Boolean {
-        if (uiState.value.isSystem || playlistId == Playlist.LIKED_ID) return false
+        if (isProtected()) return false
         viewModelScope.launch {
             playlistRepository.delete(playlistId)
             _events.send(PlaylistDetailEvent.PlaylistDeleted)
         }
         return true
     }
+
+    private fun isProtected(): Boolean =
+        uiState.value.isSystem || playlistId == Playlist.LIKED_ID || playlistId == Playlist.DOWNLOADED_ID
 
     // endregion
 
@@ -200,8 +279,15 @@ class PlaylistDetailViewModel @Inject constructor(
         }
     }
 
-    /** Retire une entrée et propose l'annulation via [PlaylistDetailEvent.TrackRemoved]. */
+    /**
+     * Retire une entrée et propose l'annulation via [PlaylistDetailEvent.TrackRemoved]. Dans « Téléchargés »,
+     * supprime le fichier téléchargé du titre (pas d'annulation possible).
+     */
     fun removeEntry(entry: PlaylistEntry) {
+        if (playlistId == Playlist.DOWNLOADED_ID) {
+            viewModelScope.launch { downloadRepository.delete(entry.track.id) }
+            return
+        }
         val position = displayedEntries().indexOfFirst { it.entryId == entry.entryId }.coerceAtLeast(0)
         viewModelScope.launch {
             playlistRepository.removeEntry(playlistId, entry.entryId)

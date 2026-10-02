@@ -29,6 +29,27 @@ jobs:
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;36.0.0" > /dev/null
 
+      - name: Préparer la signature release
+        env:
+          KEYSTORE_BASE64: ${{ secrets.SPAUTIFAILLE_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.SPAUTIFAILLE_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.SPAUTIFAILLE_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.SPAUTIFAILLE_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASSWORD" ]; then
+            echo "::warning::Secrets de signature absents (SPAUTIFAILLE_KEYSTORE_BASE64, _KEYSTORE_PASSWORD, _KEY_ALIAS, _KEY_PASSWORD) : l'APK release sera signé avec la clé de debug (non stable)."
+            exit 0
+          fi
+          KEYSTORE_FILE="$RUNNER_TEMP/spautifaille-release.jks"
+          echo "$KEYSTORE_BASE64" | base64 -d > "$KEYSTORE_FILE"
+          {
+            echo "SPAUTIFAILLE_KEYSTORE_PATH=$KEYSTORE_FILE"
+            echo "SPAUTIFAILLE_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD"
+            echo "SPAUTIFAILLE_KEY_ALIAS=$KEY_ALIAS"
+            echo "SPAUTIFAILLE_KEY_PASSWORD=$KEY_PASSWORD"
+          } >> "$GITHUB_ENV"
+          echo "Keystore release décodé."
+
       - name: Unit tests
         run: ./gradlew testDebugUnitTest --stacktrace
 
@@ -37,6 +58,14 @@ jobs:
 
       - name: Assemble APKs
         run: ./gradlew assembleDebug assembleRelease
+
+      - name: Empreinte du certificat de l'APK release
+        run: |
+          APKSIGNER="$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -n 1)"
+          for apk in app/build/outputs/apk/release/*.apk; do
+            echo "$apk"
+            "$APKSIGNER" verify --print-certs "$apk" | grep -E "certificate SHA-256 digest|certificate DN"
+          done
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4

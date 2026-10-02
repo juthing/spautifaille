@@ -1,56 +1,57 @@
 package com.spautifaille.ui.player
 
-import androidx.compose.foundation.background
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
-import androidx.compose.material.icons.automirrored.filled.QueueMusic
-import androidx.compose.material.icons.filled.Bedtime
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Repeat
-import androidx.compose.material.icons.filled.RepeatOne
-import androidx.compose.material.icons.filled.Shuffle
-import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material.icons.filled.SkipPrevious
-import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilledIconButton
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -61,20 +62,25 @@ import com.spautifaille.domain.player.QueueItem
 import com.spautifaille.domain.player.RepeatMode
 import com.spautifaille.domain.player.SleepTimer
 import com.spautifaille.ui.R
+import com.spautifaille.ui.common.LocalAppHaptics
 import com.spautifaille.ui.components.AddToPlaylistSheet
-import com.spautifaille.ui.components.Artwork
-import com.spautifaille.ui.components.formatDuration
+import com.spautifaille.ui.theme.Spacing
 import com.spautifaille.ui.theme.SpautifailleTheme
-import kotlinx.coroutines.delay
-import kotlin.math.abs
 
 private enum class PlayerSheet { None, Queue, Speed, Sleep, Playlist }
 
 private val WideLayoutMinWidth = 600.dp
+private val CollapseThreshold = 140.dp
+private val CollapseFlingVelocity = 1_400.dp
+private const val PREVIOUS_RESTART_THRESHOLD_MS = 3_000L
 
 /**
  * Lecteur plein écran. Sans état : tout vient de [state] / [positionProvider] et remonte par [actions].
  * [positionProvider] est lu uniquement dans la barre de progression, qui se recompose seule à ~4 Hz.
+ *
+ * Le fond est un dégradé vertical tiré de la couleur dominante de la pochette (animé à chaque titre), et
+ * l'accent de l'écran suit la même teinte ; sans pochette exploitable, ce sont les couleurs du thème.
+ * Glisser la pochette change de titre ; glisser l'écran vers le bas le referme.
  */
 @Composable
 fun FullPlayerScreen(
@@ -88,82 +94,154 @@ fun FullPlayerScreen(
     sleepRemainingProvider: () -> Long? = { null },
 ) {
     val track = state.currentTrack ?: return
+    val seedColor by rememberArtworkSeedColor(track.thumbnailUrl)
+    FullPlayerContent(
+        state = state,
+        positionProvider = positionProvider,
+        actions = actions,
+        onCollapse = onCollapse,
+        onOpenArtist = onOpenArtist,
+        seedColor = seedColor,
+        modifier = modifier,
+        transition = transition,
+        sleepRemainingProvider = sleepRemainingProvider,
+    )
+}
+
+@Composable
+internal fun FullPlayerContent(
+    state: PlayerState,
+    positionProvider: () -> PlaybackPosition,
+    actions: PlayerActions,
+    onCollapse: () -> Unit,
+    onOpenArtist: (artistUrl: String) -> Unit,
+    seedColor: Color?,
+    modifier: Modifier = Modifier,
+    transition: PlayerTransition? = null,
+    sleepRemainingProvider: () -> Long? = { null },
+) {
+    val track = state.currentTrack ?: return
     var sheet by rememberSaveable { mutableStateOf(PlayerSheet.None) }
 
-    val shape = MaterialTheme.shapes.extraLarge
-    Surface(
-        modifier = modifier
-            .fillMaxSize()
-            .playerSharedBounds(PlayerSharedKeys.Container, transition, shape),
-        color = MaterialTheme.colorScheme.surfaceContainer,
-    ) {
-        BoxWithConstraints(
-            modifier = Modifier
+    PlayerColorScheme(seed = seedColor) { backgroundTop ->
+        val haptics = LocalAppHaptics.current
+        val density = LocalDensity.current
+        val surface = MaterialTheme.colorScheme.surface
+        val shape = MaterialTheme.shapes.extraLarge
+        var dragY by remember { mutableFloatStateOf(0f) }
+        val pulled by remember { derivedStateOf { dragY > 0f } }
+        val collapseThresholdPx = with(density) { CollapseThreshold.toPx() }
+        val collapseFlingPx = with(density) { CollapseFlingVelocity.toPx() }
+
+        Surface(
+            modifier = modifier
                 .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        listOf(MaterialTheme.colorScheme.surfaceContainerHigh, MaterialTheme.colorScheme.surface),
-                    ),
-                )
-                .safeDrawingPadding(),
+                .graphicsLayer { translationY = dragY }
+                .playerSharedBounds(PlayerSharedKeys.Container, transition, shape)
+                .draggable(
+                    orientation = Orientation.Vertical,
+                    state = rememberDraggableState { delta -> dragY = (dragY + delta).coerceAtLeast(0f) },
+                    onDragStopped = { velocity ->
+                        if (shouldCollapsePlayer(dragY, velocity, collapseThresholdPx, collapseFlingPx)) {
+                            haptics.click()
+                            onCollapse()
+                        } else {
+                            animate(dragY, 0f, animationSpec = spring(stiffness = Spring.StiffnessMedium)) { v, _ -> dragY = v }
+                        }
+                    },
+                ),
+            color = surface,
+            // Coins arrondis uniquement pendant que l'écran est tiré vers le bas.
+            shape = if (pulled) RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp) else RectangleShape,
         ) {
-            val wide = maxWidth >= WideLayoutMinWidth && maxWidth > maxHeight
-            Column(modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp)) {
-                PlayerTopBar(onCollapse = onCollapse)
-                if (wide) {
-                    Row(
-                        modifier = Modifier.weight(1f),
-                        horizontalArrangement = Arrangement.spacedBy(48.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        PlayerArtwork(
-                            track = track,
-                            transition = transition,
-                            modifier = Modifier.weight(1f).fillMaxSize().padding(bottom = 16.dp),
+            BoxWithConstraints(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .drawBehind {
+                        drawRect(
+                            Brush.verticalGradient(
+                                colorStops = arrayOf(
+                                    0f to backgroundTop(),
+                                    0.55f to lerp(backgroundTop(), surface, 0.6f),
+                                    1f to surface,
+                                ),
+                            ),
                         )
-                        Column(
+                    }
+                    .safeDrawingPadding(),
+            ) {
+                val wide = maxWidth >= WideLayoutMinWidth && maxWidth > maxHeight
+                val openArtist = track.artistUrl?.let { url -> { onOpenArtist(url) } }
+                val artwork: @Composable (Modifier) -> Unit = { artworkModifier ->
+                    SwipeableArtwork(
+                        trackId = track.id,
+                        thumbnailUrl = track.thumbnailUrl,
+                        title = track.title,
+                        isPlaying = state.isPlaying,
+                        canSkipNext = state.hasNext,
+                        onSwipePrevious = {
+                            // « Précédent » ne change de titre que depuis le début du titre en cours.
+                            val changes = state.hasPrevious && positionProvider().positionMs <= PREVIOUS_RESTART_THRESHOLD_MS
+                            actions.onPrevious()
+                            changes
+                        },
+                        onSwipeNext = {
+                            actions.onNext()
+                            true
+                        },
+                        transition = transition,
+                        modifier = artworkModifier,
+                    )
+                }
+                Column(modifier = Modifier.fillMaxSize().padding(horizontal = Spacing.l)) {
+                    PlayerTopBar(
+                        onCollapse = onCollapse,
+                        onAddToPlaylist = { sheet = PlayerSheet.Playlist },
+                        onOpenArtist = openArtist,
+                    )
+                    if (wide) {
+                        Row(
                             modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(Spacing.xxl),
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            PlayerBody(
-                                state, track, positionProvider, sleepRemainingProvider, actions, onOpenArtist, transition,
-                            ) { sheet = it }
+                            artwork(Modifier.weight(1f).fillMaxSize().padding(bottom = Spacing.m))
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(Spacing.m),
+                            ) {
+                                PlayerBody(state, track, positionProvider, sleepRemainingProvider, actions, openArtist, transition) { sheet = it }
+                            }
+                        }
+                    } else {
+                        artwork(Modifier.weight(1f).fillMaxWidth().padding(vertical = Spacing.s))
+                        Column(verticalArrangement = Arrangement.spacedBy(Spacing.m)) {
+                            PlayerBody(state, track, positionProvider, sleepRemainingProvider, actions, openArtist, transition) { sheet = it }
                         }
                     }
-                } else {
-                    PlayerArtwork(
-                        track = track,
-                        transition = transition,
-                        modifier = Modifier.weight(1f).fillMaxWidth().padding(vertical = 8.dp),
-                    )
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        PlayerBody(
-                            state, track, positionProvider, sleepRemainingProvider, actions, onOpenArtist, transition,
-                        ) { sheet = it }
-                    }
+                    Spacer(Modifier.height(Spacing.m))
                 }
-                Spacer(Modifier.height(16.dp))
             }
         }
-    }
 
-    when (sheet) {
-        PlayerSheet.None -> Unit
-        PlayerSheet.Queue -> QueueSheet(state = state, actions = actions, onDismiss = { sheet = PlayerSheet.None })
-        PlayerSheet.Speed -> SpeedSheet(
-            currentSpeed = state.speed,
-            onSelect = actions.onSetSpeed,
-            onDismiss = { sheet = PlayerSheet.None },
-        )
-        PlayerSheet.Sleep -> SleepTimerSheet(
-            timer = state.sleepTimer,
-            remainingProvider = sleepRemainingProvider,
-            onSelectMinutes = actions.onSleepMinutes,
-            onEndOfTrack = actions.onSleepEndOfTrack,
-            onCancel = actions.onCancelSleep,
-            onDismiss = { sheet = PlayerSheet.None },
-        )
-        PlayerSheet.Playlist -> AddToPlaylistSheet(tracks = listOf(track), onDismiss = { sheet = PlayerSheet.None })
+        when (sheet) {
+            PlayerSheet.None -> Unit
+            PlayerSheet.Queue -> QueueSheet(state = state, actions = actions, onDismiss = { sheet = PlayerSheet.None })
+            PlayerSheet.Speed -> SpeedSheet(
+                currentSpeed = state.speed,
+                onSelect = actions.onSetSpeed,
+                onDismiss = { sheet = PlayerSheet.None },
+            )
+            PlayerSheet.Sleep -> SleepTimerSheet(
+                timer = state.sleepTimer,
+                remainingProvider = sleepRemainingProvider,
+                onSelectMinutes = actions.onSleepMinutes,
+                onEndOfTrack = actions.onSleepEndOfTrack,
+                onCancel = actions.onCancelSleep,
+                onDismiss = { sheet = PlayerSheet.None },
+            )
+            PlayerSheet.Playlist -> AddToPlaylistSheet(tracks = listOf(track), onDismiss = { sheet = PlayerSheet.None })
+        }
     }
 }
 
@@ -174,256 +252,126 @@ private fun PlayerBody(
     positionProvider: () -> PlaybackPosition,
     sleepRemainingProvider: () -> Long?,
     actions: PlayerActions,
-    onOpenArtist: (String) -> Unit,
+    onOpenArtist: (() -> Unit)?,
     transition: PlayerTransition?,
     openSheet: (PlayerSheet) -> Unit,
 ) {
-    TrackInfo(
-        track = track,
-        isLiked = state.isCurrentLiked,
-        onToggleLike = actions.onToggleLike,
-        onArtistClick = track.artistUrl?.let { url -> { onOpenArtist(url) } },
-        transition = transition,
-    )
+    TrackInfo(track = track, onArtistClick = onOpenArtist, transition = transition)
     SeekBar(
         positionProvider = positionProvider,
         fallbackDurationMs = state.durationMs,
         onSeek = actions.onSeek,
+        // Un glissement qui démarre sur la barre ne doit jamais refermer le lecteur.
+        modifier = Modifier.blockParentDrag(),
     )
-    PlayerControls(state = state, actions = actions)
-    SecondaryActions(
+    PlayerControls(state = state, actions = actions, modifier = Modifier.blockParentDrag())
+    PlayerActionBar(
         state = state,
+        trackId = track.id,
         sleepRemainingProvider = sleepRemainingProvider,
-        onSpeed = { openSheet(PlayerSheet.Speed) },
-        onSleep = { openSheet(PlayerSheet.Sleep) },
         onQueue = { openSheet(PlayerSheet.Queue) },
-        onAddToPlaylist = { openSheet(PlayerSheet.Playlist) },
+        onSleep = { openSheet(PlayerSheet.Sleep) },
+        onSpeed = { openSheet(PlayerSheet.Speed) },
+        onToggleLike = actions.onToggleLike,
     )
 }
 
+/** Chevron pour réduire, « En cours de lecture » au centre, menu (ajout à une playlist, page de l'artiste). */
 @Composable
-private fun PlayerTopBar(onCollapse: () -> Unit) {
+private fun PlayerTopBar(
+    onCollapse: () -> Unit,
+    onAddToPlaylist: () -> Unit,
+    onOpenArtist: (() -> Unit)?,
+) {
+    val haptics = LocalAppHaptics.current
+    var menuOpen by remember { mutableStateOf(false) }
     Row(
-        modifier = Modifier.fillMaxWidth().height(56.dp),
+        modifier = Modifier.fillMaxWidth().height(64.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        IconButton(onClick = onCollapse) {
+        IconButton(onClick = {
+            haptics.click()
+            onCollapse()
+        }) {
             Icon(Icons.Filled.KeyboardArrowDown, contentDescription = stringResource(R.string.player_collapse))
         }
         Text(
             text = stringResource(R.string.player_now_playing),
             style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.weight(1f).padding(end = 48.dp),
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            modifier = Modifier.weight(1f),
+            textAlign = TextAlign.Center,
         )
-    }
-}
-
-@Composable
-private fun PlayerArtwork(track: Track, transition: PlayerTransition?, modifier: Modifier = Modifier) {
-    Box(modifier = modifier, contentAlignment = Alignment.Center) {
-        val shape = MaterialTheme.shapes.extraLarge
-        Artwork(
-            url = track.thumbnailUrl,
-            contentDescription = track.title,
-            shape = shape,
-            modifier = Modifier
-                .aspectRatio(1f)
-                .playerSharedElement(PlayerSharedKeys.Artwork, transition)
-                .shadow(elevation = 12.dp, shape = shape, clip = false),
-        )
-    }
-}
-
-@Composable
-private fun TrackInfo(
-    track: Track,
-    isLiked: Boolean,
-    onToggleLike: () -> Unit,
-    onArtistClick: (() -> Unit)?,
-    transition: PlayerTransition?,
-) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = track.title,
-                style = MaterialTheme.typography.headlineSmall,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.playerSharedBounds(PlayerSharedKeys.Title, transition),
-            )
-            Text(
-                text = track.artist,
-                style = MaterialTheme.typography.titleMedium,
-                color = if (onArtistClick != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = if (onArtistClick != null) Modifier.clickable(onClick = onArtistClick) else Modifier,
-            )
-        }
-        IconButton(onClick = onToggleLike) {
-            Icon(
-                imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                contentDescription = stringResource(if (isLiked) R.string.common_action_unlike else R.string.common_action_like),
-                tint = if (isLiked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
-
-/**
- * Barre de progression. L'état de glissement est local pour ne pas lutter contre les mises à jour de position ;
- * après le relâchement, la valeur visée est conservée brièvement jusqu'à ce que le lecteur l'ait rattrapée.
- */
-@Composable
-private fun SeekBar(
-    positionProvider: () -> PlaybackPosition,
-    fallbackDurationMs: Long,
-    onSeek: (Long) -> Unit,
-) {
-    val position = positionProvider()
-    val duration = if (position.durationMs > 0) position.durationMs else fallbackDurationMs
-    var dragFraction by remember { mutableStateOf<Float?>(null) }
-    var pendingSeekMs by remember { mutableStateOf<Long?>(null) }
-
-    LaunchedEffect(pendingSeekMs) {
-        if (pendingSeekMs != null) {
-            delay(1_000)
-            pendingSeekMs = null
-        }
-    }
-    LaunchedEffect(position.positionMs) {
-        val pending = pendingSeekMs
-        if (pending != null && abs(position.positionMs - pending) < 800) pendingSeekMs = null
-    }
-
-    val fraction = when {
-        duration <= 0 -> 0f
-        dragFraction != null -> dragFraction!!
-        pendingSeekMs != null -> pendingSeekMs!!.toFloat() / duration
-        else -> position.positionMs.toFloat() / duration
-    }.coerceIn(0f, 1f)
-    val shownMs = (fraction * duration).toLong()
-
-    Column {
-        Slider(
-            value = fraction,
-            onValueChange = { dragFraction = it },
-            onValueChangeFinished = {
-                val target = dragFraction
-                if (target != null && duration > 0) {
-                    val ms = (target * duration).toLong()
-                    pendingSeekMs = ms
-                    onSeek(ms)
-                }
-                dragFraction = null
-            },
-            enabled = duration > 0,
-        )
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Text(
-                text = formatDuration(shownMs),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = "-" + formatDuration((duration - shownMs).coerceAtLeast(0)),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-}
-
-@Composable
-private fun PlayerControls(state: PlayerState, actions: PlayerActions) {
-    val active = MaterialTheme.colorScheme.primary
-    val inactive = MaterialTheme.colorScheme.onSurfaceVariant
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceEvenly,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        IconButton(onClick = actions.onToggleShuffle) {
-            Icon(
-                Icons.Filled.Shuffle,
-                contentDescription = stringResource(if (state.shuffleEnabled) R.string.player_shuffle_on else R.string.player_shuffle_off),
-                tint = if (state.shuffleEnabled) active else inactive,
-            )
-        }
-        IconButton(onClick = actions.onPrevious, modifier = Modifier.size(56.dp)) {
-            Icon(Icons.Filled.SkipPrevious, contentDescription = stringResource(R.string.common_action_previous), modifier = Modifier.size(36.dp))
-        }
-        Box(contentAlignment = Alignment.Center) {
-            FilledIconButton(onClick = actions.onPlayPause, modifier = Modifier.size(68.dp)) {
-                Icon(
-                    imageVector = if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                    contentDescription = stringResource(if (state.isPlaying) R.string.common_action_pause else R.string.common_action_play),
-                    modifier = Modifier.size(40.dp),
+        Box {
+            IconButton(onClick = {
+                haptics.click()
+                menuOpen = true
+            }) {
+                Icon(Icons.Filled.MoreVert, contentDescription = stringResource(R.string.common_action_more))
+            }
+            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.common_action_add_to_playlist)) },
+                    leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, contentDescription = null) },
+                    onClick = {
+                        menuOpen = false
+                        haptics.click()
+                        onAddToPlaylist()
+                    },
                 )
+                if (onOpenArtist != null) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.common_action_go_to_artist)) },
+                        leadingIcon = { Icon(Icons.Filled.Person, contentDescription = null) },
+                        onClick = {
+                            menuOpen = false
+                            haptics.click()
+                            onOpenArtist()
+                        },
+                    )
+                }
             }
-            if (state.isBuffering && state.playWhenReady) {
-                CircularProgressIndicator(modifier = Modifier.size(80.dp), strokeWidth = 3.dp)
-            }
-        }
-        IconButton(onClick = actions.onNext, enabled = state.hasNext, modifier = Modifier.size(56.dp)) {
-            Icon(Icons.Filled.SkipNext, contentDescription = stringResource(R.string.common_action_next), modifier = Modifier.size(36.dp))
-        }
-        IconButton(onClick = actions.onCycleRepeat) {
-            val (icon, description) = when (state.repeatMode) {
-                RepeatMode.OFF -> Icons.Filled.Repeat to R.string.player_repeat_off
-                RepeatMode.ALL -> Icons.Filled.Repeat to R.string.player_repeat_all
-                RepeatMode.ONE -> Icons.Filled.RepeatOne to R.string.player_repeat_one
-            }
-            Icon(icon, contentDescription = stringResource(description), tint = if (state.repeatMode == RepeatMode.OFF) inactive else active)
         }
     }
 }
 
+/** Titre en gras qui défile s'il est trop long, artiste cliquable (page artiste) en dessous. */
 @Composable
-private fun SecondaryActions(
-    state: PlayerState,
-    sleepRemainingProvider: () -> Long?,
-    onSpeed: () -> Unit,
-    onSleep: () -> Unit,
-    onQueue: () -> Unit,
-    onAddToPlaylist: () -> Unit,
-) {
-    val sleepLabel = when (val timer = state.sleepTimer) {
-        SleepTimer.Off -> stringResource(R.string.player_sleep_short)
-        SleepTimer.EndOfTrack -> stringResource(R.string.player_sleep_end_of_track_short)
-        // Lu ici (et non plus haut) : seul ce bloc se recompose à chaque tick de la minuterie.
-        is SleepTimer.At -> formatDuration(sleepRemainingProvider() ?: timer.remainingMs)
-    }
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-        ToolButton(Icons.Filled.Speed, formatSpeed(state.speed), active = state.speed != 1f, onClick = onSpeed)
-        ToolButton(Icons.Filled.Bedtime, sleepLabel, active = state.sleepTimer != SleepTimer.Off, onClick = onSleep)
-        ToolButton(Icons.AutoMirrored.Filled.QueueMusic, stringResource(R.string.player_queue), active = false, onClick = onQueue)
-        ToolButton(Icons.AutoMirrored.Filled.PlaylistAdd, stringResource(R.string.player_playlist), active = false, onClick = onAddToPlaylist)
-    }
-}
-
-@Composable
-private fun ToolButton(icon: ImageVector, label: String, active: Boolean, onClick: () -> Unit) {
-    val tint = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-    Column(
-        modifier = Modifier
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Icon(icon, contentDescription = null, tint = tint)
-        Text(text = label, style = MaterialTheme.typography.labelSmall, color = tint, maxLines = 1)
+private fun TrackInfo(track: Track, onArtistClick: (() -> Unit)?, transition: PlayerTransition?) {
+    val haptics = LocalAppHaptics.current
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
+        CrossfadeText(
+            text = track.title,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            marquee = true,
+            modifier = Modifier
+                .fillMaxWidth()
+                .playerSharedBounds(PlayerSharedKeys.Title, transition),
+        )
+        CrossfadeText(
+            text = track.artist,
+            style = MaterialTheme.typography.titleMedium,
+            color = if (onArtistClick != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            marquee = true,
+            modifier = if (onArtistClick != null) {
+                Modifier
+                    .clip(MaterialTheme.shapes.extraSmall)
+                    .clickable {
+                        haptics.click()
+                        onArtistClick()
+                    }
+            } else {
+                Modifier
+            },
+        )
     }
 }
 
 private val PreviewTrack = Track(
     id = "abc",
-    title = "Un titre de démonstration",
+    title = "Un titre de démonstration vraiment très long qui défile",
     artist = "Artiste",
     artistUrl = "https://www.youtube.com/channel/x",
     durationMs = 215_000,
@@ -439,20 +387,39 @@ private val PreviewState = PlayerState(
     currentIndex = 0,
     isCurrentLiked = true,
     hasNext = true,
+    shuffleEnabled = true,
     repeatMode = RepeatMode.ALL,
     speed = 1.25f,
 )
+
+private val PreviewSeed = Color(0xFF8E3FD1)
 
 @Preview(showBackground = true, widthDp = 380, heightDp = 780)
 @Composable
 private fun FullPlayerPreview() {
     SpautifailleTheme(dynamicColor = false) {
-        FullPlayerScreen(
+        FullPlayerContent(
             state = PreviewState,
             positionProvider = { PlaybackPosition(positionMs = 60_000, durationMs = 215_000) },
             actions = PlayerActions(),
             onCollapse = {},
             onOpenArtist = {},
+            seedColor = PreviewSeed,
+        )
+    }
+}
+
+@Preview(showBackground = true, widthDp = 380, heightDp = 780)
+@Composable
+private fun FullPlayerPausedNoSeedPreview() {
+    SpautifailleTheme(dynamicColor = false) {
+        FullPlayerContent(
+            state = PreviewState.copy(isPlaying = false, isCurrentLiked = false, speed = 1f, repeatMode = RepeatMode.OFF),
+            positionProvider = { PlaybackPosition(positionMs = 120_000, durationMs = 215_000) },
+            actions = PlayerActions(),
+            onCollapse = {},
+            onOpenArtist = {},
+            seedColor = null,
         )
     }
 }
@@ -461,12 +428,13 @@ private fun FullPlayerPreview() {
 @Composable
 private fun FullPlayerWidePreview() {
     SpautifailleTheme(dynamicColor = false) {
-        FullPlayerScreen(
+        FullPlayerContent(
             state = PreviewState.copy(sleepTimer = SleepTimer.At(0, 754_000)),
             positionProvider = { PlaybackPosition(positionMs = 60_000, durationMs = 215_000) },
             actions = PlayerActions(),
             onCollapse = {},
             onOpenArtist = {},
+            seedColor = Color(0xFF1E88E5),
         )
     }
 }

@@ -30,6 +30,17 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
+import com.spautifaille.ui.common.LocalAppHaptics
+import com.spautifaille.ui.components.IconTone
+import com.spautifaille.ui.components.LoadingState
+import com.spautifaille.ui.components.SectionHeader
+import com.spautifaille.ui.components.ToneIconCircle
+import com.spautifaille.ui.theme.ArtworkSize
+import com.spautifaille.ui.theme.ContentMaxWidth
+import com.spautifaille.ui.theme.ListBottomPadding
+import com.spautifaille.ui.theme.ScreenHorizontalPadding
+import com.spautifaille.ui.theme.Spacing
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -80,8 +91,6 @@ import com.spautifaille.ui.components.TrackActionsSheet
 import com.spautifaille.ui.components.TrackListItem
 import com.spautifaille.ui.theme.SpautifailleTheme
 
-private val ContentMaxWidth = 840.dp
-
 @Immutable
 data class DownloadsActions(
     val onBack: () -> Unit = {},
@@ -131,6 +140,7 @@ fun DownloadsScreen(
     modifier: Modifier = Modifier,
 ) {
     var showDeleteAll by rememberSaveable { mutableStateOf(false) }
+    val haptics = LocalAppHaptics.current
 
     Scaffold(
         modifier = modifier,
@@ -139,7 +149,7 @@ fun DownloadsScreen(
                 title = { Text(stringResource(R.string.dl_title)) },
                 navigationIcon = {
                     IconButton(onClick = actions.onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.dl_back))
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_action_back))
                     }
                 },
                 actions = {
@@ -158,7 +168,7 @@ fun DownloadsScreen(
             contentAlignment = Alignment.TopCenter,
         ) {
             when {
-                state.isLoading -> Unit
+                state.isLoading -> LoadingState()
                 state.isEmpty -> EmptyState(
                     title = stringResource(R.string.dl_empty_title),
                     message = stringResource(R.string.dl_empty_message),
@@ -178,13 +188,15 @@ fun DownloadsScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
+                        haptics.confirm()
                         showDeleteAll = false
                         actions.onDeleteAll()
                     },
-                ) { Text(stringResource(R.string.dl_delete_confirm)) }
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                ) { Text(stringResource(R.string.common_action_delete)) }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteAll = false }) { Text(stringResource(R.string.dl_cancel)) }
+                TextButton(onClick = { showDeleteAll = false }) { Text(stringResource(R.string.common_action_cancel)) }
             },
         )
     }
@@ -217,29 +229,25 @@ private fun DownloadsList(state: DownloadsUiState, actions: DownloadsActions) {
         modifier = Modifier
             .widthIn(max = ContentMaxWidth)
             .fillMaxWidth(),
-        contentPadding = PaddingValues(bottom = 24.dp),
+        contentPadding = PaddingValues(bottom = ListBottomPadding),
     ) {
         if (state.waitingForWifi) {
             item(key = "wifi-waiting") {
                 WifiWaitingBanner(
                     onAllowMobileData = actions.onAllowMobileData,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    modifier = Modifier.padding(horizontal = ScreenHorizontalPadding, vertical = Spacing.s),
                 )
             }
         }
         state.storage?.let { storage ->
-            item(key = "storage") { StorageCard(storage, Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) }
+            item(key = "storage") { StorageCard(storage, Modifier.padding(horizontal = ScreenHorizontalPadding, vertical = Spacing.s)) }
         }
         if (state.active.isNotEmpty()) {
             item(key = "header-active") {
                 SectionHeader(
-                    title = stringResource(R.string.dl_section_active),
-                    count = state.active.size,
-                    action = if (state.failedCount > 0) {
-                        { TextButton(onClick = actions.onRetryAll) { Text(stringResource(R.string.dl_retry_all)) } }
-                    } else {
-                        null
-                    },
+                    title = stringResource(R.string.dl_section_active_count, state.active.size),
+                    actionLabel = if (state.failedCount > 0) stringResource(R.string.dl_retry_all) else null,
+                    onAction = if (state.failedCount > 0) actions.onRetryAll else null,
                 )
             }
             items(state.active, key = { "active-${it.track.id}" }) { download ->
@@ -248,7 +256,7 @@ private fun DownloadsList(state: DownloadsUiState, actions: DownloadsActions) {
         }
         if (state.completed.isNotEmpty()) {
             item(key = "header-done") {
-                SectionHeader(title = stringResource(R.string.dl_section_done), count = state.completed.size)
+                SectionHeader(title = stringResource(R.string.dl_section_done_count, state.completed.size))
             }
             itemsIndexed(state.completed, key = { _, it -> "done-${it.track.id}" }) { index, download ->
                 CompletedDownloadRow(
@@ -267,12 +275,13 @@ private fun DownloadsList(state: DownloadsUiState, actions: DownloadsActions) {
 private fun WifiWaitingBanner(onAllowMobileData: () -> Unit, modifier: Modifier = Modifier) {
     Card(
         modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.secondaryContainer,
             contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
         ),
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(modifier = Modifier.padding(Spacing.m), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.WifiOff, contentDescription = null)
                 Spacer(Modifier.width(12.dp))
@@ -292,30 +301,6 @@ private fun WifiWaitingBanner(onAllowMobileData: () -> Unit, modifier: Modifier 
     }
 }
 
-@Composable
-private fun SectionHeader(
-    title: String,
-    count: Int,
-    modifier: Modifier = Modifier,
-    action: (@Composable () -> Unit)? = null,
-) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(48.dp)
-            .padding(start = 16.dp, end = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = "$title · $count",
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.weight(1f),
-        )
-        action?.invoke()
-    }
-}
-
 // region Stockage
 
 @Composable
@@ -324,16 +309,13 @@ private fun StorageCard(storage: StorageUsage, modifier: Modifier = Modifier) {
     val downloadsShare = if (total > 0) storage.downloadsBytes.toFloat() / total else 0f
     Card(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(modifier = Modifier.padding(Spacing.m), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Filled.Storage,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.width(12.dp))
+                ToneIconCircle(icon = Icons.Filled.Storage, tone = IconTone.Tertiary)
+                Spacer(Modifier.width(Spacing.m))
                 Column(Modifier.weight(1f)) {
                     Text(
                         text = stringResource(R.string.dl_storage_title),
@@ -354,7 +336,7 @@ private fun StorageCard(storage: StorageUsage, modifier: Modifier = Modifier) {
                 gapSize = 0.dp,
                 drawStopIndicator = {},
             )
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
                 LegendRow(
                     color = MaterialTheme.colorScheme.primary,
                     label = stringResource(R.string.dl_storage_downloads),
@@ -384,7 +366,7 @@ private fun LegendRow(color: Color, label: String, detail: String) {
                 .clip(CircleShape)
                 .background(color),
         )
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(Spacing.s))
         Text(text = label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
         Text(
             text = detail,
@@ -404,10 +386,11 @@ private fun fileSize(bytes: Long): String = Formatter.formatShortFileSize(LocalC
 @Composable
 private fun ActiveDownloadRow(download: Download, actions: DownloadsActions, modifier: Modifier = Modifier) {
     val failed = download.state == DownloadState.FAILED
+    val haptics = LocalAppHaptics.current
     ListItem(
         modifier = modifier,
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-        leadingContent = { Artwork(url = download.track.thumbnailUrl, modifier = Modifier.size(52.dp)) },
+        leadingContent = { Artwork(url = download.track.thumbnailUrl, modifier = Modifier.size(ArtworkSize.Row)) },
         headlineContent = {
             Text(text = download.track.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
         },
@@ -425,14 +408,20 @@ private fun ActiveDownloadRow(download: Download, actions: DownloadsActions, mod
         trailingContent = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (failed) {
-                    IconButton(onClick = { actions.onRetry(download.track.id) }) {
-                        Icon(Icons.Filled.Refresh, contentDescription = stringResource(R.string.dl_retry))
+                    IconButton(onClick = {
+                        haptics.click()
+                        actions.onRetry(download.track.id)
+                    }) {
+                        Icon(Icons.Filled.Refresh, contentDescription = stringResource(R.string.common_action_retry))
                     }
                 }
-                IconButton(onClick = { actions.onCancel(download.track.id) }) {
+                IconButton(onClick = {
+                    haptics.click()
+                    actions.onCancel(download.track.id)
+                }) {
                     Icon(
                         Icons.Filled.Close,
-                        contentDescription = stringResource(if (failed) R.string.dl_remove_failed else R.string.dl_cancel_download),
+                        contentDescription = stringResource(if (failed) R.string.dl_remove_failed else R.string.common_action_cancel_download),
                     )
                 }
             }
@@ -483,25 +472,35 @@ private fun CompletedDownloadRow(
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalAppHaptics.current
     val dismissState = rememberSwipeToDismissBoxState()
+    // Cran quand le balayage franchit le seuil de suppression, confirmation quand le titre est supprimé.
+    LaunchedEffect(dismissState.targetValue) {
+        if (dismissState.targetValue == SwipeToDismissBoxValue.EndToStart) haptics.gestureThreshold()
+    }
     LaunchedEffect(dismissState.currentValue) {
-        if (dismissState.currentValue == SwipeToDismissBoxValue.EndToStart) onDelete()
+        if (dismissState.currentValue == SwipeToDismissBoxValue.EndToStart) {
+            haptics.confirm()
+            onDelete()
+        }
     }
     SwipeToDismissBox(
         state = dismissState,
-        modifier = modifier,
+        modifier = modifier
+            .padding(horizontal = Spacing.s)
+            .clip(MaterialTheme.shapes.large),
         enableDismissFromStartToEnd = false,
         backgroundContent = {
             Box(
                 Modifier
                     .fillMaxSize()
                     .background(MaterialTheme.colorScheme.errorContainer)
-                    .padding(horizontal = 24.dp),
+                    .padding(horizontal = Spacing.l),
                 contentAlignment = Alignment.CenterEnd,
             ) {
                 Icon(
                     Icons.Filled.Delete,
-                    contentDescription = stringResource(R.string.dl_delete_download),
+                    contentDescription = stringResource(R.string.common_action_delete_download),
                     tint = MaterialTheme.colorScheme.onErrorContainer,
                 )
             }

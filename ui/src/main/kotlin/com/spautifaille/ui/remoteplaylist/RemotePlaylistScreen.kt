@@ -1,8 +1,10 @@
 package com.spautifaille.ui.remoteplaylist
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,7 +17,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.LibraryAdd
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Shuffle
@@ -36,20 +37,32 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -57,18 +70,27 @@ import com.spautifaille.domain.error.AppError
 import com.spautifaille.domain.model.RemotePlaylist
 import com.spautifaille.domain.model.Track
 import com.spautifaille.ui.R
-import com.spautifaille.ui.library.LibraryArtwork
-import com.spautifaille.ui.library.LibraryContentMaxWidth
-import com.spautifaille.ui.library.LibraryEmptyState
-import com.spautifaille.ui.library.LibraryTrackRow
-import com.spautifaille.ui.library.libraryMessage
-import com.spautifaille.ui.library.trackCountText
+import com.spautifaille.ui.common.LocalAppHaptics
+import com.spautifaille.ui.common.toMessage
+import com.spautifaille.ui.components.Artwork
+import com.spautifaille.ui.components.ErrorState
+import com.spautifaille.ui.components.LoadingState
+import com.spautifaille.ui.components.TrackActionsSheet
+import com.spautifaille.ui.components.TrackListItem
+import com.spautifaille.ui.theme.ContentMaxWidth
+import com.spautifaille.ui.theme.ListBottomPadding
+import com.spautifaille.ui.theme.ScreenHorizontalPadding
+import com.spautifaille.ui.theme.Spacing
+import com.spautifaille.ui.theme.SpautifailleTheme
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 
 /** Nombre d'éléments restants avant la fin de liste déclenchant le chargement de la page suivante. */
 private const val PREFETCH_DISTANCE = 6
+
+/** Taille de la pochette dans l'en-tête. */
+private val HeaderCoverSize = 200.dp
 
 @Immutable
 data class RemotePlaylistActions(
@@ -95,6 +117,7 @@ fun RemotePlaylistRoute(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val resources = LocalResources.current
+    val haptics = LocalAppHaptics.current
 
     LaunchedEffect(viewModel) {
         viewModel.events.collect { event ->
@@ -102,16 +125,18 @@ fun RemotePlaylistRoute(
                 snackbarHostState.currentSnackbarData?.dismiss()
                 when (event) {
                     is RemotePlaylistEvent.Saved -> {
+                        haptics.confirm()
                         val result = snackbarHostState.showSnackbar(
-                            message = resources.getString(R.string.lib_saved_to_library, event.name),
-                            actionLabel = resources.getString(R.string.lib_open),
+                            message = resources.getString(R.string.misc_remote_saved_message, event.name),
+                            actionLabel = resources.getString(R.string.misc_open),
                             duration = SnackbarDuration.Long,
                         )
                         if (result == SnackbarResult.ActionPerformed) onOpenPlaylist(event.playlistId)
                     }
-                    is RemotePlaylistEvent.SaveFailed -> snackbarHostState.showSnackbar(
-                        resources.getString(event.error.libraryMessage()),
-                    )
+                    is RemotePlaylistEvent.SaveFailed -> {
+                        haptics.reject()
+                        snackbarHostState.showSnackbar(resources.getString(event.error.toMessage()))
+                    }
                 }
             }
         }
@@ -138,70 +163,112 @@ fun RemotePlaylistScreen(
     snackbarHostState: SnackbarHostState,
     modifier: Modifier = Modifier,
 ) {
+    val listState = rememberLazyListState()
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+    // Le titre est déjà dans l'en-tête : il n'apparaît dans la barre qu'une fois l'en-tête sorti de l'écran.
+    val showTitle by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
+    var actionsTrack by remember { mutableStateOf<Track?>(null) }
+
     Scaffold(
-        modifier = modifier,
+        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             TopAppBar(
-                title = { Text(state.playlist?.name.orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                title = {
+                    if (showTitle) Text(state.playlist?.name.orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                },
                 navigationIcon = {
                     IconButton(onClick = actions.onBack) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.lib_back),
+                            contentDescription = stringResource(R.string.common_action_back),
                         )
                     }
                 },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                ),
+                scrollBehavior = scrollBehavior,
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { innerPadding ->
-        Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.TopCenter) {
-            when (val status = state.status) {
-                RemotePlaylistStatus.Loading -> CircularProgressIndicator(Modifier.align(Alignment.Center))
-                is RemotePlaylistStatus.Error -> LibraryEmptyState(
-                    icon = Icons.Filled.CloudOff,
-                    title = stringResource(R.string.lib_remote_load_failed),
-                    body = stringResource(status.error.libraryMessage()),
-                    actionLabel = stringResource(R.string.lib_retry),
-                    onAction = actions.onRetry,
-                    modifier = Modifier.align(Alignment.Center),
-                )
-                RemotePlaylistStatus.Content -> RemotePlaylistContent(state, actions)
-            }
+        when (val status = state.status) {
+            RemotePlaylistStatus.Loading -> LoadingState(Modifier.padding(innerPadding))
+            is RemotePlaylistStatus.Error -> ErrorState(
+                title = stringResource(R.string.misc_remote_load_failed),
+                message = stringResource(status.error.toMessage()),
+                onRetry = actions.onRetry,
+                modifier = Modifier.padding(innerPadding),
+            )
+            RemotePlaylistStatus.Content -> RemotePlaylistContent(
+                state = state,
+                actions = actions,
+                listState = listState,
+                innerPadding = innerPadding,
+                onTrackMore = { actionsTrack = it },
+            )
         }
+    }
+
+    actionsTrack?.let { track ->
+        TrackActionsSheet(track = track, onDismiss = { actionsTrack = null })
     }
 }
 
 @Composable
-private fun RemotePlaylistContent(state: RemotePlaylistUiState, actions: RemotePlaylistActions) {
-    val listState = rememberLazyListState()
+private fun RemotePlaylistContent(
+    state: RemotePlaylistUiState,
+    actions: RemotePlaylistActions,
+    listState: LazyListState,
+    innerPadding: PaddingValues,
+    onTrackMore: (Track) -> Unit,
+) {
     LoadMoreEffect(listState, enabled = state.hasMore && !state.isLoadingMore && state.loadMoreError == null, actions.onLoadMore)
 
-    LazyColumn(state = listState, modifier = Modifier.widthIn(max = LibraryContentMaxWidth).fillMaxSize()) {
-        item(key = "header") { RemotePlaylistHeader(state, actions) }
+    LazyColumn(
+        state = listState,
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(bottom = innerPadding.calculateBottomPadding() + ListBottomPadding),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        item(key = "header") {
+            RemotePlaylistHeader(state = state, actions = actions, topInset = innerPadding.calculateTopPadding())
+        }
         itemsIndexed(state.tracks, key = { index, track -> "$index-${track.id}" }) { index, track ->
-            LibraryTrackRow(track, onClick = { actions.onPlayFrom(index) })
+            TrackListItem(
+                track = track,
+                onClick = { actions.onPlayFrom(index) },
+                onMoreClick = { onTrackMore(track) },
+                modifier = Modifier
+                    .widthIn(max = ContentMaxWidth)
+                    .fillMaxWidth()
+                    .padding(horizontal = Spacing.s),
+            )
         }
         if (state.isLoadingMore) {
             item(key = "loading-more") {
-                Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                Box(Modifier.fillMaxWidth().padding(Spacing.m), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(Modifier.size(28.dp))
                 }
             }
         } else if (state.loadMoreError != null) {
             item(key = "load-more-error") {
                 Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    Modifier
+                        .widthIn(max = ContentMaxWidth)
+                        .fillMaxWidth()
+                        .padding(horizontal = ScreenHorizontalPadding, vertical = Spacing.s),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Text(
-                        stringResource(state.loadMoreError.libraryMessage()),
+                        stringResource(state.loadMoreError.toMessage()),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.error,
                         modifier = Modifier.weight(1f),
                     )
-                    TextButton(onClick = actions.onLoadMore) { Text(stringResource(R.string.lib_retry)) }
+                    TextButton(onClick = actions.onLoadMore) { Text(stringResource(R.string.common_action_retry)) }
                 }
             }
         }
@@ -211,7 +278,7 @@ private fun RemotePlaylistContent(state: RemotePlaylistUiState, actions: RemoteP
 /** Déclenche [onLoadMore] quand le dernier élément visible approche de la fin de la liste. */
 @Composable
 private fun LoadMoreEffect(listState: LazyListState, enabled: Boolean, onLoadMore: () -> Unit) {
-    val currentOnLoadMore by androidx.compose.runtime.rememberUpdatedState(onLoadMore)
+    val currentOnLoadMore by rememberUpdatedState(onLoadMore)
     LaunchedEffect(listState, enabled) {
         if (!enabled) return@LaunchedEffect
         snapshotFlow {
@@ -225,62 +292,115 @@ private fun LoadMoreEffect(listState: LazyListState, enabled: Boolean, onLoadMor
     }
 }
 
+/** En-tête : dégradé tonal, grande pochette, titre, auteur et nombre de titres, puis Lecture / Aléatoire / Enregistrer. */
 @Composable
-private fun RemotePlaylistHeader(state: RemotePlaylistUiState, actions: RemotePlaylistActions) {
+private fun RemotePlaylistHeader(
+    state: RemotePlaylistUiState,
+    actions: RemotePlaylistActions,
+    topInset: Dp,
+) {
     val playlist = state.playlist ?: return
-    Column(
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        LibraryArtwork(playlist.thumbnailUrl, Modifier.size(192.dp), MaterialTheme.shapes.large)
-        Text(
-            text = playlist.name,
-            style = MaterialTheme.typography.headlineSmall,
-            textAlign = TextAlign.Center,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
+    val haptics = LocalAppHaptics.current
+    val colors = MaterialTheme.colorScheme
+    val hasTracks = state.tracks.isNotEmpty()
+    Box(Modifier.fillMaxWidth()) {
+        Box(
+            Modifier
+                .matchParentSize()
+                .background(Brush.verticalGradient(listOf(colors.primaryContainer, colors.surface))),
         )
-        val count = playlist.trackCount?.toInt() ?: state.tracks.size
-        val subtitle = listOfNotNull(playlist.uploader, trackCountText(count)).joinToString(" · ")
-        Text(
-            text = subtitle,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { actions.onPlayAll(false) }, enabled = state.tracks.isNotEmpty()) {
-                Icon(Icons.Filled.PlayArrow, contentDescription = null, Modifier.size(18.dp))
-                Text(stringResource(R.string.lib_play), Modifier.padding(start = 8.dp))
-            }
-            FilledTonalButton(onClick = { actions.onPlayAll(true) }, enabled = state.tracks.isNotEmpty()) {
-                Icon(Icons.Filled.Shuffle, contentDescription = null, Modifier.size(18.dp))
-                Text(stringResource(R.string.lib_shuffle), Modifier.padding(start = 8.dp))
-            }
-        }
-        OutlinedButton(
-            onClick = actions.onSave,
-            enabled = !state.isSaving && state.tracks.isNotEmpty(),
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = topInset + Spacing.s, bottom = Spacing.m)
+                .padding(horizontal = ScreenHorizontalPadding),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(Spacing.xs),
         ) {
-            Icon(Icons.Filled.LibraryAdd, contentDescription = null, Modifier.size(18.dp))
-            Text(stringResource(R.string.lib_save_to_library), Modifier.padding(start = 8.dp))
-        }
-        if (state.isSaving) {
-            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                val target = state.saveTarget
-                if (target != null && target > 0) {
-                    LinearProgressIndicator(
-                        progress = { (state.saveProgress.toFloat() / target).coerceIn(0f, 1f) },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                } else {
-                    LinearProgressIndicator(Modifier.fillMaxWidth())
+            Artwork(
+                url = playlist.thumbnailUrl,
+                modifier = Modifier.size(HeaderCoverSize),
+                shape = MaterialTheme.shapes.large,
+                contentDescription = stringResource(R.string.misc_remote_cover_description, playlist.name),
+            )
+            Text(
+                text = playlist.name,
+                style = MaterialTheme.typography.headlineSmall,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .padding(top = Spacing.m)
+                    .semantics { heading() },
+            )
+            val count = playlist.trackCount?.toInt() ?: state.tracks.size
+            val countText = pluralStringResource(R.plurals.common_track_count, count, count)
+            Text(
+                text = listOfNotNull(playlist.uploader, countText).joinToString(" · "),
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+            Row(
+                modifier = Modifier
+                    .widthIn(max = ContentMaxWidth)
+                    .fillMaxWidth()
+                    .padding(top = Spacing.m),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.s),
+            ) {
+                Button(
+                    onClick = {
+                        haptics.click()
+                        actions.onPlayAll(false)
+                    },
+                    enabled = hasTracks,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Icon(Icons.Filled.PlayArrow, contentDescription = null, Modifier.size(18.dp))
+                    Text(stringResource(R.string.common_action_play), Modifier.padding(start = Spacing.s))
                 }
-                Text(
-                    text = stringResource(R.string.lib_saving_progress, state.saveProgress),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                FilledTonalButton(
+                    onClick = {
+                        haptics.click()
+                        actions.onPlayAll(true)
+                    },
+                    enabled = hasTracks,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Icon(Icons.Filled.Shuffle, contentDescription = null, Modifier.size(18.dp))
+                    Text(stringResource(R.string.misc_action_shuffle), Modifier.padding(start = Spacing.s))
+                }
+            }
+            OutlinedButton(
+                onClick = {
+                    haptics.click()
+                    actions.onSave()
+                },
+                enabled = !state.isSaving && hasTracks,
+            ) {
+                Icon(Icons.Filled.LibraryAdd, contentDescription = null, Modifier.size(18.dp))
+                Text(stringResource(R.string.misc_remote_save_to_library), Modifier.padding(start = Spacing.s))
+            }
+            if (state.isSaving) {
+                Column(
+                    Modifier.widthIn(max = ContentMaxWidth).fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(Spacing.xs),
+                ) {
+                    val target = state.saveTarget
+                    if (target != null && target > 0) {
+                        LinearProgressIndicator(
+                            progress = { (state.saveProgress.toFloat() / target).coerceIn(0f, 1f) },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    } else {
+                        LinearProgressIndicator(Modifier.fillMaxWidth())
+                    }
+                    Text(
+                        text = stringResource(R.string.misc_remote_saving_progress, state.saveProgress),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = colors.onSurfaceVariant,
+                    )
+                }
             }
         }
     }
@@ -301,26 +421,26 @@ private fun previewRemoteState(
     saveTarget = 120,
 )
 
-@Preview(showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(showBackground = true, widthDp = 360, heightDp = 780)
 @Composable
 private fun RemotePlaylistPreview() {
-    MaterialTheme {
+    SpautifailleTheme(dynamicColor = false) {
         RemotePlaylistScreen(previewRemoteState(), RemotePlaylistActions(), remember { SnackbarHostState() })
     }
 }
 
-@Preview(showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(showBackground = true, widthDp = 360, heightDp = 780)
 @Composable
 private fun RemotePlaylistSavingPreview() {
-    MaterialTheme {
+    SpautifailleTheme(dynamicColor = false) {
         RemotePlaylistScreen(previewRemoteState(saving = true), RemotePlaylistActions(), remember { SnackbarHostState() })
     }
 }
 
-@Preview(showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(showBackground = true, widthDp = 360, heightDp = 780)
 @Composable
 private fun RemotePlaylistErrorPreview() {
-    MaterialTheme {
+    SpautifailleTheme(dynamicColor = false) {
         RemotePlaylistScreen(
             RemotePlaylistUiState(status = RemotePlaylistStatus.Error(AppError.Network)),
             RemotePlaylistActions(),

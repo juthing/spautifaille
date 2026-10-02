@@ -17,9 +17,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Inbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -36,9 +38,80 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.spautifaille.ui.R
+import com.spautifaille.ui.common.LocalAppHaptics
+import com.spautifaille.ui.theme.ArtworkSize
+import com.spautifaille.ui.theme.ScreenHorizontalPadding
+import com.spautifaille.ui.theme.Spacing
 import com.spautifaille.ui.theme.SpautifailleTheme
 
-/** État vide générique : icône, titre, message optionnel et action optionnelle. */
+/**
+ * Mise en page commune des états plein écran : icône dans un cercle tonal, titre, message optionnel et action
+ * optionnelle, centrés.
+ */
+@Composable
+private fun StateLayout(
+    icon: ImageVector,
+    title: String?,
+    modifier: Modifier = Modifier,
+    message: String? = null,
+    isError: Boolean = false,
+    action: (@Composable () -> Unit)? = null,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(horizontal = Spacing.xl, vertical = Spacing.l),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(StateIconCircleSize)
+                .clip(CircleShape)
+                .background(
+                    if (isError) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer,
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(StateIconSize),
+                tint = if (isError) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSecondaryContainer,
+            )
+        }
+        Spacer(Modifier.height(Spacing.m))
+        if (title != null) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge,
+                textAlign = TextAlign.Center,
+            )
+        }
+        if (message != null) {
+            if (title != null) Spacer(Modifier.height(Spacing.xs))
+            Text(
+                text = message,
+                style = if (title != null) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+        }
+        if (action != null) {
+            Spacer(Modifier.height(Spacing.l))
+            action()
+        }
+    }
+}
+
+private val StateIconCircleSize = 88.dp
+private val StateIconSize = 40.dp
+
+/**
+ * État vide générique : icône tonale, titre, message optionnel et action optionnelle.
+ * L'action peut être un composable libre ([action]) ou, plus simplement, un bouton tonal ([actionLabel] +
+ * [onAction]) ; [action] prime s'il est fourni.
+ */
 @Composable
 fun EmptyState(
     title: String,
@@ -46,70 +119,71 @@ fun EmptyState(
     message: String? = null,
     icon: ImageVector = Icons.Filled.Inbox,
     action: (@Composable () -> Unit)? = null,
+    actionLabel: String? = null,
+    onAction: (() -> Unit)? = null,
 ) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            modifier = Modifier.size(56.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(16.dp))
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            textAlign = TextAlign.Center,
-        )
-        if (message != null) {
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = message,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-            )
+    val haptics = LocalAppHaptics.current
+    val resolvedAction: (@Composable () -> Unit)? = action ?: if (actionLabel != null && onAction != null) {
+        {
+            FilledTonalButton(onClick = {
+                haptics.click()
+                onAction()
+            }) { Text(actionLabel) }
         }
-        if (action != null) {
-            Spacer(Modifier.height(16.dp))
-            action()
-        }
+    } else {
+        null
     }
+    StateLayout(icon = icon, title = title, modifier = modifier, message = message, action = resolvedAction)
 }
 
-/** État d'erreur : message (ressource issue de `AppError.toMessage()`) et bouton « Réessayer ». */
+/**
+ * État d'erreur : [message] (ressource issue de `AppError.toMessage()`), [title] optionnel au-dessus et
+ * bouton « Réessayer ».
+ */
 @Composable
 fun ErrorState(
     @StringRes message: Int,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
+    @StringRes title: Int? = null,
 ) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Icon(
-            imageVector = Icons.Filled.ErrorOutline,
-            contentDescription = null,
-            modifier = Modifier.size(56.dp),
-            tint = MaterialTheme.colorScheme.error,
-        )
-        Spacer(Modifier.height(16.dp))
-        Text(
-            text = stringResource(message),
-            style = MaterialTheme.typography.bodyLarge,
-            textAlign = TextAlign.Center,
-        )
-        Spacer(Modifier.height(16.dp))
-        FilledTonalButton(onClick = onRetry) { Text(stringResource(R.string.common_action_retry)) }
+    ErrorState(
+        message = stringResource(message),
+        onRetry = onRetry,
+        modifier = modifier,
+        title = title?.let { stringResource(it) },
+    )
+}
+
+/** Variante de [ErrorState] avec un message déjà résolu. */
+@Composable
+fun ErrorState(
+    message: String,
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier,
+    title: String? = null,
+) {
+    val haptics = LocalAppHaptics.current
+    StateLayout(
+        icon = Icons.Filled.ErrorOutline,
+        title = title,
+        message = message,
+        isError = true,
+        modifier = modifier,
+        action = {
+            FilledTonalButton(onClick = {
+                haptics.click()
+                onRetry()
+            }) { Text(stringResource(R.string.common_action_retry)) }
+        },
+    )
+}
+
+/** État de chargement plein écran : indicateur de progression centré. */
+@Composable
+fun LoadingState(modifier: Modifier = Modifier) {
+    Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        CircularProgressIndicator()
     }
 }
 
@@ -145,12 +219,12 @@ fun TrackListPlaceholder(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(horizontal = ScreenHorizontalPadding, vertical = Spacing.s),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                ShimmerBox(Modifier.size(52.dp), shape = MaterialTheme.shapes.medium)
-                Spacer(Modifier.size(16.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                ShimmerBox(Modifier.size(ArtworkSize.Row), shape = MaterialTheme.shapes.medium)
+                Spacer(Modifier.size(Spacing.m))
+                Column(verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
                     ShimmerBox(Modifier.fillMaxWidth(0.6f).height(14.dp))
                     ShimmerBox(Modifier.fillMaxWidth(0.35f).height(12.dp))
                 }
@@ -164,7 +238,7 @@ fun TrackListPlaceholder(
 private fun StatesPreview() {
     SpautifailleTheme(dynamicColor = false) {
         Column {
-            Box(Modifier.height(240.dp)) { EmptyState(title = "Aucun résultat", message = "Essayez une autre recherche") }
+            Box(Modifier.height(240.dp)) { EmptyState(title = "Aucun résultat", message = "Essaie une autre recherche") }
             Box(Modifier.height(240.dp)) { ErrorState(message = R.string.apperror_network, onRetry = {}) }
             TrackListPlaceholder(count = 3)
         }

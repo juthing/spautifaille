@@ -1,12 +1,14 @@
 package com.spautifaille.ui.player
 
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -44,23 +46,32 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.spautifaille.domain.player.PlayerState
 import com.spautifaille.domain.player.QueueItem
 import com.spautifaille.ui.R
+import com.spautifaille.ui.common.LocalAppHaptics
 import com.spautifaille.ui.components.Artwork
+import com.spautifaille.ui.components.NowPlayingIndicator
 import com.spautifaille.ui.components.hideSheet
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
+import com.spautifaille.ui.theme.Spacing
+
+private val QueueHorizontalPadding = 16.dp
+private const val NOW_PLAYING_CROSSFADE_MS = 300
 
 /**
- * File de lecture : titre en cours puis « À suivre » réordonnable (poignée), avec balayage pour retirer
- * un élément et toucher pour y sauter. Pendant un glissement on modifie une copie locale ; le déplacement
- * n'est envoyé au lecteur qu'au relâchement.
+ * File de lecture : le titre en cours est mis en avant dans une carte, puis « À suivre » (réordonnable par
+ * poignée, avec un cran haptique à chaque rang franchi, et retrait par balayage). Toucher une ligne y saute.
+ * Pendant un glissement on modifie une copie locale ; le déplacement n'est envoyé au lecteur qu'au relâchement.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -69,6 +80,7 @@ fun QueueSheet(
     actions: PlayerActions,
     onDismiss: () -> Unit,
 ) {
+    val haptics = LocalAppHaptics.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
 
@@ -89,33 +101,23 @@ fun QueueSheet(
         if (fromIndex < 0 || toIndex < 0) return@rememberReorderableLazyListState
         if (dragOrigin == null) dragOrigin = (from.key as String) to fromIndex
         upcoming = upcoming.toMutableList().apply { add(toIndex, removeAt(fromIndex)) }
+        haptics.tick()
     }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(modifier = Modifier.fillMaxHeight(0.85f)) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 24.dp, end = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text(stringResource(R.string.queue_title), style = MaterialTheme.typography.titleLarge)
-                TextButton(
-                    enabled = state.queue.isNotEmpty(),
-                    onClick = {
-                        actions.onClearQueue()
-                        scope.hideSheet(sheetState, onDismiss)
-                    },
-                ) {
-                    Icon(Icons.Filled.ClearAll, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Text(stringResource(R.string.queue_clear), modifier = Modifier.padding(start = 8.dp))
-                }
-            }
+            QueueHeader(
+                canClear = state.queue.isNotEmpty(),
+                onClear = {
+                    haptics.confirm()
+                    actions.onClearQueue()
+                    scope.hideSheet(sheetState, onDismiss)
+                },
+            )
             if (state.shuffleEnabled) {
                 // La liste montre l'ordre de la file, pas l'ordre réel de lecture.
                 Row(
-                    modifier = Modifier.padding(horizontal = 24.dp),
+                    modifier = Modifier.padding(horizontal = QueueHorizontalPadding + Spacing.s),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(
@@ -128,28 +130,36 @@ fun QueueSheet(
                         text = stringResource(R.string.queue_shuffle_note),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(start = 8.dp),
+                        modifier = Modifier.padding(start = Spacing.s),
                     )
                 }
             }
             LazyColumn(
                 state = listState,
                 modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(horizontal = QueueHorizontalPadding),
             ) {
                 if (current != null) {
                     item(key = "header-now") { SectionLabel(stringResource(R.string.queue_now_playing)) }
-                    item(key = "now") {
-                        QueueRow(item = current, highlighted = true, onClick = {}, trailing = {})
-                    }
+                    item(key = "now") { NowPlayingCard(item = current, isPlaying = state.isPlaying) }
                 }
-                item(key = "header-next") { SectionLabel(stringResource(R.string.queue_up_next)) }
+                item(key = "header-next") {
+                    SectionLabel(
+                        text = stringResource(R.string.queue_up_next),
+                        count = if (upcoming.isEmpty()) null else pluralStringResource(
+                            R.plurals.queue_up_next_count,
+                            upcoming.size,
+                            upcoming.size,
+                        ),
+                    )
+                }
                 if (upcoming.isEmpty()) {
                     item(key = "empty") {
                         Text(
                             text = stringResource(R.string.queue_empty),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+                            modifier = Modifier.padding(horizontal = Spacing.s, vertical = 12.dp),
                         )
                     }
                 }
@@ -166,14 +176,19 @@ fun QueueSheet(
                             },
                             onClick = {
                                 val index = upcoming.indexOfFirst { it.uid == item.uid }
-                                if (index >= 0) actions.onSkipToQueueItem(offset + index)
+                                if (index >= 0) {
+                                    haptics.click()
+                                    actions.onSkipToQueueItem(offset + index)
+                                }
                             },
                             dragHandle = {
                                 Icon(
                                     imageVector = Icons.Filled.DragHandle,
                                     contentDescription = stringResource(R.string.queue_reorder),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier
                                         .draggableHandle(
+                                            onDragStarted = { haptics.longPress() },
                                             onDragStopped = {
                                                 val origin = dragOrigin
                                                 dragOrigin = null
@@ -191,90 +206,184 @@ fun QueueSheet(
                         )
                     }
                 }
-                item(key = "bottom-space") { Box(Modifier.navigationBarsPadding().size(8.dp)) }
+                item(key = "bottom-space") { Box(Modifier.navigationBarsPadding().size(16.dp)) }
             }
         }
     }
 }
 
 @Composable
-private fun SectionLabel(text: String) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
-    )
+private fun QueueHeader(canClear: Boolean, onClear: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = QueueHorizontalPadding + Spacing.s, end = QueueHorizontalPadding - Spacing.xs),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            text = stringResource(R.string.queue_title),
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+        )
+        TextButton(enabled = canClear, onClick = onClear) {
+            Icon(Icons.Filled.ClearAll, contentDescription = null, modifier = Modifier.size(18.dp))
+            Text(stringResource(R.string.queue_clear_short), modifier = Modifier.padding(start = Spacing.s))
+        }
+    }
 }
 
 @Composable
-private fun QueueRow(
-    item: QueueItem,
-    highlighted: Boolean,
-    onClick: () -> Unit,
-    trailing: @Composable () -> Unit,
-    modifier: Modifier = Modifier,
-    containerColor: Color = Color.Transparent,
-) {
-    ListItem(
-        modifier = modifier.clickable(onClick = onClick),
-        colors = ListItemDefaults.colors(containerColor = containerColor),
-        leadingContent = { Artwork(url = item.track.thumbnailUrl, modifier = Modifier.size(48.dp)) },
-        headlineContent = {
+private fun SectionLabel(text: String, count: String? = null) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = Spacing.s, vertical = Spacing.s),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        if (count != null) {
             Text(
-                item.track.title,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                color = if (highlighted) MaterialTheme.colorScheme.primary else Color.Unspecified,
-                fontWeight = if (highlighted) FontWeight.SemiBold else null,
+                text = count,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-        },
-        supportingContent = { Text(item.track.artist, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-        trailingContent = trailing,
-    )
+        }
+    }
+}
+
+/** Carte du titre en cours : teinte d'accent, pochette plus grande et indicateur de lecture. */
+@Composable
+private fun NowPlayingCard(item: QueueItem, isPlaying: Boolean) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.primaryContainer,
+        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            // Fondu enchaîné quand le titre en cours change pendant que la file est ouverte.
+            Crossfade(
+                targetState = item.track,
+                modifier = Modifier.weight(1f),
+                animationSpec = tween(NOW_PLAYING_CROSSFADE_MS),
+                label = "queueNowPlaying",
+            ) { track ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Artwork(
+                        url = track.thumbnailUrl,
+                        modifier = Modifier.size(64.dp),
+                        shape = MaterialTheme.shapes.medium,
+                    )
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(horizontal = Spacing.m),
+                    ) {
+                        Text(
+                            text = track.title,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            text = track.artist,
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+            }
+            NowPlayingIndicator(
+                isAnimating = isPlaying,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier.padding(end = Spacing.s),
+            )
+        }
+    }
 }
 
 @Composable
 private fun UpcomingRow(
     item: QueueItem,
-    elevation: androidx.compose.ui.unit.Dp,
+    elevation: Dp,
     onRemove: () -> Unit,
     onClick: () -> Unit,
     dragHandle: @Composable () -> Unit,
 ) {
+    val haptics = LocalAppHaptics.current
     val onRemoveState by rememberUpdatedState(onRemove)
+    val shape = MaterialTheme.shapes.medium
     val dismissState = rememberSwipeToDismissBoxState()
     LaunchedEffect(dismissState.currentValue) {
-        if (dismissState.currentValue != SwipeToDismissBoxValue.Settled) onRemoveState()
+        if (dismissState.currentValue != SwipeToDismissBoxValue.Settled) {
+            haptics.confirm()
+            onRemoveState()
+        }
+    }
+    // Cran haptique quand le geste franchit (ou quitte) le seuil de suppression.
+    LaunchedEffect(dismissState.targetValue) {
+        if (dismissState.targetValue != SwipeToDismissBoxValue.Settled) haptics.gestureThreshold()
     }
     SwipeToDismissBox(
         state = dismissState,
+        modifier = Modifier
+            .padding(vertical = 3.dp)
+            .clip(shape),
         backgroundContent = {
+            val swiping = dismissState.dismissDirection != SwipeToDismissBoxValue.Settled
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.errorContainer)
-                    .padding(horizontal = 24.dp),
+                    .background(if (swiping) MaterialTheme.colorScheme.errorContainer else Color.Transparent)
+                    .padding(horizontal = Spacing.l),
                 contentAlignment = if (dismissState.dismissDirection == SwipeToDismissBoxValue.StartToEnd) {
                     Alignment.CenterStart
                 } else {
                     Alignment.CenterEnd
                 },
             ) {
-                Icon(
-                    Icons.Filled.Delete,
-                    contentDescription = stringResource(R.string.queue_remove),
-                    tint = MaterialTheme.colorScheme.onErrorContainer,
-                )
+                if (swiping) {
+                    Icon(
+                        Icons.Filled.Delete,
+                        contentDescription = stringResource(R.string.queue_remove),
+                        tint = MaterialTheme.colorScheme.onErrorContainer,
+                    )
+                }
             }
         },
     ) {
-        Surface(shadowElevation = elevation, color = MaterialTheme.colorScheme.surfaceContainerLow) {
-            QueueRow(
-                item = item,
-                highlighted = false,
-                onClick = onClick,
-                trailing = dragHandle,
+        Surface(
+            onClick = onClick,
+            shape = shape,
+            shadowElevation = elevation,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        ) {
+            ListItem(
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                leadingContent = {
+                    Artwork(url = item.track.thumbnailUrl, modifier = Modifier.size(48.dp))
+                },
+                headlineContent = {
+                    Text(
+                        item.track.title,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                },
+                supportingContent = { Text(item.track.artist, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                trailingContent = dragHandle,
             )
         }
     }

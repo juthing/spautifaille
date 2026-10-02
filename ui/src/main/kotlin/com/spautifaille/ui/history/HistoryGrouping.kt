@@ -1,4 +1,4 @@
-package com.spautifaille.ui.library
+package com.spautifaille.ui.history
 
 import com.spautifaille.domain.model.HistoryEntry
 import java.time.Instant

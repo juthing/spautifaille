@@ -2,6 +2,17 @@ package com.spautifaille.ui.importer
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material3.Surface
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.unit.Dp
+import com.spautifaille.ui.common.LocalAppHaptics
+import com.spautifaille.ui.theme.ContentMaxWidth
+import com.spautifaille.ui.theme.ScreenHorizontalPadding
+import com.spautifaille.ui.theme.Spacing
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,6 +42,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -141,52 +153,112 @@ fun ImportReviewScreen(
     snackbarHostState: SnackbarHostState,
     modifier: Modifier = Modifier,
 ) {
+    val haptics = LocalAppHaptics.current
+    // Haptique centralisée ici : « confirm » quand un titre est validé / choisi, « tick » pour un filtre, « click » sinon.
+    val hapticActions = remember(actions, haptics) {
+        actions.copy(
+            onFilterChange = {
+                haptics.tick()
+                actions.onFilterChange(it)
+            },
+            onChoose = { itemId, track ->
+                haptics.confirm()
+                actions.onChoose(itemId, track)
+            },
+            onExclude = {
+                haptics.click()
+                actions.onExclude(it)
+            },
+            onToggleAlternatives = {
+                haptics.click()
+                actions.onToggleAlternatives(it)
+            },
+            onStartSearch = {
+                haptics.click()
+                actions.onStartSearch(it)
+            },
+        )
+    }
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     Scaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            Column {
-                TopAppBar(
-                    title = {
-                        Column {
-                            Text(stringResource(R.string.import_review_title))
-                            state.job?.let {
-                                Text(
-                                    text = it.playlistName,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            }
+            TopAppBar(
+                title = {
+                    Column {
+                        Text(stringResource(R.string.import_review_title))
+                        state.job?.let {
+                            Text(
+                                text = it.playlistName,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
                         }
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = actions.onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.import_back))
-                        }
-                    },
-                    scrollBehavior = scrollBehavior,
-                )
-                if (state.job != null) FilterRow(state = state, onFilterChange = actions.onFilterChange)
-                if (state.job?.isRunning == true) {
-                    Text(
-                        text = stringResource(R.string.import_review_running, state.job.processed, state.job.total),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                    )
-                    LinearProgressIndicator(progress = { state.job.progress }, modifier = Modifier.fillMaxWidth())
-                }
-            }
+                    }
+                },
+                navigationIcon = {
+                    IconButton(onClick = actions.onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_action_back))
+                    }
+                },
+                scrollBehavior = scrollBehavior,
+            )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
-        Box(Modifier.fillMaxSize().padding(top = padding.calculateTopPadding())) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .padding(top = padding.calculateTopPadding()),
+            contentAlignment = Alignment.TopCenter,
+        ) {
+            val job = state.job
             when {
                 state.isLoading -> TrackListPlaceholder()
-                state.isNotFound -> EmptyState(title = stringResource(R.string.import_review_not_found))
-                state.items.isEmpty() -> EmptyState(
+                state.isNotFound || job == null -> EmptyState(title = stringResource(R.string.import_review_not_found))
+                else -> ReviewList(
+                    state = state,
+                    job = job,
+                    actions = hapticActions,
+                    bottomPadding = padding.calculateBottomPadding(),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReviewList(
+    state: ImportReviewUiState,
+    job: ImportJob,
+    actions: ImportReviewActions,
+    bottomPadding: Dp,
+) {
+    LazyColumn(
+        modifier = Modifier.widthIn(max = ContentMaxWidth).fillMaxSize(),
+        contentPadding = PaddingValues(bottom = bottomPadding + Spacing.l),
+        verticalArrangement = Arrangement.spacedBy(Spacing.s + Spacing.xs),
+    ) {
+        item(key = "summary") {
+            ReviewSummaryCard(
+                state = state,
+                job = job,
+                onFilterChange = actions.onFilterChange,
+                modifier = Modifier.padding(horizontal = ScreenHorizontalPadding, vertical = Spacing.s),
+            )
+        }
+        stickyHeader(key = "filters") {
+            FilterRow(
+                state = state,
+                onFilterChange = actions.onFilterChange,
+                modifier = Modifier.background(MaterialTheme.colorScheme.surface),
+            )
+        }
+        if (state.items.isEmpty()) {
+            item(key = "empty") {
+                EmptyState(
                     title = stringResource(
                         when (state.filter) {
                             ReviewFilter.NEEDS_REVIEW -> R.string.import_review_empty_review
@@ -195,36 +267,118 @@ fun ImportReviewScreen(
                         },
                     ),
                     icon = Icons.Filled.Check,
+                    modifier = Modifier.height(280.dp),
                 )
-                else -> LazyColumn(
-                    contentPadding = PaddingValues(
-                        start = 16.dp,
-                        end = 16.dp,
-                        top = 8.dp,
-                        bottom = padding.calculateBottomPadding() + 24.dp,
-                    ),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    items(state.items, key = { it.id }) { item ->
-                        ReviewItemCard(
-                            item = item,
-                            expanded = state.expandedItemId == item.id,
-                            search = state.search?.takeIf { it.itemId == item.id },
-                            actions = actions,
-                        )
-                    }
-                }
+            }
+        } else {
+            items(state.items, key = { it.id }) { item ->
+                ReviewItemCard(
+                    item = item,
+                    expanded = state.expandedItemId == item.id,
+                    search = state.search?.takeIf { it.itemId == item.id },
+                    actions = actions,
+                    modifier = Modifier.padding(horizontal = ScreenHorizontalPadding),
+                )
             }
         }
     }
 }
 
+/** Résumé en haut de la revue : total, progression éventuelle et trois compteurs (trouvés / à vérifier / introuvables). */
+@Composable
+private fun ReviewSummaryCard(
+    state: ImportReviewUiState,
+    job: ImportJob,
+    onFilterChange: (ReviewFilter) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+    ) {
+        Column(Modifier.padding(Spacing.m), verticalArrangement = Arrangement.spacedBy(Spacing.s + Spacing.xs)) {
+            Text(
+                text = pluralStringResource(R.plurals.import_tracks_total, job.total, job.total),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            if (job.isRunning) {
+                Text(
+                    text = stringResource(R.string.import_review_running, job.processed, job.total),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                LinearProgressIndicator(progress = { job.progress }, modifier = Modifier.fillMaxWidth())
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.s), modifier = Modifier.fillMaxWidth()) {
+                StatTile(
+                    count = job.matched,
+                    label = stringResource(R.string.import_review_stat_matched),
+                    container = MaterialTheme.colorScheme.primaryContainer,
+                    content = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.weight(1f),
+                )
+                StatTile(
+                    count = state.needsReviewCount,
+                    label = stringResource(R.string.import_review_stat_review),
+                    container = MaterialTheme.colorScheme.tertiaryContainer,
+                    content = MaterialTheme.colorScheme.onTertiaryContainer,
+                    onClick = { onFilterChange(ReviewFilter.NEEDS_REVIEW) },
+                    modifier = Modifier.weight(1f),
+                )
+                StatTile(
+                    count = state.notFoundCount,
+                    label = stringResource(R.string.import_review_stat_not_found),
+                    container = MaterialTheme.colorScheme.errorContainer,
+                    content = MaterialTheme.colorScheme.onErrorContainer,
+                    onClick = { onFilterChange(ReviewFilter.NOT_FOUND) },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            if (state.needsReviewCount > 0) {
+                Text(
+                    text = stringResource(R.string.import_review_validate_all_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatTile(
+    count: Int,
+    label: String,
+    container: Color,
+    content: Color,
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+) {
+    val tileContent: @Composable () -> Unit = {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = Spacing.s + Spacing.xs, horizontal = Spacing.s),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(count.toString(), style = MaterialTheme.typography.headlineMedium, color = content)
+            Text(label, style = MaterialTheme.typography.labelMedium, color = content, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+    }
+    if (onClick != null) {
+        Surface(onClick = onClick, modifier = modifier, shape = MaterialTheme.shapes.medium, color = container, content = tileContent)
+    } else {
+        Surface(modifier = modifier, shape = MaterialTheme.shapes.medium, color = container, content = tileContent)
+    }
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun FilterRow(state: ImportReviewUiState, onFilterChange: (ReviewFilter) -> Unit) {
+private fun FilterRow(state: ImportReviewUiState, onFilterChange: (ReviewFilter) -> Unit, modifier: Modifier = Modifier) {
     FlowRow(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = modifier.fillMaxWidth().padding(horizontal = ScreenHorizontalPadding, vertical = Spacing.xs),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.s),
     ) {
         FilterChipFor(ReviewFilter.NEEDS_REVIEW, R.string.import_review_filter_review, state.needsReviewCount, state, onFilterChange)
         FilterChipFor(ReviewFilter.NOT_FOUND, R.string.import_review_filter_not_found, state.notFoundCount, state, onFilterChange)
@@ -263,24 +417,31 @@ private fun ReviewItemCard(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
     ) {
-        Column(Modifier.padding(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(Modifier.padding(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(Spacing.xs)) {
             // Titre tel que lu dans la source.
-            Column(Modifier.padding(horizontal = 16.dp)) {
-                Text(
-                    text = stringResource(R.string.import_review_source_label),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(item.source.title, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                item.source.subtitle().takeIf { it.isNotEmpty() }?.let {
-                    Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Row(
+                modifier = Modifier.padding(horizontal = Spacing.m),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.s),
+                verticalAlignment = Alignment.Top,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.import_review_source_label),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(item.source.title, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    item.source.subtitle().takeIf { it.isNotEmpty() }?.let {
+                        Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
                 }
+                StatusBadge(result.status)
             }
-            HorizontalDivider(Modifier.padding(vertical = 4.dp))
+            HorizontalDivider(Modifier.padding(vertical = Spacing.xs))
 
             // Candidat retenu.
             if (best != null) {
-                CandidateRow(candidate = best, status = result.status)
+                CandidateRow(candidate = best, status = null)
             } else {
                 Text(
                     text = stringResource(
@@ -290,17 +451,17 @@ private fun ReviewItemCard(
                     ),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    modifier = Modifier.padding(horizontal = Spacing.m, vertical = Spacing.s),
                 )
             }
 
             if (canResolve) {
                 FlowRow(
-                    modifier = Modifier.padding(horizontal = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.padding(horizontal = Spacing.s),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
                 ) {
                     if (best != null && result.status == MatchStatus.NEEDS_REVIEW) {
-                        TextButton(onClick = { actions.onChoose(item.id, best.track) }) {
+                        FilledTonalButton(onClick = { actions.onChoose(item.id, best.track) }) {
                             Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.size(6.dp))
                             Text(stringResource(R.string.import_review_validate))
@@ -333,7 +494,7 @@ private fun ReviewItemCard(
             }
 
             AnimatedVisibility(visible = expanded) {
-                Column(Modifier.padding(top = 4.dp)) {
+                Column(Modifier.padding(top = Spacing.xs)) {
                     HorizontalDivider()
                     choices.forEach { candidate ->
                         val selected = candidate.track.id == best?.track?.id
@@ -373,9 +534,9 @@ private fun CandidateRow(
         ?: track.artist
     ListItem(
         modifier = modifier,
-        colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         leadingContent = {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
                 leading?.invoke()
                 Artwork(url = track.thumbnailUrl, modifier = Modifier.size(48.dp))
             }
@@ -408,6 +569,26 @@ private fun scoreColor(score: Double) = when {
     else -> MaterialTheme.colorScheme.error
 }
 
+/** Pastille d'état d'un titre importé (couleurs de conteneur du thème). */
+@Composable
+private fun StatusBadge(status: MatchStatus, modifier: Modifier = Modifier) {
+    val scheme = MaterialTheme.colorScheme
+    val (container, content) = when (status) {
+        MatchStatus.MATCHED -> scheme.primaryContainer to scheme.onPrimaryContainer
+        MatchStatus.NEEDS_REVIEW -> scheme.tertiaryContainer to scheme.onTertiaryContainer
+        MatchStatus.NOT_FOUND -> scheme.errorContainer to scheme.onErrorContainer
+        MatchStatus.PENDING -> scheme.surfaceContainerHighest to scheme.onSurfaceVariant
+    }
+    Surface(modifier = modifier, shape = MaterialTheme.shapes.small, color = container) {
+        Text(
+            text = stringResource(status.labelRes()),
+            style = MaterialTheme.typography.labelMedium,
+            color = content,
+            modifier = Modifier.padding(horizontal = Spacing.s, vertical = Spacing.xs),
+        )
+    }
+}
+
 private fun MatchStatus.labelRes(): Int = when (this) {
     MatchStatus.MATCHED -> R.string.import_review_status_matched
     MatchStatus.NEEDS_REVIEW -> R.string.import_review_status_review
@@ -417,7 +598,7 @@ private fun MatchStatus.labelRes(): Int = when (this) {
 
 @Composable
 private fun SearchPanel(search: ReviewSearchState, itemId: Long, actions: ImportReviewActions) {
-    Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(Modifier.padding(horizontal = Spacing.m), verticalArrangement = Arrangement.spacedBy(Spacing.s)) {
         HorizontalDivider()
         OutlinedTextField(
             value = search.query,
@@ -439,7 +620,7 @@ private fun SearchPanel(search: ReviewSearchState, itemId: Long, actions: Import
             keyboardActions = KeyboardActions(onSearch = { actions.onSubmitSearch() }),
         )
         when {
-            search.isSearching -> Box(Modifier.fillMaxWidth().padding(8.dp), contentAlignment = Alignment.Center) {
+            search.isSearching -> Box(Modifier.fillMaxWidth().padding(Spacing.s), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(Modifier.size(28.dp), strokeWidth = 3.dp)
             }
             search.error != null -> Text(
@@ -458,7 +639,7 @@ private fun SearchPanel(search: ReviewSearchState, itemId: Long, actions: Import
                         ?: track.artist
                     ListItem(
                         modifier = Modifier.clickable(role = Role.Button, onClick = { actions.onChoose(itemId, track) }),
-                        colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                         leadingContent = { Artwork(url = track.thumbnailUrl, modifier = Modifier.size(48.dp)) },
                         headlineContent = { Text(track.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         supportingContent = { Text(subtitle, maxLines = 1, overflow = TextOverflow.Ellipsis) },

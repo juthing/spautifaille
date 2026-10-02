@@ -17,6 +17,29 @@ android {
         buildConfig = true
     }
 
+    // Signature release stable : le keystore et ses mots de passe viennent de variables
+    // d'environnement (secrets GitHub Actions en CI), jamais du dépôt (public).
+    // Variables lues via `providers` : compatible avec le configuration cache.
+    val releaseKeystorePath = providers.environmentVariable("SPAUTIFAILLE_KEYSTORE_PATH").orNull
+    val releaseKeystorePassword = providers.environmentVariable("SPAUTIFAILLE_KEYSTORE_PASSWORD").orNull
+    val releaseKeyAlias = providers.environmentVariable("SPAUTIFAILLE_KEY_ALIAS").orNull
+    val releaseKeyPassword = providers.environmentVariable("SPAUTIFAILLE_KEY_PASSWORD").orNull
+    val releaseKeystoreFile = releaseKeystorePath?.takeIf { it.isNotBlank() }?.let { file(it) }
+    val hasReleaseSigning = releaseKeystoreFile != null && releaseKeystoreFile.isFile &&
+        listOf(releaseKeystorePassword, releaseKeyAlias, releaseKeyPassword).all { !it.isNullOrEmpty() }
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = releaseKeystoreFile
+                storeType = "pkcs12"
+                storePassword = releaseKeystorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
@@ -25,8 +48,20 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // Signature : debug tant qu'aucun keystore n'est fourni (usage perso, APK).
-            signingConfig = signingConfigs.getByName("debug")
+            // Clé release fixe si les 4 variables SPAUTIFAILLE_KEY* sont fournies et que le
+            // fichier existe ; sinon repli sur la clé de debug (builds locaux, forks sans secrets).
+            // Attention : la clé de debug change d'une machine / d'un run CI à l'autre, donc
+            // un tel APK ne peut pas se mettre à jour par-dessus un autre.
+            signingConfig = if (hasReleaseSigning) {
+                signingConfigs.getByName("release")
+            } else {
+                logger.warn(
+                    "WARNING: keystore release absent ou incomplet (SPAUTIFAILLE_KEYSTORE_PATH, " +
+                        "SPAUTIFAILLE_KEYSTORE_PASSWORD, SPAUTIFAILLE_KEY_ALIAS, SPAUTIFAILLE_KEY_PASSWORD) : " +
+                        "l'APK release est signé avec la clé de debug (non stable, pas de mise à jour par-dessus).",
+                )
+                signingConfigs.getByName("debug")
+            }
         }
     }
 

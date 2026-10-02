@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="dl_title">Téléchargements</string>
-    <string name="dl_back">Retour</string>
     <string name="dl_more_options">Plus d\'options</string>
     <string name="dl_delete_all">Tout supprimer</string>
     <string name="dl_delete_all_title">Tout supprimer ?</string>
@@ -9,8 +8,6 @@
         <item quantity="one">%d téléchargement sera supprimé de cet appareil. Le titre restera disponible en streaming.</item>
         <item quantity="other">%d téléchargements seront supprimés de cet appareil. Les titres resteront disponibles en streaming.</item>
     </plurals>
-    <string name="dl_delete_confirm">Supprimer</string>
-    <string name="dl_cancel">Annuler</string>
 
     <!-- Stockage -->
     <string name="dl_storage_title">Stockage utilisé</string>
@@ -22,13 +19,10 @@
     </plurals>
 
     <!-- Sections -->
-    <string name="dl_section_active">En cours</string>
-    <string name="dl_section_done">Terminés</string>
-    <string name="dl_retry">Réessayer</string>
+    <string name="dl_section_active_count">En cours · %1$d</string>
+    <string name="dl_section_done_count">Terminés · %1$d</string>
     <string name="dl_retry_all">Tout réessayer</string>
-    <string name="dl_cancel_download">Annuler le téléchargement</string>
     <string name="dl_remove_failed">Retirer de la liste</string>
-    <string name="dl_delete_download">Supprimer le téléchargement</string>
 
     <!-- États -->
     <string name="dl_status_queued">En attente…</string>
@@ -41,15 +35,14 @@
 
     <!-- Attente du Wi-Fi -->
     <string name="dl_wifi_waiting_title">En attente du Wi-Fi</string>
-    <string name="dl_wifi_waiting_message">Les téléchargements reprendront dès que vous serez connecté à un réseau Wi-Fi.</string>
+    <string name="dl_wifi_waiting_message">Les téléchargements reprendront dès que tu seras connecté à un réseau Wi-Fi.</string>
     <string name="dl_wifi_allow_mobile">Autoriser les données mobiles</string>
 
     <!-- Vide -->
     <string name="dl_empty_title">Aucun téléchargement</string>
-    <string name="dl_empty_message">Téléchargez des titres depuis une playlist ou le menu d\'un titre pour les écouter hors ligne.</string>
+    <string name="dl_empty_message">Télécharge des titres depuis une playlist ou le menu d\'un titre pour les écouter hors ligne.</string>
 
     <!-- Retours -->
-    <string name="dl_deleted">Téléchargement supprimé</string>
     <string name="dl_all_deleted">Tous les téléchargements ont été supprimés</string>
-    <string name="dl_action_failed">L\'action a échoué. Réessayez.</string>
+    <string name="dl_action_failed">L\'action a échoué. Réessaie.</string>
 </resources>

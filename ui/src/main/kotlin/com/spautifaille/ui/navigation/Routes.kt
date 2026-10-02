@@ -4,7 +4,7 @@ import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LibraryMusic
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.spautifaille.ui.R
 import kotlinx.serialization.Serializable
@@ -15,6 +15,7 @@ import kotlin.reflect.KClass
 @Serializable
 data object HomeRoute
 
+/** Recherche : écran poussé depuis l'Accueil (pas un onglet de la barre de navigation). */
 @Serializable
 data object SearchRoute
 
@@ -50,6 +51,18 @@ enum class TopLevelDestination(
     val icon: ImageVector,
 ) {
     Home(HomeRoute, HomeRoute::class, R.string.nav_home, Icons.Filled.Home),
-    Search(SearchRoute, SearchRoute::class, R.string.nav_search, Icons.Filled.Search),
     Library(LibraryRoute, LibraryRoute::class, R.string.nav_library, Icons.Filled.LibraryMusic),
+    Settings(SettingsRoute, SettingsRoute::class, R.string.nav_settings, Icons.Filled.Settings),
 }
+
+/** Historique d'écoute complet. */
+@Serializable
+data object HistoryRoute
+
+/** Liste complète des artistes suivis (« Tes artistes »). */
+@Serializable
+data object FollowedArtistsRoute
+
+/** Sous-page d'une catégorie de réglages ; [category] = `SettingsCategory.key` (l'onglet Réglages reste sélectionné). */
+@Serializable
+data class SettingsCategoryRoute(val category: String)

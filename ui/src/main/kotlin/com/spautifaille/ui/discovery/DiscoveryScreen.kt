@@ -24,7 +24,6 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -46,12 +45,15 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.spautifaille.domain.error.AppError
 import com.spautifaille.domain.model.Track
 import com.spautifaille.ui.R
+import com.spautifaille.ui.common.LocalAppHaptics
 import com.spautifaille.ui.common.toMessage
 import com.spautifaille.ui.components.EmptyState
 import com.spautifaille.ui.components.ErrorState
 import com.spautifaille.ui.components.TrackActionsSheet
 import com.spautifaille.ui.components.TrackListItem
 import com.spautifaille.ui.components.TrackListPlaceholder
+import com.spautifaille.ui.theme.ListBottomPadding
+import com.spautifaille.ui.theme.Spacing
 import com.spautifaille.ui.theme.SpautifailleTheme
 
 /** Actions de la découverte, partagées par la section de l'accueil et l'écran complet. */
@@ -141,7 +143,7 @@ fun DiscoveryScreen(
                 }
                 DiscoveryStatus.CONTENT -> LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 16.dp),
+                    contentPadding = PaddingValues(bottom = ListBottomPadding),
                 ) {
                     item(key = "header") {
                         Header(count = state.tracks.size, onPlayAll = actions.onPlayAll)
@@ -151,7 +153,7 @@ fun DiscoveryScreen(
                             track = track,
                             onClick = { actions.onPlayFrom(index) },
                             onMoreClick = { actionsTrack = track },
-                            modifier = Modifier.padding(horizontal = 8.dp),
+                            modifier = Modifier.padding(horizontal = Spacing.s),
                         )
                     }
                 }
@@ -182,7 +184,7 @@ private fun ScrollableBox(content: @Composable () -> Unit) {
 @Composable
 private fun Header(count: Int, onPlayAll: (shuffle: Boolean) -> Unit) {
     Column(
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        modifier = Modifier.padding(horizontal = Spacing.m, vertical = Spacing.s),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Column {
@@ -203,14 +205,21 @@ private fun Header(count: Int, onPlayAll: (shuffle: Boolean) -> Unit) {
 /** Boutons « Tout lire » / « Aléatoire » (réutilisés par la section de l'accueil). */
 @Composable
 internal fun PlayButtons(onPlayAll: (shuffle: Boolean) -> Unit, modifier: Modifier = Modifier) {
-    Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Button(onClick = { onPlayAll(false) }) {
+    val haptics = LocalAppHaptics.current
+    Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(Spacing.s)) {
+        Button(onClick = {
+            haptics.click()
+            onPlayAll(false)
+        }) {
             Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
-            Text(stringResource(R.string.disc_play_all), modifier = Modifier.padding(start = 8.dp))
+            Text(stringResource(R.string.disc_play_all), modifier = Modifier.padding(start = Spacing.s))
         }
-        OutlinedButton(onClick = { onPlayAll(true) }) {
+        FilledTonalButton(onClick = {
+            haptics.click()
+            onPlayAll(true)
+        }) {
             Icon(Icons.Filled.Shuffle, contentDescription = null, modifier = Modifier.size(18.dp))
-            Text(stringResource(R.string.disc_shuffle), modifier = Modifier.padding(start = 8.dp))
+            Text(stringResource(R.string.disc_shuffle), modifier = Modifier.padding(start = Spacing.s))
         }
     }
 }

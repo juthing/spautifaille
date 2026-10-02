@@ -1,14 +1,15 @@
 package com.spautifaille.ui.artist
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -17,16 +18,16 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -36,8 +37,10 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -45,10 +48,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -58,12 +69,22 @@ import com.spautifaille.domain.model.ArtistDetails
 import com.spautifaille.domain.model.RemotePlaylist
 import com.spautifaille.domain.model.Track
 import com.spautifaille.ui.R
-import com.spautifaille.ui.library.LibraryArtwork
-import com.spautifaille.ui.library.LibraryContentMaxWidth
-import com.spautifaille.ui.library.LibraryEmptyState
-import com.spautifaille.ui.library.LibraryTrackRow
-import com.spautifaille.ui.library.formatCompactCount
-import com.spautifaille.ui.library.libraryMessage
+import com.spautifaille.ui.common.LocalAppHaptics
+import com.spautifaille.ui.common.toMessage
+import com.spautifaille.ui.components.Artwork
+import com.spautifaille.ui.components.EmptyState
+import com.spautifaille.ui.components.ErrorState
+import com.spautifaille.ui.components.LoadingState
+import com.spautifaille.ui.components.SectionHeader
+import com.spautifaille.ui.components.TrackActionsSheet
+import com.spautifaille.ui.components.TrackListItem
+import com.spautifaille.ui.components.formatCompactCount
+import com.spautifaille.ui.theme.ArtworkSize
+import com.spautifaille.ui.theme.ContentMaxWidth
+import com.spautifaille.ui.theme.ListBottomPadding
+import com.spautifaille.ui.theme.ScreenHorizontalPadding
+import com.spautifaille.ui.theme.Spacing
+import com.spautifaille.ui.theme.SpautifailleTheme
 
 @Immutable
 data class ArtistActions(
@@ -100,6 +121,9 @@ fun ArtistRoute(
     ArtistScreen(state, actions, modifier)
 }
 
+/** Taille de l'avatar dans l'en-tête. */
+private val HeaderAvatarSize = 128.dp
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ArtistScreen(
@@ -107,146 +131,266 @@ fun ArtistScreen(
     actions: ArtistActions,
     modifier: Modifier = Modifier,
 ) {
-    val title = (state.status as? ArtistStatus.Content)?.details?.artist?.name.orEmpty()
+    val listState = rememberLazyListState()
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+    val name = (state.status as? ArtistStatus.Content)?.details?.artist?.name.orEmpty()
+    // Le nom est déjà dans l'en-tête : il n'apparaît dans la barre qu'une fois l'en-tête sorti de l'écran.
+    val showTitle by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 } }
+    var actionsTrack by remember { mutableStateOf<Track?>(null) }
+
     Scaffold(
-        modifier = modifier,
+        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             TopAppBar(
-                title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                title = { if (showTitle) Text(name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 navigationIcon = {
                     IconButton(onClick = actions.onBack) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.lib_back),
+                            contentDescription = stringResource(R.string.common_action_back),
                         )
                     }
                 },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                ),
+                scrollBehavior = scrollBehavior,
             )
         },
     ) { innerPadding ->
-        Box(Modifier.fillMaxSize().padding(innerPadding), contentAlignment = Alignment.TopCenter) {
-            when (val status = state.status) {
-                ArtistStatus.Loading -> CircularProgressIndicator(Modifier.align(Alignment.Center))
-                is ArtistStatus.Error -> LibraryEmptyState(
-                    icon = Icons.Filled.CloudOff,
-                    title = stringResource(R.string.lib_artist_load_failed),
-                    body = stringResource(status.error.libraryMessage()),
-                    actionLabel = stringResource(R.string.lib_retry),
-                    onAction = actions.onRetry,
-                    modifier = Modifier.align(Alignment.Center),
-                )
-                is ArtistStatus.Content -> ArtistContent(status.details, state.isSubscribed, actions)
-            }
+        when (val status = state.status) {
+            ArtistStatus.Loading -> LoadingState(Modifier.padding(innerPadding))
+            is ArtistStatus.Error -> ErrorState(
+                title = stringResource(R.string.misc_artist_load_failed),
+                message = stringResource(status.error.toMessage()),
+                onRetry = actions.onRetry,
+                modifier = Modifier.padding(innerPadding),
+            )
+            is ArtistStatus.Content -> ArtistContent(
+                details = status.details,
+                isSubscribed = state.isSubscribed,
+                actions = actions,
+                listState = listState,
+                innerPadding = innerPadding,
+                onTrackMore = { actionsTrack = it },
+            )
         }
+    }
+
+    actionsTrack?.let { track ->
+        TrackActionsSheet(track = track, onDismiss = { actionsTrack = null })
     }
 }
 
 @Composable
-private fun ArtistContent(details: ArtistDetails, isSubscribed: Boolean, actions: ArtistActions) {
-    LazyColumn(Modifier.widthIn(max = LibraryContentMaxWidth).fillMaxSize()) {
-        item(key = "header") { ArtistHeader(details, isSubscribed, actions) }
+private fun ArtistContent(
+    details: ArtistDetails,
+    isSubscribed: Boolean,
+    actions: ArtistActions,
+    listState: androidx.compose.foundation.lazy.LazyListState,
+    innerPadding: PaddingValues,
+    onTrackMore: (Track) -> Unit,
+) {
+    val haptics = LocalAppHaptics.current
+    LazyColumn(
+        state = listState,
+        modifier = Modifier.fillMaxSize(),
+        // La barre du haut est transparente : l'en-tête passe derrière elle (son propre padding la compense).
+        contentPadding = PaddingValues(bottom = innerPadding.calculateBottomPadding() + ListBottomPadding),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        item(key = "header") {
+            ArtistHeader(
+                details = details,
+                isSubscribed = isSubscribed,
+                actions = actions,
+                topInset = innerPadding.calculateTopPadding(),
+            )
+        }
 
         if (details.tracks.isNotEmpty()) {
-            item(key = "tracks-title") { SectionTitle(stringResource(R.string.lib_artist_tracks)) }
+            item(key = "tracks-title") {
+                SectionHeader(
+                    title = stringResource(R.string.misc_artist_songs),
+                    modifier = Modifier.widthIn(max = ContentMaxWidth).padding(top = Spacing.m),
+                )
+            }
             itemsIndexed(details.tracks, key = { index, track -> "$index-${track.id}" }) { index, track ->
-                LibraryTrackRow(track, onClick = { actions.onPlayFrom(index) })
+                TrackListItem(
+                    track = track,
+                    onClick = { actions.onPlayFrom(index) },
+                    onMoreClick = { onTrackMore(track) },
+                    modifier = Modifier
+                        .widthIn(max = ContentMaxWidth)
+                        .fillMaxWidth()
+                        .padding(horizontal = Spacing.s),
+                )
             }
         }
         if (details.playlists.isNotEmpty()) {
-            item(key = "playlists-title") { SectionTitle(stringResource(R.string.lib_artist_playlists)) }
+            item(key = "playlists-title") {
+                SectionHeader(
+                    title = stringResource(R.string.misc_artist_albums),
+                    modifier = Modifier.widthIn(max = ContentMaxWidth).padding(top = Spacing.m),
+                )
+            }
             item(key = "playlists-row") {
                 LazyRow(
-                    contentPadding = PaddingValues(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    contentPadding = PaddingValues(horizontal = ScreenHorizontalPadding),
+                    horizontalArrangement = Arrangement.spacedBy(Spacing.m),
                 ) {
                     items(details.playlists, key = { it.url }) { playlist ->
-                        RemotePlaylistCard(playlist) { actions.onOpenRemotePlaylist(playlist.url) }
+                        RemotePlaylistCard(playlist) {
+                            haptics.click()
+                            actions.onOpenRemotePlaylist(playlist.url)
+                        }
                     }
+                }
+            }
+        }
+        details.description?.takeIf { it.isNotBlank() }?.let { description ->
+            item(key = "about") {
+                Column(Modifier.widthIn(max = ContentMaxWidth).padding(top = Spacing.m)) {
+                    SectionHeader(title = stringResource(R.string.misc_artist_about))
+                    ExpandableDescription(description)
                 }
             }
         }
         if (details.tracks.isEmpty() && details.playlists.isEmpty()) {
             item(key = "empty") {
-                LibraryEmptyState(
+                EmptyState(
                     icon = Icons.Filled.Person,
-                    title = stringResource(R.string.lib_artist_empty_title),
-                    body = stringResource(R.string.lib_artist_empty_body),
+                    title = stringResource(R.string.misc_artist_empty_title),
+                    message = stringResource(R.string.misc_artist_empty_message),
+                    modifier = Modifier.height(280.dp),
                 )
             }
         }
-        item(key = "bottom-space") { Box(Modifier.padding(bottom = 24.dp)) }
     }
 }
 
+/** En-tête : dégradé tonal (ou bannière estompée), avatar, nom, abonnés, puis Lecture / Aléatoire / S'abonner. */
 @Composable
-private fun ArtistHeader(details: ArtistDetails, isSubscribed: Boolean, actions: ArtistActions) {
+private fun ArtistHeader(
+    details: ArtistDetails,
+    isSubscribed: Boolean,
+    actions: ArtistActions,
+    topInset: Dp,
+    modifier: Modifier = Modifier,
+) {
+    val haptics = LocalAppHaptics.current
     val artist = details.artist
-    Column {
+    val colors = MaterialTheme.colorScheme
+    val hasTracks = details.tracks.isNotEmpty()
+    Box(modifier.fillMaxWidth()) {
         if (details.bannerUrl != null) {
-            LibraryArtwork(
+            Artwork(
                 url = details.bannerUrl,
-                modifier = Modifier.fillMaxWidth().aspectRatio(BANNER_ASPECT_RATIO),
+                modifier = Modifier.matchParentSize(),
                 shape = RectangleShape,
-                fallbackIcon = Icons.Filled.Person,
+                placeholderIcon = Icons.Filled.Person,
             )
         }
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
+        // Voile : teinte du thème en haut, fondu vers la surface en bas pour raccorder la liste.
+        Box(
+            Modifier
+                .matchParentSize()
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            colors.primaryContainer.copy(alpha = if (details.bannerUrl != null) 0.72f else 1f),
+                            colors.surface,
+                        ),
+                    ),
+                ),
+        )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = topInset + Spacing.s, bottom = Spacing.l)
+                .padding(horizontal = ScreenHorizontalPadding),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(Spacing.xs),
         ) {
-            LibraryArtwork(
+            Artwork(
                 url = artist.avatarUrl,
-                modifier = Modifier.size(80.dp),
+                modifier = Modifier.size(HeaderAvatarSize),
                 shape = CircleShape,
-                fallbackIcon = Icons.Filled.Person,
+                contentDescription = stringResource(R.string.misc_artist_avatar_description, artist.name),
+                placeholderIcon = Icons.Filled.Person,
             )
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                text = artist.name,
+                style = MaterialTheme.typography.headlineMedium,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .padding(top = Spacing.s)
+                    .semantics { heading() },
+            )
+            artist.subscriberCount?.let { count ->
                 Text(
-                    text = artist.name,
-                    style = MaterialTheme.typography.headlineSmall,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
+                    text = stringResource(R.string.common_artist_subscribers, formatCompactCount(count)),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.onSurfaceVariant,
                 )
-                artist.subscriberCount?.let { count ->
-                    Text(
-                        text = stringResource(R.string.lib_subscribers, formatCompactCount(count)),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+            }
+            Row(
+                modifier = Modifier
+                    .widthIn(max = ContentMaxWidth)
+                    .fillMaxWidth()
+                    .padding(top = Spacing.m),
+                horizontalArrangement = Arrangement.spacedBy(Spacing.s),
+            ) {
+                Button(
+                    onClick = {
+                        haptics.click()
+                        actions.onPlayAll(false)
+                    },
+                    enabled = hasTracks,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Icon(Icons.Filled.PlayArrow, contentDescription = null, Modifier.size(18.dp))
+                    Text(stringResource(R.string.common_action_play), Modifier.padding(start = Spacing.s))
+                }
+                FilledTonalButton(
+                    onClick = {
+                        haptics.click()
+                        actions.onPlayAll(true)
+                    },
+                    enabled = hasTracks,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Icon(Icons.Filled.Shuffle, contentDescription = null, Modifier.size(18.dp))
+                    Text(stringResource(R.string.misc_action_shuffle), Modifier.padding(start = Spacing.s))
                 }
             }
-        }
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
+            val toggle = {
+                haptics.toggle(!isSubscribed)
+                actions.onToggleSubscription()
+            }
             if (isSubscribed) {
-                FilledTonalButton(onClick = actions.onToggleSubscription) {
+                FilledTonalButton(onClick = toggle) {
                     Icon(Icons.Filled.Check, contentDescription = null, Modifier.size(18.dp))
-                    Text(stringResource(R.string.lib_subscribed), Modifier.padding(start = 8.dp))
+                    Text(stringResource(R.string.misc_subscribed), Modifier.padding(start = Spacing.s))
                 }
             } else {
-                Button(onClick = actions.onToggleSubscription) {
+                OutlinedButton(onClick = toggle) {
                     Icon(Icons.Filled.PersonAdd, contentDescription = null, Modifier.size(18.dp))
-                    Text(stringResource(R.string.lib_subscribe), Modifier.padding(start = 8.dp))
+                    Text(stringResource(R.string.misc_subscribe), Modifier.padding(start = Spacing.s))
                 }
             }
-            OutlinedButton(
-                onClick = { actions.onPlayAll(true) },
-                enabled = details.tracks.isNotEmpty(),
-            ) {
-                Icon(Icons.Filled.Shuffle, contentDescription = null, Modifier.size(18.dp))
-                Text(stringResource(R.string.lib_shuffle), Modifier.padding(start = 8.dp))
-            }
         }
-        details.description?.takeIf { it.isNotBlank() }?.let { ExpandableDescription(it) }
     }
 }
 
 @Composable
 private fun ExpandableDescription(text: String) {
     var expanded by remember { mutableStateOf(false) }
+    val hint = stringResource(R.string.misc_description_expand)
     Text(
         text = text,
         style = MaterialTheme.typography.bodyMedium,
@@ -255,44 +399,39 @@ private fun ExpandableDescription(text: String) {
         overflow = TextOverflow.Ellipsis,
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { expanded = !expanded }
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .clickable(onClickLabel = hint) { expanded = !expanded }
+            .padding(horizontal = ScreenHorizontalPadding, vertical = Spacing.s),
     )
 }
 
-@Composable
-private fun SectionTitle(text: String) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.titleMedium,
-        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp),
-    )
-}
-
+/** Carte du carrousel d'albums / playlists : pochette, nom, nombre de titres. */
 @Composable
 private fun RemotePlaylistCard(playlist: RemotePlaylist, onClick: () -> Unit) {
+    val count = playlist.trackCount?.toInt()?.let { pluralStringResource(R.plurals.common_track_count, it, it) }
     Column(
         Modifier
-            .width(148.dp)
+            .width(ArtworkSize.Card)
             .clip(MaterialTheme.shapes.medium)
             .clickable(onClick = onClick),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(Spacing.xs),
     ) {
-        LibraryArtwork(
-            url = playlist.thumbnailUrl,
-            modifier = Modifier.size(148.dp),
-            shape = MaterialTheme.shapes.medium,
-        )
+        Artwork(url = playlist.thumbnailUrl, modifier = Modifier.size(ArtworkSize.Card), shape = MaterialTheme.shapes.medium)
         Text(
             text = playlist.name,
             style = MaterialTheme.typography.titleSmall,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
+        if (count != null) {
+            Text(
+                text = count,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+            )
+        }
     }
 }
-
-private const val BANNER_ASPECT_RATIO = 16f / 5f
 
 // region Previews
 
@@ -304,26 +443,37 @@ private fun previewDetails() = ArtistDetails(
     playlists = (1..4).map { RemotePlaylist("https://youtube.com/playlist?list=$it", "Album numéro $it", null, null, 12) },
 )
 
-@Preview(showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(showBackground = true, widthDp = 360, heightDp = 780)
 @Composable
 private fun ArtistPreview() {
-    MaterialTheme {
+    SpautifailleTheme(dynamicColor = false) {
         ArtistScreen(ArtistUiState(ArtistStatus.Content(previewDetails()), isSubscribed = false), ArtistActions())
     }
 }
 
-@Preview(showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(showBackground = true, widthDp = 360, heightDp = 780)
 @Composable
 private fun ArtistSubscribedPreview() {
-    MaterialTheme {
+    SpautifailleTheme(dynamicColor = false) {
         ArtistScreen(ArtistUiState(ArtistStatus.Content(previewDetails()), isSubscribed = true), ArtistActions())
     }
 }
 
-@Preview(showBackground = true, widthDp = 360, heightDp = 720)
+@Preview(showBackground = true, widthDp = 360, heightDp = 780)
+@Composable
+private fun ArtistEmptyPreview() {
+    SpautifailleTheme(dynamicColor = false) {
+        ArtistScreen(
+            ArtistUiState(ArtistStatus.Content(previewDetails().copy(tracks = emptyList(), playlists = emptyList()))),
+            ArtistActions(),
+        )
+    }
+}
+
+@Preview(showBackground = true, widthDp = 360, heightDp = 780)
 @Composable
 private fun ArtistErrorPreview() {
-    MaterialTheme {
+    SpautifailleTheme(dynamicColor = false) {
         ArtistScreen(ArtistUiState(ArtistStatus.Error(AppError.Network)), ArtistActions())
     }
 }

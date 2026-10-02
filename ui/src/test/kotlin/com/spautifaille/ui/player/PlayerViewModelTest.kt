@@ -7,10 +7,7 @@ import com.spautifaille.domain.player.PlaybackPosition
 import com.spautifaille.domain.player.PlayerState
 import com.spautifaille.domain.player.SleepTimer
 import com.spautifaille.ui.MainDispatcherRule
-import com.spautifaille.ui.R
 import com.spautifaille.ui.common.ElapsedClock
-import com.spautifaille.ui.common.UiMessenger
-import com.spautifaille.ui.common.UiText
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -33,7 +30,6 @@ class PlayerViewModelTest {
 
     private val stateFlow = MutableStateFlow(PlayerState())
     private val positionFlow = MutableStateFlow(PlaybackPosition())
-    private val messenger = UiMessenger()
     private lateinit var controller: PlaybackController
     private lateinit var viewModel: PlayerViewModel
 
@@ -45,7 +41,7 @@ class PlayerViewModelTest {
             every { state } returns stateFlow
             every { position } returns positionFlow
         }
-        viewModel = PlayerViewModel(controller, messenger, ElapsedClock { 0L })
+        viewModel = PlayerViewModel(controller, ElapsedClock { 0L })
     }
 
     /** Horloge `elapsedRealtime` simulée : suit le temps virtuel du test. */
@@ -120,7 +116,7 @@ class PlayerViewModelTest {
     fun `le temps restant decroit chaque seconde depuis l echeance et non depuis remainingMs`() = runTest {
         // `remainingMs` est périmé (publié une seule fois par le lecteur) : seule l'échéance compte.
         stateFlow.value = PlayerState(sleepTimer = SleepTimer.At(endsAtElapsedMs = 5_000, remainingMs = 999_999))
-        val vm = PlayerViewModel(controller, messenger, virtualClock())
+        val vm = PlayerViewModel(controller, virtualClock())
 
         vm.sleepTimerRemaining.test {
             assertEquals(5_000L, awaitItem())
@@ -136,7 +132,7 @@ class PlayerViewModelTest {
     @Test
     fun `le decompte s arrete a zero`() = runTest {
         stateFlow.value = PlayerState(sleepTimer = SleepTimer.At(endsAtElapsedMs = 2_000, remainingMs = 2_000))
-        val vm = PlayerViewModel(controller, messenger, virtualClock())
+        val vm = PlayerViewModel(controller, virtualClock())
 
         vm.sleepTimerRemaining.test {
             assertEquals(2_000L, awaitItem())
@@ -153,7 +149,7 @@ class PlayerViewModelTest {
 
     @Test
     fun `sans minuterie chronometree le flux vaut null et aucun tick n est emis`() = runTest {
-        val vm = PlayerViewModel(controller, messenger, virtualClock())
+        val vm = PlayerViewModel(controller, virtualClock())
 
         vm.sleepTimerRemaining.test {
             assertNull(awaitItem())
@@ -169,7 +165,7 @@ class PlayerViewModelTest {
     @Test
     fun `annuler la minuterie remet le temps restant a null et arrete le ticker`() = runTest {
         stateFlow.value = PlayerState(sleepTimer = SleepTimer.At(endsAtElapsedMs = 60_000, remainingMs = 60_000))
-        val vm = PlayerViewModel(controller, messenger, virtualClock())
+        val vm = PlayerViewModel(controller, virtualClock())
 
         vm.sleepTimerRemaining.test {
             assertEquals(60_000L, awaitItem())
@@ -184,7 +180,7 @@ class PlayerViewModelTest {
     @Test
     fun `une nouvelle minuterie repart de sa propre echeance`() = runTest {
         stateFlow.value = PlayerState(sleepTimer = SleepTimer.At(endsAtElapsedMs = 60_000, remainingMs = 60_000))
-        val vm = PlayerViewModel(controller, messenger, virtualClock())
+        val vm = PlayerViewModel(controller, virtualClock())
 
         vm.sleepTimerRemaining.test {
             assertEquals(60_000L, awaitItem())
@@ -199,71 +195,12 @@ class PlayerViewModelTest {
 
     // endregion
 
-    // region Retour du like
+    // region Like
 
     @Test
-    fun `un like affiche la confirmation une fois le nouvel etat observe`() = runTest {
+    fun `le like est delegue au lecteur`() = runTest {
         stateFlow.value = PlayerState(currentTrack = track, isCurrentLiked = false)
-
-        messenger.messages.test {
-            viewModel.toggleLike()
-            runCurrent()
-            expectNoEvents() // rien tant que le lecteur n'a pas publié le nouvel état
-
-            stateFlow.value = stateFlow.value.copy(isCurrentLiked = true)
-            assertEquals(UiText.of(R.string.snack_liked), awaitItem())
-        }
-        verify(exactly = 1) { controller.toggleLikeCurrent() }
-    }
-
-    @Test
-    fun `un unlike affiche la confirmation de retrait`() = runTest {
-        stateFlow.value = PlayerState(currentTrack = track, isCurrentLiked = true)
-
-        messenger.messages.test {
-            viewModel.toggleLike()
-            runCurrent()
-            stateFlow.value = stateFlow.value.copy(isCurrentLiked = false)
-            assertEquals(UiText.of(R.string.snack_unliked), awaitItem())
-        }
-    }
-
-    @Test
-    fun `un changement de titre apres le like n affiche rien`() = runTest {
-        stateFlow.value = PlayerState(currentTrack = track, isCurrentLiked = false)
-
-        messenger.messages.test {
-            viewModel.toggleLike()
-            runCurrent()
-
-            // Le titre suivant est déjà aimé : ce n'est pas la conséquence du toucher.
-            stateFlow.value = PlayerState(currentTrack = track.copy(id = "autre"), isCurrentLiked = true)
-            runCurrent()
-            advanceTimeBy(10_000)
-            expectNoEvents()
-        }
-    }
-
-    @Test
-    fun `sans changement d etat la confirmation n est jamais affichee`() = runTest {
-        stateFlow.value = PlayerState(currentTrack = track, isCurrentLiked = false)
-
-        messenger.messages.test {
-            viewModel.toggleLike()
-            advanceTimeBy(10_000)
-            stateFlow.value = stateFlow.value.copy(isCurrentLiked = true) // bien après le délai d'attente
-            runCurrent()
-            expectNoEvents()
-        }
-    }
-
-    @Test
-    fun `sans titre courant le like est delegue sans message`() = runTest {
-        messenger.messages.test {
-            viewModel.toggleLike()
-            runCurrent()
-            expectNoEvents()
-        }
+        viewModel.toggleLike()
         verify(exactly = 1) { controller.toggleLikeCurrent() }
     }
 

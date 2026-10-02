@@ -39,3 +39,34 @@ fun Throwable.toImportMessage(): UiText {
         UiText.of(error.toMessage())
     }
 }
+
+/** Étape d'un import vue par l'utilisateur (la lecture de la source est faite dès que le job existe). */
+enum class ImportStage { MATCHING, NEEDS_REVIEW, DONE, FAILED }
+
+fun ImportJob.stage(): ImportStage = when (state) {
+    ImportJobState.RUNNING -> ImportStage.MATCHING
+    ImportJobState.FAILED -> ImportStage.FAILED
+    ImportJobState.COMPLETED -> if (needsReview + notFound > 0) ImportStage.NEEDS_REVIEW else ImportStage.DONE
+}
+
+enum class StepState { DONE, CURRENT, FAILED, PENDING }
+
+/** État des trois étapes affichées (lecture, correspondance, vérification) pour [stage]. */
+fun stepStates(stage: ImportStage): List<StepState> = when (stage) {
+    ImportStage.MATCHING -> listOf(StepState.DONE, StepState.CURRENT, StepState.PENDING)
+    ImportStage.NEEDS_REVIEW -> listOf(StepState.DONE, StepState.DONE, StepState.CURRENT)
+    ImportStage.DONE -> listOf(StepState.DONE, StepState.DONE, StepState.DONE)
+    ImportStage.FAILED -> listOf(StepState.DONE, StepState.FAILED, StepState.PENDING)
+}
+
+/** Retour haptique à donner quand un job passe de [previous] à [current] ; `null` si rien à signaler. */
+enum class JobFeedback { CONFIRM, REJECT }
+
+fun jobFeedback(previous: ImportJobState?, current: ImportJobState): JobFeedback? {
+    if (previous != ImportJobState.RUNNING) return null
+    return when (current) {
+        ImportJobState.COMPLETED -> JobFeedback.CONFIRM
+        ImportJobState.FAILED -> JobFeedback.REJECT
+        ImportJobState.RUNNING -> null
+    }
+}

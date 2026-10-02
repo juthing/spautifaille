@@ -1,15 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Écran d'import -->
-    <string name="import_title">Importer une playlist</string>
-    <string name="import_back">Retour</string>
-
     <string name="import_file_title">Depuis un fichier</string>
-    <string name="import_file_description">Formats pris en charge : export Exportify (CSV), export de données Spotify (JSON), playlist Google Takeout YouTube (CSV), ou CSV générique avec les colonnes titre, artiste, album et durée.</string>
     <string name="import_file_button">Choisir un fichier</string>
 
-    <string name="import_youtube_title">Depuis YouTube / YouTube Music</string>
-    <string name="import_youtube_description">Collez le lien d\'une playlist publique ou non répertoriée.</string>
     <string name="import_url_label">Lien de la playlist</string>
     <string name="import_url_invalid">Ce lien n\'est pas celui d\'une playlist YouTube.</string>
     <string name="import_url_paste">Coller</string>
@@ -23,19 +17,14 @@
     </plurals>
 
     <!-- Liste des imports -->
-    <string name="import_jobs_title">Imports</string>
     <string name="import_jobs_empty">Aucun import pour le moment.</string>
-    <string name="import_job_running">En cours : %1$d / %2$d titres</string>
-    <string name="import_job_completed">Terminé : %1$d titres</string>
-    <string name="import_job_failed">Import interrompu</string>
     <string name="import_job_failed_default">L\'import a échoué.</string>
     <string name="import_chip_matched">%d trouvés</string>
     <string name="import_chip_review">%d à vérifier</string>
     <string name="import_chip_not_found">%d introuvables</string>
     <string name="import_action_open_playlist">Ouvrir la playlist</string>
     <string name="import_action_review">Vérifier</string>
-    <string name="import_action_delete">Supprimer</string>
-    <string name="import_error_generic">L\'import a échoué. Réessayez.</string>
+    <string name="import_error_generic">L\'import a échoué. Réessaie.</string>
 
     <!-- Revue -->
     <string name="import_review_title">Vérifier l\'import</string>
@@ -66,4 +55,35 @@
     <string name="import_review_status_review">À vérifier</string>
     <string name="import_review_status_not_found">Introuvable</string>
     <string name="import_review_status_pending">En attente</string>
+
+    <!-- Écran d'import : cartes de choix, progression, résumé -->
+    <string name="import_screen_title">Importer</string>
+    <string name="import_intro">D\'où viennent tes playlists ?</string>
+    <string name="import_file_card_description">Choisis un export enregistré sur ton appareil : le contenu est lu localement puis chaque titre est cherché sur YouTube.</string>
+    <string name="import_format_exportify">Exportify · CSV</string>
+    <string name="import_format_spotify">Spotify · JSON</string>
+    <string name="import_format_takeout">Google Takeout · CSV</string>
+    <string name="import_format_generic">CSV / JSON</string>
+    <string name="import_link_title">Depuis un lien</string>
+    <string name="import_link_description">Lien d\'une playlist YouTube ou YouTube Music, publique ou non répertoriée.</string>
+    <string name="import_link_hint">https://music.youtube.com/playlist?list=…</string>
+    <string name="import_recent_title">Imports récents</string>
+    <string name="import_stage_matching">Recherche des correspondances</string>
+    <string name="import_stage_review">Des titres sont à vérifier</string>
+    <string name="import_stage_done">Import terminé</string>
+    <string name="import_stage_failed">Import interrompu</string>
+    <string name="import_step_read">Lecture</string>
+    <string name="import_step_match">Correspondance</string>
+    <string name="import_step_review">Vérification</string>
+    <string name="import_progress_counter">%1$d sur %2$d titres</string>
+    <string name="import_progress_percent">%d %%</string>
+    <string name="import_delete_job_description">Supprimer l\'import « %1$s »</string>
+    <plurals name="import_tracks_total">
+        <item quantity="one">%d titre</item>
+        <item quantity="other">%d titres</item>
+    </plurals>
+    <string name="import_review_stat_matched">Trouvés</string>
+    <string name="import_review_stat_review">À vérifier</string>
+    <string name="import_review_stat_not_found">Introuvables</string>
+    <string name="import_review_validate_all_hint">Appuie sur « Valider » pour garder la proposition, ou choisis une autre version.</string>
 </resources>

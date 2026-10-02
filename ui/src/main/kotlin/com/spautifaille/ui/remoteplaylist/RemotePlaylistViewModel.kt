@@ -11,7 +11,7 @@ import com.spautifaille.domain.model.Track
 import com.spautifaille.domain.player.PlaybackController
 import com.spautifaille.domain.repository.PlaylistRepository
 import com.spautifaille.domain.repository.StreamRepository
-import com.spautifaille.ui.library.toLibraryAppError
+import com.spautifaille.ui.common.toAppError
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
@@ -95,7 +95,7 @@ class RemotePlaylistViewModel @Inject constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _uiState.value = RemotePlaylistUiState(status = RemotePlaylistStatus.Error(e.toLibraryAppError()))
+                _uiState.value = RemotePlaylistUiState(status = RemotePlaylistStatus.Error(e.toAppError()))
             }
         }
     }
@@ -130,7 +130,7 @@ class RemotePlaylistViewModel @Inject constructor(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            e.toLibraryAppError()
+            e.toAppError()
         }
     }
 
@@ -179,7 +179,7 @@ class RemotePlaylistViewModel @Inject constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _events.send(RemotePlaylistEvent.SaveFailed(e.toLibraryAppError()))
+                _events.send(RemotePlaylistEvent.SaveFailed(e.toAppError()))
             } finally {
                 _uiState.update { it.copy(isSaving = false) }
             }

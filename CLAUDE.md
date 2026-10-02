@@ -53,7 +53,10 @@ CI : `.github/workflows/android.yml` (tests, lint, APK debug + release en artefa
 - NewPipeExtractor n'est importé que dans `:data` (package `newpipe`) et, pour les helpers d'en-têtes (User-Agent VisionOS), dans `:player` via une abstraction si possible.
 - Room : `exportSchema = true` (`data/schemas`), **toute évolution de schéma = nouvelle version + `Migration` explicite + test `MigrationTestHelper`**. Pas de `fallbackToDestructiveMigration`.
 - Media3 : beaucoup d'API sont `@UnstableApi` → `@OptIn(UnstableApi::class)` localisé sur la classe concernée.
-- Chaînes UI en français dans `ui/src/main/res/values/strings.xml`.
+- Chaînes UI en français, **tutoiement partout** (app personnelle), réparties par zone : `strings.xml` (navigation, actions et erreurs communes, recherche, lecteur) + `strings_<zone>.xml` (`home`, `library`, `settings`, `import`, `downloads`, `discovery`, `player`, `misc`). Pas de chaîne inutilisée : vérifier par grep avant d'en laisser une.
+- Retours haptiques : toujours via `LocalAppHaptics.current` (`ui/common/Haptics.kt`, sémantique `click`/`toggle`/`confirm`/`reject`/`longPress`/`tick`…), jamais `LocalHapticFeedback` directement. Les composants partagés (`TrackListItem`…) le font déjà : ne pas le doubler chez l'appelant ; jamais à chaque frame.
+- Espacements, largeurs et tailles dans `ui/theme/Dimens.kt` (`Spacing`, `ScreenHorizontalPadding`, `SectionSpacing`, `ListBottomPadding`, `ContentMaxWidth`, `ArtworkSize`) plutôt que des `dp` en dur. États vides / erreur / chargement : `EmptyState`, `ErrorState`, `LoadingState` (`ui/components/States.kt`).
+- En-têtes d'écran : `TopAppBar` standard (jamais `LargeTopAppBar` : grand blanc en haut). Navigation : 3 onglets racine (Accueil, Bibliothèque, Réglages) ; la recherche est un écran poussé depuis l'Accueil (`SearchRoute`).
 - Tests : JUnit4 + kotlinx-coroutines-test + Turbine + MockK ; Robolectric pour Room/Android. Tests obligatoires : parsers d'import, scoring du matching, use cases, filtrage des recommandations, DAO + migrations.
 
 ## Architecture de lecture
@@ -76,5 +79,6 @@ On suit le commit épinglé par l'app NewPipe (testé en production) :
 - Vidéos « made for kids » non lisibles ; `SignInConfirmNotBotException` / HTTP 429 = throttling IP (`AppError.BotDetected`).
 - Le `Downloader` ne doit pas écraser les en-têtes fournis par la requête NewPipe (User-Agent spécifique) et doit renvoyer les réponses non-2xx sans lever (sauf 429 → `ReCaptchaException`).
 - Recherche YouTube Music : les paramètres de filtre de NewPipeExtractor sont périmés → `data/src/main/java/.../PatchedYoutubeMusicSearchExtractor.java` (copie avec paramètres à jour). Titres/Albums peuvent renvoyer « aucun résultat » selon l'IP → repli automatique (Titres → vidéos YTM → vidéos, Albums → playlists) dans `NewPipeStreamRepository.search`. À retirer quand l'upstream corrige.
+- Signature release : `app/build.gradle.kts` lit `SPAUTIFAILLE_KEYSTORE_PATH`, `SPAUTIFAILLE_KEYSTORE_PASSWORD`, `SPAUTIFAILLE_KEY_ALIAS`, `SPAUTIFAILLE_KEY_PASSWORD` (en CI : secrets GitHub, dont `SPAUTIFAILLE_KEYSTORE_BASE64` décodé en .jks) ; absentes → repli clé de debug + warning (APK non mettable à jour par-dessus). Ne jamais commiter de keystore.
 - Gradle 9 échoue si un module a des sources de test mais aucun test découvert (`failOnNoDiscoveredTests`).
 - JitPack ne sert que `com.github.*` (filtre dans `settings.gradle.kts`). Maven Central passe par le miroir Google (évite les 429).

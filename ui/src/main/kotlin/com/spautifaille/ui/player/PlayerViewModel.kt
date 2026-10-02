@@ -6,25 +6,18 @@ import com.spautifaille.domain.player.PlaybackController
 import com.spautifaille.domain.player.PlaybackPosition
 import com.spautifaille.domain.player.PlayerState
 import com.spautifaille.domain.player.SleepTimer
-import com.spautifaille.ui.R
 import com.spautifaille.ui.common.ElapsedClock
-import com.spautifaille.ui.common.UiMessenger
-import com.spautifaille.ui.common.UiText
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
@@ -36,7 +29,6 @@ import javax.inject.Inject
 @HiltViewModel
 class PlayerViewModel @Inject constructor(
     private val controller: PlaybackController,
-    private val messenger: UiMessenger,
     private val clock: ElapsedClock,
 ) : ViewModel() {
 
@@ -71,8 +63,6 @@ class PlayerViewModel @Inject constructor(
             (controller.state.value.sleepTimer as? SleepTimer.At)?.let { remainingOf(it) },
         )
 
-    private var likeFeedbackJob: Job? = null
-
     fun togglePlayPause() = controller.togglePlayPause()
     fun next() = controller.next()
     fun previous() = controller.previous()
@@ -81,24 +71,8 @@ class PlayerViewModel @Inject constructor(
     fun cycleRepeatMode() = controller.cycleRepeatMode()
     fun setSpeed(speed: Float) = controller.setSpeed(speed)
 
-    /**
-     * Like / unlike du titre courant, puis snackbar « Ajouté aux Titres likés » / « Retiré des Titres likés »
-     * une fois le nouvel état observé sur le même titre (un changement de titre n'affiche rien).
-     */
-    fun toggleLike() {
-        val before = state.value
-        val trackId = before.currentTrack?.id
-        controller.toggleLikeCurrent()
-        if (trackId == null) return
-        likeFeedbackJob?.cancel()
-        likeFeedbackJob = viewModelScope.launch {
-            val after = withTimeoutOrNull(LIKE_FEEDBACK_TIMEOUT_MS) {
-                state.first { it.currentTrack?.id != trackId || it.isCurrentLiked != before.isCurrentLiked }
-            } ?: return@launch
-            if (after.currentTrack?.id != trackId) return@launch
-            messenger.show(UiText.of(if (after.isCurrentLiked) R.string.snack_liked else R.string.snack_unliked))
-        }
-    }
+    /** Like / unlike du titre courant. Aucun message : le bouton j'aime porte lui-même son animation de confirmation. */
+    fun toggleLike() = controller.toggleLikeCurrent()
 
     fun setSleepTimerMinutes(minutes: Int) =
         controller.setSleepTimer(TimeUnit.MINUTES.toMillis(minutes.toLong()))
@@ -117,6 +91,5 @@ class PlayerViewModel @Inject constructor(
     private companion object {
         const val TICK_MS = 1_000L
         const val STOP_TIMEOUT_MS = 5_000L
-        const val LIKE_FEEDBACK_TIMEOUT_MS = 3_000L
     }
 }
