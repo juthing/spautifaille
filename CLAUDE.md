@@ -62,6 +62,8 @@ CI : `.github/workflows/android.yml` (tests, lint, APK debug + release en artefa
 ## Couleurs « Musique en cours »
 Une seule chaîne, partagée par le thème global (`ColorSource.NOW_PLAYING`, `SpautifailleAppUi`) et le lecteur plein écran (`PlayerColorScheme`) : `ui/theme/ArtworkSeedColor.kt` (`rememberArtworkSeedColor(url)` : Coil 128 px + Palette, swatch vibrant, cache LRU partagé) → `ui/theme/ArtworkColors.kt` (`deriveArtworkColors` : accent `primary*` en HSL à contraste garanti) → `ui/theme/SeedColorScheme.kt` (`nowPlayingColorScheme` : surfaces/secondary/tertiary en `SchemeTonalSpot`, `primary*` et `surfaceTint` repris de `deriveArtworkColors`). Le grand lecteur n'a donc jamais d'accent différent de celui de l'application ; ne pas recréer d'extraction ni de dérivation parallèle.
 
+Thème « Normal » (`ColorSource.STATIC`) : `ui/theme/Color.kt` génère `LightColors`/`DarkColors` au chargement via `brandColorScheme` (variante `SchemeContent`, `primary*` calés sur la graine) depuis `BrandSeed` = orange de l'icône #E34211. Changer la couleur de marque = changer cette seule constante.
+
 ## Architecture de lecture
 - `PlaybackService` (MediaLibraryService, foreground `mediaPlayback`) possède l'ExoPlayer et la MediaSession. L'UI passe par `PlaybackController` (MediaController) : le player ne vit jamais dans l'UI.
 - Chaîne de data sources : `CacheDataSource(SimpleCache)` → `ResolvingDataSource` (fichier téléchargé prioritaire, sinon `StreamRepository.resolveAudio`, cache TTL mémoire invalidé sur 403) → `YoutubeHttpDataSource` (portage Media3 de celui de NewPipe : User-Agent VisionOS, POST `{0x78,0x00}`, `&range=` au lieu de l'en-tête Range, `&rn=`).
