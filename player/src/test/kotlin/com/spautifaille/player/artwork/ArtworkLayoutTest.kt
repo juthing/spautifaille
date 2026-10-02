@@ -86,70 +86,48 @@ class ArtworkLayoutTest {
         assertEquals(PixelRect(0, 0, 8, 8), ArtworkLayout.findContentBounds(IntArray(64), 8, 8))
     }
 
-    // --- Plan ---
+    // --- Recadrage ---
 
     @Test
-    fun `image 16 9 remplit l affiche`() {
-        assertEquals(ArtworkPlan.Fill(PixelRect(0, 0, 1280, 720)), ArtworkLayout.plan(PixelRect(0, 0, 1280, 720)))
+    fun `image 16 9 est conservee en entier`() {
+        assertEquals(PixelRect(0, 0, 1280, 720), ArtworkLayout.cropRegion(PixelRect(0, 0, 1280, 720)))
     }
 
     @Test
-    fun `image plus large que 16 9 est recadree au centre`() {
-        val plan = ArtworkLayout.plan(PixelRect(0, 0, 1600, 640)) as ArtworkPlan.Fill // 2,5
-        assertEquals(1138, plan.source.width) // 640 * 16/9
-        assertEquals(640, plan.source.height)
-        assertEquals((1600 - 1138) / 2, plan.source.left)
+    fun `image plus large que 16 9 est recadree sur les cotes`() {
+        val region = ArtworkLayout.cropRegion(PixelRect(0, 0, 1600, 640)) // 2,5
+        assertEquals(1138, region.width) // 640 * 16/9
+        assertEquals(640, region.height)
+        assertEquals((1600 - 1138) / 2, region.left)
     }
 
     @Test
-    fun `4 3 ou carree est posee sur un fond flou`() {
-        val square = ArtworkLayout.plan(PixelRect(0, 0, 1200, 1200)) as ArtworkPlan.Fit
-        assertEquals(576, square.destination.height) // 80 % de 720
-        assertEquals(576, square.destination.width)
-        assertEquals((1280 - 576) / 2, square.destination.left)
-        assertEquals((720 - 576) / 2, square.destination.top)
-        // Le fond est le contenu recadré en 16:9 (ici, la bande centrale du carré).
-        assertEquals(PixelRect(0, 262, 1200, 937), square.backgroundSource)
-
-        val fourThree = ArtworkLayout.plan(PixelRect(0, 0, 640, 480)) as ArtworkPlan.Fit
-        assertEquals(576, fourThree.destination.height)
-        assertEquals(768, fourThree.destination.width)
+    fun `pochette carree est recadree en haut et en bas, centree`() {
+        // 1200x1200 -> bande 1200x675 : 44 % de la hauteur est coupée, répartie à parts égales.
+        assertEquals(PixelRect(0, 262, 1200, 937), ArtworkLayout.cropRegion(PixelRect(0, 0, 1200, 1200)))
     }
 
     @Test
-    fun `bandeau tres large est pose sans depasser l affiche`() {
-        val plan = ArtworkLayout.plan(PixelRect(0, 0, 3000, 600)) as ArtworkPlan.Fit // 5:1
-        assertTrue(plan.destination.left >= 0 && plan.destination.right <= 1280)
-        assertEquals(1152, plan.destination.width) // 90 % de la largeur
+    fun `4 3 est recadre en haut et en bas`() {
+        val region = ArtworkLayout.cropRegion(PixelRect(0, 0, 640, 480))
+        assertEquals(PixelRect(0, 60, 640, 420), region)
+        assertEquals(16f / 9f, region.aspect, 0.01f)
+    }
+
+    @Test
+    fun `le recadrage de tout rapport donne du 16 9 dans le rectangle`() {
+        for ((w, h) in listOf(1200 to 1200, 640 to 480, 480 to 360, 3000 to 600, 300 to 900, 1280 to 720)) {
+            val content = PixelRect(10, 20, 10 + w, 20 + h)
+            val region = ArtworkLayout.cropRegion(content)
+            assertEquals("${w}x$h", 16f / 9f, region.aspect, 0.02f)
+            assertTrue(region.left >= content.left && region.right <= content.right)
+            assertTrue(region.top >= content.top && region.bottom <= content.bottom)
+        }
     }
 
     @Test
     fun `centerCrop respecte le rapport demande et reste dans le rectangle`() {
         assertEquals(PixelRect(260, 20, 760, 520), ArtworkLayout.centerCrop(PixelRect(10, 20, 1010, 520), 1f))
         assertEquals(PixelRect(0, 300, 400, 500), ArtworkLayout.centerCrop(PixelRect(0, 0, 400, 800), 2f))
-    }
-
-    // --- Flou ---
-
-    @Test
-    fun `flou d une image uniforme la laisse inchangee`() {
-        val pixels = IntArray(16 * 9) { 0xFF336699.toInt() }
-        ArtworkLayout.boxBlur(pixels, 16, 9, radius = 3, passes = 3)
-        assertTrue(pixels.all { it == 0xFF336699.toInt() })
-    }
-
-    @Test
-    fun `flou etale un point lumineux`() {
-        val w = 21
-        val h = 21
-        val pixels = IntArray(w * h) { 0xFF000000.toInt() }
-        pixels[10 * w + 10] = 0xFFFFFFFF.toInt()
-        ArtworkLayout.boxBlur(pixels, w, h, radius = 2, passes = 2)
-        val center = pixels[10 * w + 10] and 0xFF
-        val neighbour = pixels[10 * w + 11] and 0xFF
-        assertTrue("centre atténué", center in 1..254)
-        assertTrue("voisin éclairé", neighbour > 0)
-        assertTrue("centre >= voisin", center >= neighbour)
-        assertTrue(pixels.all { (it ushr 24) == 0xFF })
     }
 }

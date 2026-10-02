@@ -2,28 +2,16 @@ package com.spautifaille.player.artwork
 
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.Paint
-import android.graphics.Path
 import android.graphics.Rect
-import android.graphics.RectF
 
 /**
  * Fabrique l'affiche paysage 1280x720 du lecteur système (carte média, écran de verrouillage) à partir d'une image
  * quelconque (miniature YouTube, pochette carrée...). La géométrie vit dans [ArtworkLayout] ; ici, uniquement le
- * dessin :
- * - image déjà ~16:9 (une fois ses bandes noires retirées) : recadrée au centre, plein cadre ;
- * - sinon (pochette carrée, 4:3...) : posée au centre d'une version agrandie, floue et assombrie d'elle-même.
+ * dessin : les bandes noires intégrées à la miniature sont retirées, puis le contenu utile est **recadré au centre en
+ * 16:9 et remplit tout le cadre** (jamais de bande ni de fond, quel que soit le rapport de l'image).
  */
 internal object LandscapeArtworkComposer {
-
-    private const val BLUR_WIDTH = 64
-    private const val BLUR_RADIUS = 3
-    private const val BLUR_PASSES = 3
-
-    /** Voile noir (0..255) sur le fond flou : la pochette ressort et le texte du lecteur reste lisible. */
-    private const val BACKGROUND_DIM_ALPHA = 80
-    private const val CORNER_RADIUS_RATIO = 0.04f
 
     /** Retourne toujours un nouveau bitmap [ArtworkLayout.CANVAS_WIDTH] x [ArtworkLayout.CANVAS_HEIGHT] ; [source] n'est pas modifié. */
     fun compose(source: Bitmap): Bitmap {
@@ -31,45 +19,11 @@ internal object LandscapeArtworkComposer {
         val height = source.height
         val pixels = IntArray(width * height)
         source.getPixels(pixels, 0, width, 0, 0, width, height)
-        val content = ArtworkLayout.findContentBounds(pixels, width, height)
+        val region = ArtworkLayout.cropRegion(ArtworkLayout.findContentBounds(pixels, width, height))
 
         val output = Bitmap.createBitmap(ArtworkLayout.CANVAS_WIDTH, ArtworkLayout.CANVAS_HEIGHT, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(output)
-        when (val plan = ArtworkLayout.plan(content)) {
-            is ArtworkPlan.Fill -> drawScaled(canvas, source, plan.source, Rect(0, 0, output.width, output.height))
-            is ArtworkPlan.Fit -> {
-                drawBlurredBackground(canvas, source, plan.backgroundSource, output.width, output.height)
-                val destination = plan.destination
-                val radius = destination.height * CORNER_RADIUS_RATIO
-                canvas.save()
-                canvas.clipPath(
-                    Path().apply {
-                        addRoundRect(
-                            RectF(destination.left.toFloat(), destination.top.toFloat(), destination.right.toFloat(), destination.bottom.toFloat()),
-                            radius,
-                            radius,
-                            Path.Direction.CW,
-                        )
-                    },
-                )
-                drawScaled(canvas, source, plan.content, Rect(destination.left, destination.top, destination.right, destination.bottom))
-                canvas.restore()
-            }
-        }
+        drawScaled(Canvas(output), source, region, Rect(0, 0, output.width, output.height))
         return output
-    }
-
-    private fun drawBlurredBackground(canvas: Canvas, source: Bitmap, region: PixelRect, width: Int, height: Int) {
-        val blurHeight = (BLUR_WIDTH * height / width).coerceAtLeast(1)
-        val small = scaleDown(source, region, BLUR_WIDTH, blurHeight)
-        val pixels = IntArray(small.width * small.height)
-        small.getPixels(pixels, 0, small.width, 0, 0, small.width, small.height)
-        ArtworkLayout.boxBlur(pixels, small.width, small.height, BLUR_RADIUS, BLUR_PASSES)
-        val blurred = Bitmap.createBitmap(pixels, small.width, small.height, Bitmap.Config.ARGB_8888)
-        canvas.drawBitmap(blurred, null, Rect(0, 0, width, height), newPaint())
-        canvas.drawColor(Color.argb(BACKGROUND_DIM_ALPHA, 0, 0, 0))
-        blurred.recycle()
-        if (small !== source) small.recycle()
     }
 
     /** Dessine [region] de [source] dans [destination], en réduisant par moitiés pour éviter le crénelage. */
