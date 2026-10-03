@@ -15,6 +15,8 @@ import com.spautifaille.ui.network.NetworkMonitor
 import com.spautifaille.ui.search.DataStoreSearchHistoryRepository
 import com.spautifaille.ui.search.SEARCH_HISTORY_DATASTORE_NAME
 import com.spautifaille.ui.search.SearchHistoryRepository
+import com.spautifaille.ui.youtube.AndroidWebSessionCleaner
+import com.spautifaille.ui.youtube.WebSessionCleaner
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -38,6 +40,10 @@ abstract class UiBindingsModule {
     @Binds
     @Singleton
     abstract fun bindSearchHistoryRepository(impl: DataStoreSearchHistoryRepository): SearchHistoryRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindWebSessionCleaner(impl: AndroidWebSessionCleaner): WebSessionCleaner
 
     companion object {
         @Provides

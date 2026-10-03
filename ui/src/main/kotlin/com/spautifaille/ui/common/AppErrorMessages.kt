@@ -19,6 +19,8 @@ fun AppError.toMessage(): Int = when (this) {
     is AppError.ExtractionBroken -> R.string.apperror_extraction_broken
     AppError.MicrophoneUnavailable -> R.string.apperror_microphone_unavailable
     AppError.RecognitionUnavailable -> R.string.apperror_recognition_unavailable
+    AppError.YouTubeAuthRequired -> R.string.apperror_youtube_auth_required
+    is AppError.YouTubeSyncFailed -> R.string.apperror_youtube_sync_failed
     is AppError.Unknown -> R.string.apperror_unknown
 }
 

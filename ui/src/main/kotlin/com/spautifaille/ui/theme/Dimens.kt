@@ -45,4 +45,10 @@ object ArtworkSize {
 
     /** Avatar d'artiste dans une liste. */
     val Avatar: Dp = 48.dp
+
+    /** Photo de profil du compte YouTube dans une barre d'application. */
+    val AccountAvatar: Dp = 32.dp
+
+    /** Photo de profil du compte YouTube dans le menu de compte et les réglages. */
+    val AccountAvatarLarge: Dp = 56.dp
 }

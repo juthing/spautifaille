@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Avatar et menu de compte -->
+    <string name="yt_avatar_sign_in_description">Se connecter à YouTube</string>
+    <string name="yt_avatar_account_description">Compte YouTube de %1$s</string>
+    <string name="yt_avatar_problem_description">Problème de synchronisation YouTube</string>
+    <string name="yt_menu_account_settings">Réglages du compte</string>
+    <string name="yt_menu_sign_out">Se déconnecter</string>
+    <string name="yt_never_synced">Pas encore synchronisé</string>
+    <string name="yt_syncing">Synchronisation en cours…</string>
+    <string name="yt_synced_just_now">Synchronisé à l\'instant</string>
+    <string name="yt_synced_minutes_ago">Synchronisé il y a %1$d min</string>
+    <string name="yt_synced_hours_ago">Synchronisé il y a %1$d h</string>
+    <string name="yt_synced_days_ago">Synchronisé il y a %1$d j</string>
+    <plurals name="yt_pending_actions">
+        <item quantity="one">%d action en attente</item>
+        <item quantity="other">%d actions en attente</item>
+    </plurals>
+    <string name="yt_sync_failed_short">La dernière synchronisation a échoué</string>
+
+    <!-- Page de réglages du compte -->
+    <string name="yt_account_title">Compte YouTube</string>
+    <string name="yt_signed_out_title">Connecte ton compte YouTube</string>
+    <string name="yt_signed_out_body">Synchronise tes titres likés, tes artistes suivis et les playlists de ton choix avec YouTube Music. Sans compte, l\'application fonctionne exactement comme avant.</string>
+    <string name="yt_risk_note">Cette fonction utilise l\'interface interne de YouTube Music, non documentée : elle peut cesser de fonctionner à tout moment. Elle est contraire aux conditions d\'utilisation de YouTube ; le risque pour ton compte est faible mais pas nul.</string>
+    <string name="yt_sign_in_button">Se connecter avec Google</string>
+    <string name="yt_reauth_title">Reconnexion nécessaire</string>
+    <string name="yt_reauth_body">Ta session YouTube a expiré. Tes données locales sont conservées ; reconnecte-toi pour reprendre la synchronisation.</string>
+    <string name="yt_reauth_action">Se reconnecter</string>
+    <string name="yt_sync_section">Synchronisation</string>
+    <string name="yt_sync_now">Synchroniser maintenant</string>
+    <string name="yt_sync_started">Synchronisation lancée</string>
+    <string name="yt_last_sync_label">Dernière synchronisation</string>
+    <string name="yt_pending_label">Actions en attente</string>
+    <string name="yt_nothing_pending">Aucune action en attente</string>
+    <string name="yt_likes_section">Titres likés</string>
+    <string name="yt_likes_music_only">Likes : uniquement la musique</string>
+    <string name="yt_likes_music_only_summary">Désactivé : toute ta liste « J\'aime » de YouTube. Activé : seulement « Musique likée » de YouTube Music.</string>
+    <string name="yt_diagnostic_section">Diagnostic</string>
+    <string name="yt_diagnostic_mode">Mode diagnostic</string>
+    <string name="yt_diagnostic_mode_summary">Affiche la dernière erreur de synchronisation (endpoint et message).</string>
+    <string name="yt_diagnostic_no_error">Aucune erreur de synchronisation.</string>
+    <string name="yt_diagnostic_error_title">Dernière erreur</string>
+    <string name="yt_diagnostic_endpoint">Endpoint : %1$s</string>
+    <string name="yt_diagnostic_message">Message : %1$s</string>
+    <string name="yt_sign_out_title">Se déconnecter de YouTube ?</string>
+    <string name="yt_sign_out_message">Les identifiants et les liens de synchronisation seront effacés. Tes titres likés, tes artistes et tes playlists restent sur ce téléphone, et rien n\'est supprimé sur YouTube.</string>
+    <string name="yt_signed_out">Tu es déconnecté de YouTube</string>
+
+    <!-- Connexion (WebView) -->
+    <string name="yt_login_title">Connexion à YouTube</string>
+    <string name="yt_login_checking">Vérification du compte…</string>
+    <string name="yt_login_refused">YouTube a refusé la connexion. Réessaie.</string>
+    <string name="yt_login_capture_failed">Impossible de récupérer la session de YouTube Music. Réessaie.</string>
+
+    <!-- Import de playlists depuis le compte -->
+    <string name="yt_import_option_title">Importer depuis YouTube</string>
+    <string name="yt_import_option_body">Choisis des playlists de ton compte : elles restent synchronisées dans les deux sens.</string>
+    <string name="yt_picker_title">Importer depuis YouTube</string>
+    <string name="yt_picker_empty_title">Aucune playlist</string>
+    <string name="yt_picker_empty_body">Ton compte YouTube Music n\'a pas encore de playlist.</string>
+    <string name="yt_picker_already_linked">Déjà importée</string>
+    <string name="yt_picker_read_only">Lecture seule</string>
+    <string name="yt_picker_select_all">Tout sélectionner</string>
+    <string name="yt_picker_select_none">Tout désélectionner</string>
+    <string name="yt_picker_import_none">Importer</string>
+    <plurals name="yt_picker_import_count">
+        <item quantity="one">Importer %d playlist</item>
+        <item quantity="other">Importer %d playlists</item>
+    </plurals>
+    <string name="yt_import_done">Playlists importées : %1$d</string>
+
+    <!-- Playlist liée -->
+    <string name="yt_linked_badge">Synchronisée avec YouTube</string>
+    <string name="yt_unlink">Délier de YouTube</string>
+    <string name="yt_unlink_title">Délier la playlist ?</string>
+    <string name="yt_unlink_message">Elle ne sera plus synchronisée avec YouTube. La playlist reste intacte sur ce téléphone et sur YouTube.</string>
+    <string name="yt_unlinked">Playlist déliée de YouTube</string>
+    <string name="yt_publish">Publier sur YouTube</string>
+    <string name="yt_published">Playlist publiée sur YouTube</string>
+</resources>
