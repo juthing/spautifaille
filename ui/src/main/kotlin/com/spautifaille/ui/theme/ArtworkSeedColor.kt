@@ -1,4 +1,4 @@
-package com.spautifaille.ui.player
+package com.spautifaille.ui.theme
 
 import android.content.Context
 import android.util.LruCache
@@ -22,18 +22,26 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+/*
+ * Extraction de la couleur source d'une pochette : source de vérité unique, partagée par le lecteur plein écran
+ * (`FullPlayerScreen`) et par le thème « Musique en cours » de l'application (`SpautifailleAppUi`). Même image
+ * (URL du titre), même algorithme (Palette), même cache : les deux voient toujours la même couleur.
+ */
+
 /** Côté (px) auquel la pochette est décodée pour l'extraction : largement suffisant pour Palette. */
 private const val PALETTE_BITMAP_SIZE = 128
 private const val PALETTE_MAX_COLORS = 24
-private const val SEED_CACHE_SIZE = 32
+private const val SEED_CACHE_SIZE = 64
 
-/** Cache mémoire url -> couleur (ARGB) : réouvrir le lecteur ou revenir sur un titre ne recalcule rien. */
+/** Cache mémoire url -> couleur (ARGB) : réouvrir le lecteur ou revenir sur un titre ne recalcule rien. Les échecs ne sont pas mémorisés. */
 private val seedCache = LruCache<String, Int>(SEED_CACHE_SIZE)
 
 /**
  * Couleur dominante (vibrante si possible) de la pochette [url], extraite hors du thread principal via un
  * bitmap Coil (logiciel) et Palette. La valeur précédente est conservée pendant le calcul pour éviter un
- * retour brutal aux couleurs du thème entre deux titres ; `null` si pas de pochette ou en cas d'échec.
+ * retour brutal aux couleurs du thème entre deux titres ; `null` si pas de pochette ([url] nulle ou vide) ou en cas
+ * d'échec. Si la couleur est déjà en cache (l'autre consommateur l'a calculée), elle est disponible dès la première
+ * composition.
  */
 @Composable
 internal fun rememberArtworkSeedColor(url: String?): State<Color?> {
@@ -49,13 +57,11 @@ internal fun rememberArtworkSeedColor(url: String?): State<Color?> {
             Color(cached)
         } else {
             val seed = withContext(Dispatchers.Default) { extractSeedColor(context, url) }
-            if (seed != null) seedCache.put(url, seed.toArgbInt())
+            if (seed != null) seedCache.put(url, seed.toArgb())
             seed
         }
     }
 }
-
-private fun Color.toArgbInt(): Int = toArgb()
 
 private suspend fun extractSeedColor(context: Context, url: String): Color? = try {
     val request = ImageRequest.Builder(context)
@@ -73,7 +79,7 @@ private suspend fun extractSeedColor(context: Context, url: String): Color? = tr
 }
 
 /** Préfère un swatch vibrant ; retombe sur le dominant si la pochette est presque grise (accent marginal). */
-private fun pickSeed(palette: Palette): Color? {
+internal fun pickSeed(palette: Palette): Color? {
     val dominant = palette.dominantSwatch
     val vibrant = palette.vibrantSwatch
         ?: palette.darkVibrantSwatch

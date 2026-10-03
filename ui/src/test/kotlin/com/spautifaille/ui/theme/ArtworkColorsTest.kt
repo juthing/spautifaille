@@ -1,4 +1,4 @@
-package com.spautifaille.ui.player
+package com.spautifaille.ui.theme
 
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -8,7 +8,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.math.abs
 
-class PlayerColorsTest {
+class ArtworkColorsTest {
     private val light = lightColorScheme()
     private val dark = darkColorScheme()
 
@@ -27,7 +27,7 @@ class PlayerColorsTest {
 
     @Test
     fun `sans pochette on reprend le schema du theme`() {
-        val colors = derivePlayerColors(seed = null, scheme = light, dark = false)
+        val colors = deriveArtworkColors(seed = null, scheme = light, dark = false)
         assertEquals(light.primary, colors.primary)
         assertEquals(light.onPrimary, colors.onPrimary)
         assertEquals(light.primaryContainer, colors.primaryContainer)
@@ -50,7 +50,7 @@ class PlayerColorsTest {
         val blue = Color(0xFF1E88E5)
         val hue = blue.toHsl().h
         listOf(true, false).forEach { isDark ->
-            val colors = derivePlayerColors(blue, if (isDark) dark else light, isDark)
+            val colors = deriveArtworkColors(blue, if (isDark) dark else light, isDark)
             assertTrue(abs(colors.primary.toHsl().h - hue) < 5f)
         }
     }
@@ -58,7 +58,7 @@ class PlayerColorsTest {
     @Test
     fun `le texte reste lisible sur le fond et sur l'accent en theme sombre`() {
         seeds.forEach { seed ->
-            val colors = derivePlayerColors(seed, dark, dark = true)
+            val colors = deriveArtworkColors(seed, dark, dark = true)
             assertTrue("fond $seed", contrast(dark.onSurface, colors.backgroundTop) >= 7f)
             assertTrue("bouton $seed", contrast(colors.onPrimary, colors.primary) >= 4.5f)
             assertTrue("pastille $seed", contrast(colors.onPrimaryContainer, colors.primaryContainer) >= 4.5f)
@@ -69,7 +69,7 @@ class PlayerColorsTest {
     @Test
     fun `le texte reste lisible sur le fond et sur l'accent en theme clair`() {
         seeds.forEach { seed ->
-            val colors = derivePlayerColors(seed, light, dark = false)
+            val colors = deriveArtworkColors(seed, light, dark = false)
             assertTrue("fond $seed", contrast(light.onSurface, colors.backgroundTop) >= 7f)
             assertTrue("bouton $seed", contrast(colors.onPrimary, colors.primary) >= 4.5f)
             assertTrue("pastille $seed", contrast(colors.onPrimaryContainer, colors.primaryContainer) >= 4.5f)

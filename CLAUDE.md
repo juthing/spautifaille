@@ -9,7 +9,7 @@ Priorités : robustesse, architecture propre, intégration système parfaite, Ma
 - Gradle 9.6.0, JDK 21 (bytecode 17), Kotlin 2.4.20, KSP 2.3.12
 - compileSdk/targetSdk 37, minSdk 26, core library desugaring (`desugar_jdk_libs_nio`, requis par NewPipe)
 - Compose BOM 2026.09.00 (Material 3 1.4.0), `material-icons-extended` (**toujours `Icons.Filled`**), navigation-suite, Navigation Compose 2.10 (routes typées `@Serializable`)
-- Media3 1.11.1, Room 2.8.5, Hilt 2.60.1, WorkManager 2.12.0, DataStore 1.2.1, Coil 3.6.3, OkHttp 5.5.0, material-color-utilities 5.0.1 (thème « Musique en cours » : HCT, `SchemeTonalSpot`, quantification Celebi)
+- Media3 1.11.1, Room 2.8.5, Hilt 2.60.1, WorkManager 2.12.0, DataStore 1.2.1, Coil 3.6.3, OkHttp 5.5.0, material-color-utilities 5.0.1 (HCT, `SchemeTonalSpot` : base du thème « Musique en cours »), Palette 1.0.0 (couleur source des pochettes)
 - NewPipeExtractor : commit épinglé (voir « Mettre à jour NewPipeExtractor »)
 
 ## Modules
@@ -59,6 +59,11 @@ CI : `.github/workflows/android.yml` (tests, lint, APK debug + release en artefa
 - En-têtes d'écran : `TopAppBar` standard (jamais `LargeTopAppBar` : grand blanc en haut). Navigation : 3 onglets racine (Accueil, Bibliothèque, Réglages) ; la recherche est un écran poussé depuis l'Accueil (`SearchRoute`).
 - Tests : JUnit4 + kotlinx-coroutines-test + Turbine + MockK ; Robolectric pour Room/Android. Tests obligatoires : parsers d'import, scoring du matching, use cases, filtrage des recommandations, DAO + migrations.
 
+## Couleurs « Musique en cours »
+Une seule chaîne, partagée par le thème global (`ColorSource.NOW_PLAYING`, `SpautifailleAppUi`) et le lecteur plein écran (`PlayerColorScheme`) : `ui/theme/ArtworkSeedColor.kt` (`rememberArtworkSeedColor(url)` : Coil 128 px + Palette, swatch vibrant, cache LRU partagé) → `ui/theme/ArtworkColors.kt` (`deriveArtworkColors` : accent `primary*` en HSL à contraste garanti) → `ui/theme/SeedColorScheme.kt` (`nowPlayingColorScheme` : surfaces/secondary/tertiary en `SchemeTonalSpot`, `primary*` et `surfaceTint` repris de `deriveArtworkColors`). Le grand lecteur n'a donc jamais d'accent différent de celui de l'application ; ne pas recréer d'extraction ni de dérivation parallèle.
+
+Thème « Normal » (`ColorSource.STATIC`) : `ui/theme/Color.kt` génère `LightColors`/`DarkColors` au chargement via `brandColorScheme` (variante `SchemeContent`, `primary*` calés sur la graine) depuis `BrandSeed` = orange de l'icône #E34211. Changer la couleur de marque = changer cette seule constante.
+
 ## Architecture de lecture
 - `PlaybackService` (MediaLibraryService, foreground `mediaPlayback`) possède l'ExoPlayer et la MediaSession. L'UI passe par `PlaybackController` (MediaController) : le player ne vit jamais dans l'UI.
 - Chaîne de data sources : `CacheDataSource(SimpleCache)` → `ResolvingDataSource` (fichier téléchargé prioritaire, sinon `StreamRepository.resolveAudio`, cache TTL mémoire invalidé sur 403) → `YoutubeHttpDataSource` (portage Media3 de celui de NewPipe : User-Agent VisionOS, POST `{0x78,0x00}`, `&range=` au lieu de l'en-tête Range, `&rn=`).
@@ -71,12 +76,14 @@ CI : `.github/workflows/android.yml` (tests, lint, APK debug + release en artefa
 - `:domain/recognition` : `MusicRecognizer`, `AudioCapture`, `RecognizeMusicUseCase` (tentatives à 4 s, 8 s puis 12 s d'audio, arrêt à la première correspondance). `:data/recognition` : `SignatureGenerator` + `SignatureFormat` (portage Kotlin de l'algorithme de **SongRec**, GPL-3.0, en-têtes de provenance à conserver), `ShazamMusicRecognizer` (endpoint **non officiel** `amp.shazam.com/discovery/v5/...`, sans clé), `AudioRecordCapture` (16 kHz mono PCM16). `:ui` : `RecognitionViewModel` + `RecognitionSheet` ; permission `RECORD_AUDIO` demandée au clic seulement.
 - Aucune URL/audio n'est persisté ; seule l'empreinte (signature) part vers Shazam, avec une géolocalisation fictive fixe (comme SongRec).
 - Test de référence : `data/src/test/resources/recognition/ref_songrec.sig` a été produit par le code Rust de SongRec (mêmes pics que le portage Kotlin). Test réel : `SPAUTIFAILLE_LIVE_TESTS=1 ./gradlew :data:testDebugUnitTest --tests "*LiveShazamTest*"` (`SPAUTIFAILLE_LIVE_PCM=<fichier.pcm>` pour un vrai extrait).
+- `MusicRecognizer.recognize` est appelée depuis le thread principal (use case collecté dans `viewModelScope`) : la lecture du corps HTTP se fait dans `Call.await { }` (thread OkHttp), jamais après la reprise de la coroutine (sinon `NetworkOnMainThreadException` = « erreur inattendue » dès qu'une réponse volumineuse, donc une correspondance, n'est pas déjà en tampon). Toute exception inattendue du recognizer devient `AppException` (+ `Log.e`).
 - Si l'endpoint change ou disparaît : `AppError.RecognitionUnavailable` s'affiche, rien d'autre n'est impacté.
 
 ## Mettre à jour NewPipeExtractor
 On suit le commit épinglé par l'app NewPipe (testé en production) :
 1. Lire `https://raw.githubusercontent.com/TeamNewPipe/NewPipe/dev/gradle/libs.versions.toml` → clé `teamnewpipe-newpipe-extractor`.
 2. Reporter le hash dans `newpipeExtractor` de `gradle/libs.versions.toml`.
+   Puis copier `.pom`, `.module` et `.jar` depuis `https://jitpack.io/com/github/TeamNewPipe/NewPipeExtractor/<hash>/` dans `gradle/vendor-repo/` (même arborescence ; idem pour `nanojson` si son commit change) et supprimer l'ancienne version. JitPack renvoie parfois 404 aux runners GitHub : la CI ne dépend que de cette copie.
 3. Comparer `DownloaderImpl.java` et `player/datasource/YoutubeHttpDataSource.java` de NewPipe avec nos portages.
 4. Vérifier `app/proguard-rules.pro` de NewPipe (règles Rhino).
 
