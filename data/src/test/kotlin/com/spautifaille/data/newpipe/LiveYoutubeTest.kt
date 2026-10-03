@@ -23,10 +23,12 @@ import org.junit.Test
 class LiveYoutubeTest {
 
     private val client = OkHttpClient()
+    private val loudness = FakeLoudnessStore()
     private val repo = NewPipeStreamRepository(
-        NewPipeInitializer(OkHttpDownloader(client)),
+        NewPipeInitializer(OkHttpDownloader(client, PlayerLoudnessRecorder(loudness))),
         mockk<TrackCache>(relaxed = true),
         Dispatchers.IO,
+        loudness,
     )
 
     @Before fun onlyWhenEnabled() {
@@ -58,6 +60,16 @@ class LiveYoutubeTest {
         val related = repo.related(tracks.first().id)
         println("related=${related.size}")
         assertTrue(related.isNotEmpty())
+    }
+
+    /** Le niveau sonore de la réponse `player` VisionOS est relevé par le Downloader puis porté par le flux résolu. */
+    @Test fun resolvedStreamCarriesLoudness() = runBlocking {
+        val stream = repo.resolveAudio("JGwWNGJdvx8", AudioQuality.BEST)
+        println("loudnessDb=${stream.loudnessDb}")
+        val db = stream.loudnessDb
+        assertTrue("loudnessDb absent de la réponse player", db != null)
+        assertTrue("valeur implausible : $db", db!! in -30f..30f)
+        assertEquals(db, loudness.values["JGwWNGJdvx8"])
     }
 
     /** Vérifie que l'URL résolue est réellement lisible avec la stratégie du lecteur (POST + &range=). */

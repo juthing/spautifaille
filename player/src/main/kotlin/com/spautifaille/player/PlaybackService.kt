@@ -29,8 +29,10 @@ import com.spautifaille.domain.di.DefaultDispatcher
 import com.spautifaille.domain.player.PlayerEvent
 import com.spautifaille.domain.repository.DownloadRepository
 import com.spautifaille.domain.repository.LibraryRepository
+import com.spautifaille.domain.repository.LoudnessStore
 import com.spautifaille.domain.repository.PlaylistRepository
 import com.spautifaille.domain.repository.QueueStateStore
+import com.spautifaille.domain.repository.SettingsRepository
 import com.spautifaille.domain.repository.StreamRepository
 import com.spautifaille.domain.repository.TrackCache
 import com.spautifaille.player.artwork.LandscapeArtworkBitmapLoader
@@ -50,12 +52,17 @@ import com.spautifaille.player.queue.toPlayerRepeatMode
 import com.spautifaille.player.session.SessionStatePublisher
 import com.spautifaille.player.sleep.SleepTimerManager
 import com.spautifaille.player.sleep.SleepTimerPlayer
+import com.spautifaille.player.volume.ExoVolumeOutput
+import com.spautifaille.player.volume.LoudnessGainController
+import com.spautifaille.player.volume.PlaybackVolume
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.guava.future
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -75,6 +82,8 @@ class PlaybackService : MediaLibraryService() {
     @Inject lateinit var playlists: PlaylistRepository
     @Inject lateinit var downloads: DownloadRepository
     @Inject lateinit var trackCache: TrackCache
+    @Inject lateinit var loudnessStore: LoudnessStore
+    @Inject lateinit var settings: SettingsRepository
     @Inject lateinit var queueStore: QueueStateStore
     @Inject lateinit var connectivity: ConnectivityObserver
     @Inject @field:ApplicationScope lateinit var appScope: CoroutineScope
@@ -91,6 +100,8 @@ class PlaybackService : MediaLibraryService() {
     private var persister: QueuePersister? = null
     private var errorHandler: PlaybackErrorHandler? = null
     private var historyRecorder: PlayHistoryRecorder? = null
+    private var volumeOutput: ExoVolumeOutput? = null
+    private var gainController: LoudnessGainController? = null
 
     /** Titres réellement écoutés pendant la session : « précédent » y revient même si la file a été remplacée. */
     private var sessionHistory: SessionHistory? = null
@@ -137,10 +148,16 @@ class PlaybackService : MediaLibraryService() {
         publisher = statePublisher
         listened.reset(exo.currentMediaItem)
 
+        // Volume de sortie = fondu de la minuterie × gain « volume égal » du titre courant (voir PlaybackVolume).
+        val output = ExoVolumeOutput(exo).also { it.start() }
+        volumeOutput = output
+        val playbackVolume = PlaybackVolume(output)
+        startVolumeNormalization(exo, playbackVolume)
+
         val timer = SleepTimerManager(
             scope = serviceScope,
             elapsedRealtimeMs = SystemClock::elapsedRealtime,
-            player = ExoSleepTimerPlayer(exo),
+            player = ExoSleepTimerPlayer(exo, playbackVolume),
             onStateChanged = statePublisher::onSleepTimerChanged,
             onFinished = { broadcastEvent(PlayerEvent.SleepTimerFinished) },
         )
@@ -191,6 +208,8 @@ class PlaybackService : MediaLibraryService() {
         artworkLoader?.release()
         sleepTimer?.cancel()
         publisher?.stop()
+        gainController?.release()
+        volumeOutput?.release()
         serviceScope.cancel()
         session?.let { mediaSession ->
             removeSession(mediaSession)
@@ -236,6 +255,25 @@ class PlaybackService : MediaLibraryService() {
                 // Précharge ~10 s (la valeur est en microsecondes) du titre suivant : résolution + ouverture anticipées.
                 preloadConfiguration = ExoPlayer.PreloadConfiguration(PRELOAD_DURATION_US)
             }
+    }
+
+    /**
+     * « Volume égal entre les titres » : suit le réglage à chaud. Le niveau d'un titre vient du [LoudnessStore] ;
+     * à défaut (titre téléchargé avant la fonction, par exemple) on le demande à la résolution du flux, une fois.
+     */
+    private fun startVolumeNormalization(exo: ExoPlayer, volume: PlaybackVolume) {
+        val controller = LoudnessGainController(
+            player = exo,
+            scope = serviceScope,
+            volume = volume,
+            peek = loudnessStore::peek,
+            lookup = { videoId -> loudnessStore.get(videoId) ?: streamResolver.resolve(videoId).loudnessDb },
+        )
+        gainController = controller
+        controller.start()
+        serviceScope.launch {
+            settings.settings.map { it.normalizeVolume }.distinctUntilChanged().collect(controller::setEnabled)
+        }
     }
 
     private fun buildSessionActivity(): PendingIntent? {
@@ -289,12 +327,14 @@ class PlaybackService : MediaLibraryService() {
         }
     }
 
-    private class ExoSleepTimerPlayer(private val player: ExoPlayer) : SleepTimerPlayer {
+    private class ExoSleepTimerPlayer(private val player: ExoPlayer, private val mix: PlaybackVolume) : SleepTimerPlayer {
         override fun pause() = player.pause()
+
+        /** Fondu de la minuterie : se compose avec le gain de normalisation au lieu de le remplacer. */
         override var volume: Float
-            get() = player.volume
+            get() = mix.fade
             set(value) {
-                player.volume = value
+                mix.fade = value
             }
 
         override fun setPauseAtEndOfMediaItems(enabled: Boolean) = player.setPauseAtEndOfMediaItems(enabled)

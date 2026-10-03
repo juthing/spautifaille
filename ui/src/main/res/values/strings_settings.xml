@@ -32,6 +32,9 @@
     <string name="set_quality_best_desc">Débit maximal disponible</string>
     <string name="set_quality_data_saver">Économie de données</string>
     <string name="set_quality_data_saver_desc">Débit réduit pour consommer moins de données</string>
+    <string name="set_section_volume">Volume</string>
+    <string name="set_normalize_volume">Volume égal entre les titres</string>
+    <string name="set_normalize_volume_summary">Évite de toucher au volume quand un titre est bien plus fort ou plus faible que le précédent</string>
 
     <!-- Téléchargements -->
     <string name="set_section_network">Réseau</string>

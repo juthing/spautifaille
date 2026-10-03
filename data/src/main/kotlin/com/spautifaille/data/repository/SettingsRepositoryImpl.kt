@@ -38,6 +38,7 @@ class SettingsRepositoryImpl @Inject constructor(
         val STREAM_CACHE_MB = intPreferencesKey("stream_cache_size_mb")
         val LAST_FM_API_KEY = stringPreferencesKey("last_fm_api_key")
         val CONTENT_COUNTRY = stringPreferencesKey("content_country")
+        val NORMALIZE_VOLUME = booleanPreferencesKey("normalize_volume")
     }
 
     override val settings: Flow<AppSettings> = dataStore.data
@@ -78,6 +79,10 @@ class SettingsRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun setNormalizeVolume(enabled: Boolean) {
+        dataStore.edit { it[Keys.NORMALIZE_VOLUME] = enabled }
+    }
+
     private fun Preferences.toSettings(): AppSettings {
         val defaults = AppSettings()
         return AppSettings(
@@ -88,6 +93,7 @@ class SettingsRepositoryImpl @Inject constructor(
             streamCacheSizeMb = this[Keys.STREAM_CACHE_MB] ?: defaults.streamCacheSizeMb,
             lastFmApiKey = this[Keys.LAST_FM_API_KEY] ?: defaults.lastFmApiKey,
             contentCountry = this[Keys.CONTENT_COUNTRY] ?: defaults.contentCountry,
+            normalizeVolume = this[Keys.NORMALIZE_VOLUME] ?: defaults.normalizeVolume,
         )
     }
 

@@ -65,6 +65,18 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun `volume normalization switch is forwarded and on by default`() = runTest {
+        val vm = viewModel()
+        assertTrue(vm.uiState.value.settings.normalizeVolume)
+
+        vm.setNormalizeVolume(false)
+        vm.setNormalizeVolume(true)
+
+        coVerify(exactly = 1) { repository.setNormalizeVolume(false) }
+        coVerify(exactly = 1) { repository.setNormalizeVolume(true) }
+    }
+
+    @Test
     fun `non positive cache size is ignored`() = runTest {
         val vm = viewModel()
         vm.setStreamCacheSizeMb(0)

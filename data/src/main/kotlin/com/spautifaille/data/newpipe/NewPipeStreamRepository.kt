@@ -16,6 +16,7 @@ import com.spautifaille.domain.model.SearchFilter
 import com.spautifaille.domain.model.SearchResult
 import com.spautifaille.domain.model.Track
 import com.spautifaille.domain.model.TrackStats
+import com.spautifaille.domain.repository.LoudnessStore
 import com.spautifaille.domain.repository.StreamRepository
 import com.spautifaille.domain.repository.TrackCache
 import kotlinx.coroutines.CancellationException
@@ -48,6 +49,7 @@ class NewPipeStreamRepository @Inject constructor(
     private val initializer: NewPipeInitializer,
     private val trackCache: TrackCache,
     @IoDispatcher private val io: CoroutineDispatcher,
+    private val loudnessStore: LoudnessStore,
 ) : StreamRepository {
 
     private val service get() = ServiceList.YouTube
@@ -147,7 +149,8 @@ class NewPipeStreamRepository @Inject constructor(
         val candidates = streams.mapIndexed { index, stream -> stream.toCandidate(index) }
         val chosen = AudioStreamSelector.select(candidates, quality)
             ?: throw AppException(AppError.NoAudioStream)
-        buildResolvedStream(videoId, streams[chosen.index])
+        // Relevé au passage par OkHttpDownloader (réponse `player`) dans le LoudnessStore ; absent -> null.
+        buildResolvedStream(videoId, streams[chosen.index], loudnessStore.get(videoId))
     }
 
     private val statsCache = object : LinkedHashMap<String, TrackStats>(STATS_CACHE_SIZE, 0.75f, true) {
@@ -322,7 +325,7 @@ class NewPipeStreamRepository @Inject constructor(
         itag = itag,
     )
 
-    private fun buildResolvedStream(videoId: String, stream: AudioStream): ResolvedStream {
+    private fun buildResolvedStream(videoId: String, stream: AudioStream, loudnessDb: Float?): ResolvedStream {
         val content = stream.content
         val isDash = !stream.isUrl
         val headerProbe = content
@@ -341,6 +344,7 @@ class NewPipeStreamRepository @Inject constructor(
             headers = StreamUrls.headersFor(headerProbe) { YoutubeParsingHelper.getVisionOsUserAgent(null) },
             expiresAtMs = StreamUrls.expiresAtMs(content, System.currentTimeMillis()),
             dashManifest = if (isDash) content else null,
+            loudnessDb = loudnessDb,
         )
     }
 
