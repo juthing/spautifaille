@@ -10,6 +10,19 @@ import androidx.media3.exoplayer.ExoPlayer
  * [VolumeOutput] d'un [ExoPlayer] : le volume du lecteur pour les réductions, un [LoudnessEnhancer] attaché à sa
  * session audio pour les (rares, modérées) amplifications.
  *
+ * Pourquoi pas un `AudioProcessor` Media3 (ou un gain de type ReplayGain intégré) :
+ * - ExoPlayer n'a pas de gain par titre : seuls `Player.volume` (0..1, réduction uniquement) et les processeurs du
+ *   `DefaultAudioSink` existent ;
+ * - un processeur agit en AMONT des tampons de l'`AudioTrack` : changer son gain à `onMediaItemTransition`
+ *   (position de lecture franchissant la frontière) ne toucherait que les échantillons suivants, soit avec
+ *   plusieurs centaines de millisecondes de retard, et un changement de gain à la frontière exacte exigerait un
+ *   `AudioSink` maison. `Player.volume` agit au contraire en aval, donc à la frontière ;
+ * - une amplification digitale demande un limiteur pour ne pas saturer, à écrire et régler soi-même, alors que
+ *   [LoudnessEnhancer] est l'effet de plateforme fait pour cela et que le gain est plafonné à
+ *   `LoudnessNormalizer.MAX_BOOST_DB`.
+ * Le seul défaut (l'effet vit hors du pipeline Media3, donc dépend de l'appareil) est géré par la désactivation
+ * définitive ci-dessous.
+ *
  * L'effet n'est créé qu'à la première amplification demandée, suit les changements de session audio du lecteur,
  * et se désactive définitivement en cas d'échec (appareil sans effet, politique OEM…) : la normalisation se
  * limite alors aux réductions, sans jamais faire échouer la lecture.
