@@ -2,8 +2,10 @@ package com.spautifaille.player.volume
 
 import android.media.audiofx.LoudnessEnhancer
 import android.util.Log
+import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 
 /**
@@ -27,6 +29,7 @@ import androidx.media3.exoplayer.ExoPlayer
  * et se désactive définitivement en cas d'échec (appareil sans effet, politique OEM…) : la normalisation se
  * limite alors aux réductions, sans jamais faire échouer la lecture.
  */
+@OptIn(UnstableApi::class)
 class ExoVolumeOutput(private val player: ExoPlayer) : VolumeOutput, Player.Listener {
 
     private var enhancer: LoudnessEnhancer? = null
