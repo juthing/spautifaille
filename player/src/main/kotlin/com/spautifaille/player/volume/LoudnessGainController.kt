@@ -23,7 +23,8 @@ import kotlinx.coroutines.withTimeout
  * Source du niveau sonore ([peek], mémoire) puis [lookup] (disque, puis résolution réseau en dernier recours,
  * par exemple pour un titre téléchargé avant l'arrivée de la fonction). Tant que le niveau est inconnu le gain
  * reste neutre ; il est appliqué dès qu'il arrive, si le titre est toujours le courant. Un titre dont la
- * recherche a échoué n'est pas réessayé avant la prochaine création du contrôleur (pas de requête répétée).
+ * recherche a échoué (hors ligne, par exemple) n'est pas redemandé avant [RETRY_AFTER_MS] : pas de requête à
+ * chaque réécoute, mais un titre ancien téléchargé retrouve son gain dès que le réseau est revenu.
  *
  * À utiliser depuis le thread principal (celui du lecteur).
  *
@@ -37,13 +38,15 @@ class LoudnessGainController(
     private val peek: (String) -> Float?,
     private val lookup: suspend (String) -> Float?,
     private val lookupTimeoutMs: Long = DEFAULT_LOOKUP_TIMEOUT_MS,
+    private val clock: () -> Long = System::currentTimeMillis,
 ) : Player.Listener {
 
     /** Coupé tant que le réglage n'a pas été lu (évite une normalisation fugace si l'utilisateur l'a désactivée). */
     private var enabled = false
     private var started = false
     private var lookupJob: Job? = null
-    private val failed = HashSet<String>()
+    /** Titre -> instant du dernier échec de recherche. */
+    private val failed = HashMap<String, Long>()
 
     /** Écoute le lecteur et applique tout de suite le gain du titre courant. */
     fun start() {
@@ -85,7 +88,8 @@ class LoudnessGainController(
         }
         // Inconnu : neutre en attendant, puis gain réel dès qu'il arrive (si c'est encore le titre courant).
         volume.gain = PlaybackGain.Neutral
-        if (id in failed) return
+        val failedAt = failed[id]
+        if (failedAt != null && clock() - failedAt < RETRY_AFTER_MS) return
         lookupJob = scope.launch {
             val level = try {
                 withTimeout(lookupTimeoutMs) { lookup(id) }
@@ -97,7 +101,7 @@ class LoudnessGainController(
                 null
             }
             if (level == null) {
-                failed += id
+                failed[id] = clock()
                 return@launch
             }
             if (enabled && player.currentMediaItem?.mediaId == id) {
@@ -108,5 +112,6 @@ class LoudnessGainController(
 
     companion object {
         const val DEFAULT_LOOKUP_TIMEOUT_MS = 12_000L
+        const val RETRY_AFTER_MS = 5 * 60_000L
     }
 }

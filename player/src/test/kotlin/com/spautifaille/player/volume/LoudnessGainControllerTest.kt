@@ -53,6 +53,8 @@ class LoudnessGainControllerTest {
     private val lookups = mutableListOf<String>()
     private var lookup: suspend (String) -> Float? = { null }
 
+    private var now = 1_000L
+
     private fun controller(timeoutMs: Long = 5_000L) = LoudnessGainController(
         player = player,
         scope = scope,
@@ -63,6 +65,7 @@ class LoudnessGainControllerTest {
             lookup(id)
         },
         lookupTimeoutMs = timeoutMs,
+        clock = { now },
     )
 
     private fun items(vararg ids: String): List<MediaItem> =
@@ -193,6 +196,25 @@ class LoudnessGainControllerTest {
         player.seekToPreviousMediaItem()
         assertEquals(1f, output.level, 0f)
         assertEquals(listOf("loin"), lookups)
+        controller.release()
+    }
+
+    @Test
+    fun `titre en echec est redemande une fois le delai de reessai ecoule`() {
+        lookup = { throw java.io.IOException("hors ligne") }
+        val controller = controller().also { it.setEnabled(true) }
+        player.setMediaItems(items("loin", "quiet"))
+        controller.start()
+        assertEquals(listOf("loin"), lookups)
+
+        // Le réseau est revenu : après le délai, le même titre est de nouveau cherché et son gain appliqué.
+        lookup = { 8f }
+        now += LoudnessGainController.RETRY_AFTER_MS + 1
+        player.seekToNextMediaItem()
+        player.seekToPreviousMediaItem()
+
+        assertEquals(listOf("loin", "loin"), lookups)
+        assertEquals(LoudnessNormalizer.gainFor(8f).attenuation, output.level, 1e-6f)
         controller.release()
     }
 
