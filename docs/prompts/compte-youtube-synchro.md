@@ -1,4 +1,6 @@
-# Prompt : compte YouTube et synchronisation bidirectionnelle (à faire plus tard)
+# Prompt : compte YouTube et synchronisation bidirectionnelle (IMPLÉMENTÉ)
+
+> **Statut : implémenté** (voir la section « Compte YouTube / synchro » de `CLAUDE.md`). Ce prompt est conservé comme cahier des charges. Restent à vérifier sur appareil avec un vrai compte : la connexion WebView et les endpoints en conditions réelles.
 
 Prompt prêt à donner à un agent de code (Claude Code) pour implémenter la connexion optionnelle à un compte
 Google/YouTube et la synchronisation des likes, abonnements et playlists. Décisions déjà prises avec l'utilisateur :
