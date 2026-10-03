@@ -13,6 +13,7 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -37,21 +38,22 @@ fun SpautifailleTheme(
     SpautifailleTheme(
         themeMode = themeMode,
         colorSource = if (dynamicColor) ColorSource.DYNAMIC else ColorSource.STATIC,
-        nowPlayingSchemes = null,
+        nowPlayingSeed = null,
         content = content,
     )
 }
 
 /**
- * Thème de l'application. [colorSource] choisit l'origine des couleurs (voir [resolvePalette]) ; [nowPlayingSchemes]
- * sont les schémas générés depuis la pochette en cours (`null` si rien ne joue : repli sur Dynamique / Normal).
+ * Thème de l'application. [colorSource] choisit l'origine des couleurs (voir [resolvePalette]) ; [nowPlayingSeed]
+ * est la couleur source de la pochette en cours, celle du lecteur plein écran (`null` si rien ne joue : repli sur
+ * Dynamique / Normal).
  * [themeMode] force clair / sombre ou suit le système. Les changements de schéma sont animés.
  */
 @Composable
 internal fun SpautifailleTheme(
     themeMode: ThemeMode,
     colorSource: ColorSource,
-    nowPlayingSchemes: SeedSchemes?,
+    nowPlayingSeed: Color?,
     content: @Composable () -> Unit,
 ) {
     val darkTheme = when (themeMode) {
@@ -61,8 +63,9 @@ internal fun SpautifailleTheme(
     }
     val context = LocalContext.current
     val dynamicSupported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-    val target: ColorScheme = when (resolvePalette(colorSource, dynamicSupported, nowPlayingSchemes != null)) {
-        ResolvedPalette.NOW_PLAYING -> nowPlayingSchemes?.forMode(darkTheme) ?: staticScheme(darkTheme)
+    val nowPlayingScheme = remember(nowPlayingSeed, darkTheme) { nowPlayingSeed?.let { nowPlayingColorScheme(it, darkTheme) } }
+    val target: ColorScheme = when (resolvePalette(colorSource, dynamicSupported, nowPlayingSeed != null)) {
+        ResolvedPalette.NOW_PLAYING -> nowPlayingScheme ?: staticScheme(darkTheme)
         ResolvedPalette.DYNAMIC ->
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) systemDynamicScheme(context, darkTheme) else staticScheme(darkTheme)
         ResolvedPalette.STATIC -> staticScheme(darkTheme)

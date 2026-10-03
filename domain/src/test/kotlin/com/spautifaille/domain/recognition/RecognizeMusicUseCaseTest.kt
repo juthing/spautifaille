@@ -3,7 +3,13 @@ package com.spautifaille.domain.recognition
 import app.cash.turbine.test
 import com.spautifaille.domain.error.AppError
 import com.spautifaille.domain.error.AppException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
@@ -105,6 +111,60 @@ class RecognizeMusicUseCaseTest {
             }
             assertEquals(AppError.Network, (error as AppException).error)
         }
+        assertTrue(capture.released)
+    }
+
+    /**
+     * Chemin réel : micro sur un autre thread (comme `flowOn(IO)`), collecte sur un autre thread (comme le thread
+     * principal), moteur lent, correspondance à la 1re, 2e ou 3e tentative. Aucune exception ne doit sortir du flux
+     * quand le titre est reconnu, et le micro est libéré.
+     */
+    @Test
+    fun `reconnaissance reussie avec micro et collecte sur des threads differents`() {
+        for (matchAt in 1..3) {
+            repeat(8) { iteration ->
+                var released = false
+                val capture = object : AudioCapture {
+                    override fun record(): Flow<ShortArray> = flow {
+                        try {
+                            while (true) {
+                                currentCoroutineContext().ensureActive()
+                                Thread.sleep(1)
+                                emit(ShortArray(1_600) { 1 })
+                            }
+                        } finally {
+                            released = true
+                        }
+                    }.flowOn(Dispatchers.IO)
+                }
+                val recognizer = object : MusicRecognizer {
+                    var calls = 0
+                    override suspend fun recognize(pcm: ShortArray, sampleRate: Int): RecognizedTrack? {
+                        calls++
+                        delay(iteration * 2L)
+                        return track.takeIf { calls == matchAt }
+                    }
+                }
+                val events = mutableListOf<RecognitionProgress>()
+                runBlocking(Dispatchers.Default) {
+                    RecognizeMusicUseCase(capture, recognizer)().collect { events += it }
+                }
+                assertEquals(RecognitionProgress.Success(track), events.last())
+                assertEquals(matchAt, recognizer.calls)
+                assertTrue(released)
+            }
+        }
+    }
+
+    @Test
+    fun `une exception inattendue du moteur est propagee telle quelle et le micro libere`() = runTest {
+        val capture = FakeCapture()
+        val recognizer = object : MusicRecognizer {
+            override suspend fun recognize(pcm: ShortArray, sampleRate: Int): RecognizedTrack? =
+                throw IllegalStateException("inattendu")
+        }
+        val error = runCatching { RecognizeMusicUseCase(capture, recognizer)().toList() }.exceptionOrNull()
+        assertTrue(error is IllegalStateException)
         assertTrue(capture.released)
     }
 

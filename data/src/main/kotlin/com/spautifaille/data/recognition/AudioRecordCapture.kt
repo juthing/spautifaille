@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
+import android.util.Log
 import com.spautifaille.domain.di.IoDispatcher
 import com.spautifaille.domain.error.AppError
 import com.spautifaille.domain.error.AppException
@@ -54,17 +55,25 @@ class AudioRecordCapture @Inject constructor(
             val chunk = ShortArray(sampleRate / 10)
             while (true) {
                 currentCoroutineContext().ensureActive()
-                val read = recorder.read(chunk, 0, chunk.size)
+                val read = try {
+                    recorder.read(chunk, 0, chunk.size)
+                } catch (e: IllegalStateException) {
+                    // Micro repris par le système ou une autre application pendant l'écoute.
+                    Log.w(TAG, "Lecture du micro impossible", e)
+                    throw AppException(AppError.MicrophoneUnavailable, e)
+                }
                 if (read < 0) throw AppException(AppError.MicrophoneUnavailable)
                 if (read > 0) emit(chunk.copyOf(read))
             }
         } finally {
+            // Libération en fin de session (succès, annulation ou erreur) : ne doit jamais masquer l'issue réelle.
             runCatching { recorder.stop() }
-            recorder.release()
+            runCatching { recorder.release() }
         }
     }.flowOn(ioDispatcher)
 
     private companion object {
+        const val TAG = "AudioRecordCapture"
         const val CHANNEL = AudioFormat.CHANNEL_IN_MONO
         const val ENCODING = AudioFormat.ENCODING_PCM_16BIT
     }

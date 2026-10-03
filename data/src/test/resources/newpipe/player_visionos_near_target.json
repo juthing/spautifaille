@@ -1,0 +1,109 @@
+{
+  "_provenance": "Reponse reelle de POST https://youtubei.googleapis.com/youtubei/v1/player (client VISIONOS 1.04, cf. YoutubeStreamHelper.getVisionOsPlayerResponse de NewPipeExtractor 13a655f), recuperee le 2026-10-02. Reduite aux champs utiles : videoDetails.videoId, playerConfig.audioConfig, formats audio sans URL.",
+  "playabilityStatus": {
+    "status": "OK"
+  },
+  "videoDetails": {
+    "videoId": "dQw4w9WgXcQ",
+    "lengthSeconds": "213"
+  },
+  "playerConfig": {
+    "audioConfig": {
+      "perceptualLoudnessDb": -13.01,
+      "enablePerFormatLoudness": true,
+      "trackAbsoluteLoudnessLkfs": -13.01,
+      "loudnessTargetLkfs": -14,
+      "loudnessNormalizationConfig": {
+        "applyStatefulNormalization": false,
+        "preserveStatefulLoudnessTarget": true,
+        "maxStatefulTimeThresholdSec": 300,
+        "minimumLoudnessTargetLkfs": -31
+      }
+    }
+  },
+  "streamingData": {
+    "adaptiveFormats": [
+      {
+        "itag": 139,
+        "mimeType": "audio/mp4; codecs=\"mp4a.40.5\"",
+        "bitrate": 50152,
+        "contentLength": "1300631",
+        "quality": "tiny",
+        "projectionType": "RECTANGULAR",
+        "averageBitrate": 48813,
+        "audioQuality": "AUDIO_QUALITY_LOW",
+        "approxDurationMs": "213159",
+        "audioSampleRate": "22050",
+        "audioChannels": 2,
+        "loudnessDb": 0.9899998,
+        "trackAbsoluteLoudnessLkfs": -13.01,
+        "qualityOrdinal": "QUALITY_ORDINAL_UNKNOWN"
+      },
+      {
+        "itag": 140,
+        "mimeType": "audio/mp4; codecs=\"mp4a.40.2\"",
+        "bitrate": 130677,
+        "contentLength": "3449447",
+        "quality": "tiny",
+        "projectionType": "RECTANGULAR",
+        "averageBitrate": 129502,
+        "highReplication": true,
+        "audioQuality": "AUDIO_QUALITY_MEDIUM",
+        "approxDurationMs": "213089",
+        "audioSampleRate": "44100",
+        "audioChannels": 2,
+        "loudnessDb": 0.9899998,
+        "trackAbsoluteLoudnessLkfs": -13.01,
+        "qualityOrdinal": "QUALITY_ORDINAL_UNKNOWN"
+      },
+      {
+        "itag": 249,
+        "mimeType": "audio/webm; codecs=\"opus\"",
+        "bitrate": 49496,
+        "contentLength": "1231355",
+        "quality": "tiny",
+        "projectionType": "RECTANGULAR",
+        "averageBitrate": 46234,
+        "audioQuality": "AUDIO_QUALITY_LOW",
+        "approxDurationMs": "213061",
+        "audioSampleRate": "48000",
+        "audioChannels": 2,
+        "loudnessDb": 0.97999954,
+        "trackAbsoluteLoudnessLkfs": -13.02,
+        "qualityOrdinal": "QUALITY_ORDINAL_UNKNOWN"
+      },
+      {
+        "itag": 250,
+        "mimeType": "audio/webm; codecs=\"opus\"",
+        "bitrate": 65508,
+        "contentLength": "1628559",
+        "quality": "tiny",
+        "projectionType": "RECTANGULAR",
+        "averageBitrate": 61149,
+        "audioQuality": "AUDIO_QUALITY_LOW",
+        "approxDurationMs": "213061",
+        "audioSampleRate": "48000",
+        "audioChannels": 2,
+        "loudnessDb": 0.97999954,
+        "trackAbsoluteLoudnessLkfs": -13.02,
+        "qualityOrdinal": "QUALITY_ORDINAL_UNKNOWN"
+      },
+      {
+        "itag": 251,
+        "mimeType": "audio/webm; codecs=\"opus\"",
+        "bitrate": 136544,
+        "contentLength": "3433755",
+        "quality": "tiny",
+        "projectionType": "RECTANGULAR",
+        "averageBitrate": 128930,
+        "audioQuality": "AUDIO_QUALITY_MEDIUM",
+        "approxDurationMs": "213061",
+        "audioSampleRate": "48000",
+        "audioChannels": 2,
+        "loudnessDb": 0.97999954,
+        "trackAbsoluteLoudnessLkfs": -13.02,
+        "qualityOrdinal": "QUALITY_ORDINAL_UNKNOWN"
+      }
+    ]
+  }
+}

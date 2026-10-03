@@ -10,7 +10,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.GraphicsMode
 
-/** Dessin réel (Canvas natif) : taille de sortie, remplissage plein cadre, fond flou sous une pochette carrée. */
+/** Dessin réel (Canvas natif) : taille de sortie, remplissage plein cadre (recadrage central) sans bande ni fond flou. */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class LandscapeArtworkComposerTest {
@@ -58,27 +58,53 @@ class LandscapeArtworkComposerTest {
     }
 
     @Test
-    fun `pochette carree - centre fidele, fond flou de la meme couleur et assombri`() {
+    fun `pochette carree - recadree plein cadre, sans bande ni fond flou`() {
         val art = Color.rgb(220, 60, 60)
         val out = LandscapeArtworkComposer.compose(solid(600, 600, art))
-        // Centre : la pochette, intacte.
-        assertTrue(out.channelDistance(640, 360, art) <= 3)
-        // Les bords (hors de la pochette posée à 80 % de la hauteur) : teinte de la pochette, plus sombre, pas noire.
-        val edge = out.getPixel(10, 360)
-        assertTrue("fond rougeâtre", Color.red(edge) > Color.green(edge) + 40)
-        assertTrue("assombri", Color.red(edge) < Color.red(art))
-        assertTrue("pas noir", Color.red(edge) > 60)
-        // L'alpha reste opaque partout.
+        // Partout, y compris aux bords et aux coins, la couleur de la pochette (pas de voile sombre).
+        for ((x, y) in listOf(0 to 0, 1279 to 0, 0 to 719, 1279 to 719, 10 to 360, 640 to 5, 640 to 360)) {
+            assertTrue("pixel ($x,$y) = ${Integer.toHexString(out.getPixel(x, y))}", out.channelDistance(x, y, art) <= 3)
+        }
         assertEquals(255, Color.alpha(out.getPixel(0, 0)))
     }
 
     @Test
-    fun `miniature d une pochette carree entouree de bandes noires - les bandes disparaissent`() {
+    fun `pochette carree - le recadrage garde la bande centrale`() {
+        // Haut et bas de la pochette (22 % chacun) sont coupés ; la bande centrale est conservée.
+        val top = Color.rgb(250, 0, 0)
+        val middle = Color.rgb(0, 250, 0)
+        val bottom = Color.rgb(0, 0, 250)
+        val pixels = IntArray(400 * 400) { i ->
+            when (i / 400) {
+                in 0 until 80 -> top
+                in 320 until 400 -> bottom
+                else -> middle
+            }
+        }
+        val out = LandscapeArtworkComposer.compose(Bitmap.createBitmap(pixels, 400, 400, Bitmap.Config.ARGB_8888))
+        // Bande 400x225 centrée : y de 87 à 312, donc ni rouge ni bleu.
+        for (y in listOf(0, 5, 360, 714, 719)) {
+            assertTrue("y=$y", out.channelDistance(640, y, middle) <= 3)
+        }
+    }
+
+    @Test
+    fun `miniature 4 3 a bandes noires - bandes retirees, plein cadre`() {
+        val art = Color.rgb(40, 200, 90)
+        // sddefault : 640x480, contenu 640x360 entre deux bandes noires de 60 px.
+        val out = LandscapeArtworkComposer.compose(withBars(640, 480, 0, 60, 640, 420, art))
+        for ((x, y) in listOf(0 to 0, 1279 to 0, 0 to 719, 1279 to 719, 640 to 360)) {
+            assertTrue("pixel ($x,$y) = ${Integer.toHexString(out.getPixel(x, y))}", out.channelDistance(x, y, art) <= 3)
+        }
+    }
+
+    @Test
+    fun `miniature d une pochette carree entouree de bandes noires - bandes retirees, pochette recadree plein cadre`() {
         val art = Color.rgb(40, 200, 90)
         // 1280x720, pochette 720x720 centrée, bandes noires de 280 px de chaque côté.
         val out = LandscapeArtworkComposer.compose(withBars(1280, 720, 280, 0, 1000, 720, art))
-        assertTrue("centre = pochette", out.channelDistance(640, 360, art) <= 3)
-        val edge = out.getPixel(10, 360)
-        assertTrue("fond teinté de vert, pas noir", Color.green(edge) > 60 && Color.green(edge) > Color.red(edge) + 20)
+        for ((x, y) in listOf(0 to 0, 1279 to 0, 0 to 719, 1279 to 719, 10 to 360, 640 to 360)) {
+            assertTrue("pixel ($x,$y) = ${Integer.toHexString(out.getPixel(x, y))}", out.channelDistance(x, y, art) <= 3)
+        }
     }
 }

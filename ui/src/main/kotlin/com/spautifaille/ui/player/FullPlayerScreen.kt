@@ -74,6 +74,7 @@ import com.spautifaille.ui.components.AddToPlaylistSheet
 import com.spautifaille.ui.components.Artwork
 import com.spautifaille.ui.theme.Spacing
 import com.spautifaille.ui.theme.SpautifailleTheme
+import com.spautifaille.ui.theme.rememberArtworkSeedColor
 
 private enum class PlayerSheet { None, Queue, Speed, Sleep, Playlist }
 

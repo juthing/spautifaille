@@ -17,6 +17,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.Gavel
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Key
@@ -70,6 +71,7 @@ data class SettingsActions(
     val onBack: () -> Unit = {},
     val onOpenDownloads: () -> Unit = {},
     val onAudioQualityChange: (AudioQuality) -> Unit = {},
+    val onNormalizeVolumeChange: (Boolean) -> Unit = {},
     val onWifiOnlyChange: (Boolean) -> Unit = {},
     val onThemeModeChange: (ThemeMode) -> Unit = {},
     val onColorSourceChange: (ColorSource) -> Unit = {},
@@ -102,6 +104,7 @@ fun SettingsCategoryRoute(
             onBack = onBack,
             onOpenDownloads = onOpenDownloads,
             onAudioQualityChange = viewModel::setAudioQuality,
+            onNormalizeVolumeChange = viewModel::setNormalizeVolume,
             onWifiOnlyChange = viewModel::setDownloadOverWifiOnly,
             onThemeModeChange = viewModel::setThemeMode,
             onColorSourceChange = viewModel::setColorSource,
@@ -184,6 +187,14 @@ private fun PlaybackSettings(settings: AppSettings, actions: SettingsActions) {
         label = { stringResource(it.labelRes()) },
         description = { stringResource(it.descriptionRes()) },
         onSelect = actions.onAudioQualityChange,
+    )
+    SettingsGroupLabel(stringResource(R.string.set_section_volume))
+    SettingsSwitchRow(
+        icon = Icons.Filled.Equalizer,
+        title = stringResource(R.string.set_normalize_volume),
+        summary = stringResource(R.string.set_normalize_volume_summary),
+        checked = settings.normalizeVolume,
+        onCheckedChange = actions.onNormalizeVolumeChange,
     )
 }
 

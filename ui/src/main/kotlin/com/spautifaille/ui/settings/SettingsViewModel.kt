@@ -37,6 +37,10 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { settingsRepository.setAudioQuality(quality) }
     }
 
+    fun setNormalizeVolume(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.setNormalizeVolume(enabled) }
+    }
+
     fun setDownloadOverWifiOnly(enabled: Boolean) {
         viewModelScope.launch { settingsRepository.setDownloadOverWifiOnly(enabled) }
     }

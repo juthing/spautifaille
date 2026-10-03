@@ -1,11 +1,13 @@
 package com.spautifaille.data.di
 
+import com.spautifaille.data.local.FileLoudnessStore
 import com.spautifaille.data.repository.LibraryRepositoryImpl
 import com.spautifaille.data.repository.PlaylistRepositoryImpl
 import com.spautifaille.data.repository.QueueStateStoreImpl
 import com.spautifaille.data.repository.SettingsRepositoryImpl
 import com.spautifaille.data.repository.TrackCacheImpl
 import com.spautifaille.domain.repository.LibraryRepository
+import com.spautifaille.domain.repository.LoudnessStore
 import com.spautifaille.domain.repository.PlaylistRepository
 import com.spautifaille.domain.repository.QueueStateStore
 import com.spautifaille.domain.repository.SettingsRepository
@@ -23,4 +25,5 @@ abstract class RepositoryModule {
     @Binds abstract fun bindTrackCache(impl: TrackCacheImpl): TrackCache
     @Binds abstract fun bindQueueStateStore(impl: QueueStateStoreImpl): QueueStateStore
     @Binds abstract fun bindSettingsRepository(impl: SettingsRepositoryImpl): SettingsRepository
+    @Binds abstract fun bindLoudnessStore(impl: FileLoudnessStore): LoudnessStore
 }

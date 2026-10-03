@@ -62,6 +62,7 @@ class SettingsRepositoryTest {
         repo.setColorSource(ColorSource.NOW_PLAYING)
         repo.setStreamCacheSizeMb(2048)
         repo.setLastFmApiKey("  abc123 ")
+        repo.setNormalizeVolume(false)
 
         assertEquals(
             AppSettings(
@@ -71,9 +72,19 @@ class SettingsRepositoryTest {
                 colorSource = ColorSource.NOW_PLAYING,
                 streamCacheSizeMb = 2048,
                 lastFmApiKey = "abc123",
+                normalizeVolume = false,
             ),
             repo.current(),
         )
+    }
+
+    @Test
+    fun volumeNormalizationIsOnByDefaultAndSwitchesBothWays() = runTest {
+        assertEquals(true, repo.current().normalizeVolume)
+        repo.setNormalizeVolume(false)
+        assertEquals(false, repo.current().normalizeVolume)
+        repo.setNormalizeVolume(true)
+        assertEquals(true, repo.current().normalizeVolume)
     }
 
     @Test
