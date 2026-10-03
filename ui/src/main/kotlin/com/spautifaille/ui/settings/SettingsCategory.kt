@@ -3,6 +3,7 @@ package com.spautifaille.ui.settings
 import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.GraphicEq
@@ -18,8 +19,8 @@ import com.spautifaille.ui.R
 import com.spautifaille.ui.components.IconTone
 
 /**
- * Catégories de la page d'accueil des réglages. [IMPORT] n'a pas de sous-page : elle ouvre directement
- * l'écran d'import (voir [opensSubpage]).
+ * Catégories de la page d'accueil des réglages. [IMPORT] et [YOUTUBE] n'ont pas de sous-page de réglages : elles
+ * ouvrent directement leur propre écran (import ; compte YouTube), voir [opensSubpage].
  */
 enum class SettingsCategory(
     @StringRes val title: Int,
@@ -30,6 +31,7 @@ enum class SettingsCategory(
     PLAYBACK(R.string.set_cat_playback, Icons.Filled.GraphicEq, IconTone.Primary),
     DOWNLOADS(R.string.set_cat_downloads, Icons.Filled.Download, IconTone.Tertiary),
     IMPORT(R.string.set_cat_import, Icons.AutoMirrored.Filled.PlaylistAdd, IconTone.Secondary, opensSubpage = false),
+    YOUTUBE(R.string.set_cat_youtube, Icons.Filled.AccountCircle, IconTone.Tertiary, opensSubpage = false),
     APPEARANCE(R.string.set_cat_appearance, Icons.Filled.Palette, IconTone.Primary),
     STORAGE(R.string.set_cat_storage, Icons.Filled.Storage, IconTone.Secondary),
     DISCOVERY(R.string.set_cat_discovery, Icons.Filled.AutoAwesome, IconTone.Tertiary),
@@ -81,6 +83,7 @@ fun settingsSummary(
         ),
     )
     SettingsCategory.IMPORT -> listOf(SummaryPart.Text(R.string.set_summary_import))
+    SettingsCategory.YOUTUBE -> listOf(SummaryPart.Text(R.string.set_summary_youtube))
     SettingsCategory.APPEARANCE -> buildList {
         add(
             SummaryPart.Text(

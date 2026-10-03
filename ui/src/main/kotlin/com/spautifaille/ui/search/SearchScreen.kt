@@ -104,6 +104,7 @@ fun SearchScreenRoot(
     onOpenPlaylist: (url: String) -> Unit,
     onOpenArtist: (url: String) -> Unit,
     modifier: Modifier = Modifier,
+    accountAction: @Composable () -> Unit = {},
     viewModel: SearchViewModel = hiltViewModel(),
     recognitionViewModel: RecognitionViewModel = hiltViewModel(),
 ) {
@@ -132,6 +133,7 @@ fun SearchScreenRoot(
         onOpenPlaylist = onOpenPlaylist,
         onOpenArtist = onOpenArtist,
         onRecognizeClick = startRecognition,
+        accountAction = accountAction,
         modifier = modifier,
     )
     if (recognitionState != RecognitionUiState.Idle) {
@@ -168,6 +170,8 @@ fun SearchScreen(
     modifier: Modifier = Modifier,
     onRemoveRecent: (String) -> Unit = {},
     onRecognizeClick: () -> Unit = {},
+    /** Avatar du compte YouTube, à droite du champ. */
+    accountAction: @Composable () -> Unit = {},
 ) {
     val focusManager = LocalFocusManager.current
     val haptics = LocalAppHaptics.current
@@ -266,6 +270,7 @@ fun SearchScreen(
                             }) {
                                 Icon(Icons.Filled.GraphicEq, contentDescription = stringResource(R.string.search_recognize_action))
                             }
+                            accountAction()
                         }
                     },
                 )

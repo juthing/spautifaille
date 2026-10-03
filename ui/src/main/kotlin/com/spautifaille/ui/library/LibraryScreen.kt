@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -27,6 +28,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Edit
@@ -88,6 +90,8 @@ import com.spautifaille.ui.theme.SpautifailleTheme
 data class LibraryActions(
     val onOpenPlaylist: (Long) -> Unit = {},
     val onOpenImport: () -> Unit = {},
+    /** « Importer depuis YouTube » : visible seulement quand un compte est connecté. */
+    val onOpenYouTubeImport: () -> Unit = {},
     val onCreatePlaylist: (String) -> Unit = {},
     val onRenamePlaylist: (id: Long, name: String) -> Unit = { _, _ -> },
     val onDeletePlaylist: (Long) -> Unit = {},
@@ -100,13 +104,16 @@ fun LibraryRoute(
     onOpenPlaylist: (Long) -> Unit,
     onOpenImport: () -> Unit,
     modifier: Modifier = Modifier,
+    onOpenYouTubeImport: () -> Unit = {},
+    topBarActions: @Composable RowScope.() -> Unit = {},
     viewModel: LibraryViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val actions = remember(viewModel, onOpenPlaylist, onOpenImport) {
+    val actions = remember(viewModel, onOpenPlaylist, onOpenImport, onOpenYouTubeImport) {
         LibraryActions(
             onOpenPlaylist = onOpenPlaylist,
             onOpenImport = onOpenImport,
+            onOpenYouTubeImport = onOpenYouTubeImport,
             onCreatePlaylist = { viewModel.createPlaylist(it) },
             onRenamePlaylist = { id, name -> viewModel.renamePlaylist(id, name) },
             onDeletePlaylist = { viewModel.deletePlaylist(it) },
@@ -114,7 +121,7 @@ fun LibraryRoute(
             onDownloadPlaylist = viewModel::downloadPlaylist,
         )
     }
-    LibraryScreen(state = state, actions = actions, modifier = modifier)
+    LibraryScreen(state = state, actions = actions, modifier = modifier, topBarActions = topBarActions)
 }
 
 /**
@@ -127,6 +134,7 @@ fun LibraryScreen(
     state: LibraryUiState,
     actions: LibraryActions,
     modifier: Modifier = Modifier,
+    topBarActions: @Composable RowScope.() -> Unit = {},
 ) {
     val haptics = LocalAppHaptics.current
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
@@ -142,6 +150,7 @@ fun LibraryScreen(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.lib_title)) },
+                actions = topBarActions,
                 scrollBehavior = scrollBehavior,
             )
         },
@@ -177,6 +186,7 @@ fun LibraryScreen(
             onDismiss = { showNewSheet = false },
             onCreateEmpty = { showNameDialog = true },
             onImport = actions.onOpenImport,
+            onImportFromYouTube = actions.onOpenYouTubeImport.takeIf { state.isYouTubeSignedIn },
         )
     }
     if (showNameDialog) {
@@ -436,6 +446,8 @@ private fun NewPlaylistSheet(
     onDismiss: () -> Unit,
     onCreateEmpty: () -> Unit,
     onImport: () -> Unit,
+    /** `null` : pas de compte YouTube connecté, l'option n'est pas proposée. */
+    onImportFromYouTube: (() -> Unit)? = null,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
@@ -470,6 +482,17 @@ private fun NewPlaylistSheet(
                     onImport()
                 },
             )
+            if (onImportFromYouTube != null) {
+                NewPlaylistOption(
+                    icon = Icons.Filled.CloudDownload,
+                    title = stringResource(R.string.yt_import_option_title),
+                    description = stringResource(R.string.yt_import_option_body),
+                    onClick = {
+                        scope.hideSheet(sheetState, onDismiss)
+                        onImportFromYouTube()
+                    },
+                )
+            }
         }
     }
 }

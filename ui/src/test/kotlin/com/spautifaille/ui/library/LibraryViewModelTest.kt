@@ -12,6 +12,9 @@ import com.spautifaille.ui.common.NotificationPermissionRequester
 import com.spautifaille.ui.common.UiMessenger
 import com.spautifaille.ui.common.UiText
 import com.spautifaille.ui.network.NetworkMonitor
+import com.spautifaille.ui.youtube.FakeAccountRepository
+import com.spautifaille.domain.youtube.AccountState
+import com.spautifaille.ui.youtube.testAccount
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
@@ -38,6 +41,7 @@ class LibraryViewModelTest {
     private val playlists = FakePlaylistRepository()
     private val downloads = MutableStateFlow<List<Download>>(emptyList())
     private val online = MutableStateFlow(true)
+    private val accounts = FakeAccountRepository()
 
     private val downloadRepository = mockk<DownloadRepository>(relaxed = true) {
         every { observeDownloads() } returns downloads
@@ -56,7 +60,7 @@ class LibraryViewModelTest {
     }
 
     private fun viewModel() = LibraryViewModel(
-        playlists, downloadRepository, playback, network, offlineAvailability, notificationPermission, messenger,
+        playlists, downloadRepository, playback, network, offlineAvailability, notificationPermission, messenger, accounts,
     )
 
     private fun userPlaylist(id: Long, name: String, count: Int = 0) =
@@ -64,6 +68,20 @@ class LibraryViewModelTest {
 
     private fun download(index: Int, state: DownloadState = DownloadState.COMPLETED) =
         Download(track(index), state, 1f, 10, 10, "/f$index", null, index.toLong())
+
+    @Test
+    fun `youtube import is only offered when an account is signed in`() = runTest {
+        val vm = viewModel()
+        collectInBackground(vm.uiState)
+        assertFalse(vm.uiState.value.isYouTubeSignedIn)
+
+        accounts.state.value = AccountState.SignedIn(testAccount)
+        assertTrue(vm.uiState.value.isYouTubeSignedIn)
+
+        // Reconnexion nécessaire : l'import distant échouerait, l'option est masquée.
+        accounts.state.value = AccountState.ReauthRequired(testAccount)
+        assertFalse(vm.uiState.value.isYouTubeSignedIn)
+    }
 
     @Test
     fun `initial state is loading`() {

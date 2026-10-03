@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -75,6 +76,8 @@ fun HomeScreenRoot(
     onOpenHistory: () -> Unit = {},
     /** Ouvre l'écran de recherche (`SearchRoute`). */
     onOpenSearch: () -> Unit = {},
+    /** Actions de la barre d'application (avatar du compte YouTube). */
+    topBarActions: @Composable RowScope.() -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -93,6 +96,7 @@ fun HomeScreenRoot(
         onOpenFollowedArtists = onOpenFollowedArtists,
         onOpenHistory = onOpenHistory,
         onOpenSearch = onOpenSearch,
+        topBarActions = topBarActions,
     )
 }
 
@@ -124,6 +128,7 @@ fun HomeScreen(
     onOpenFollowedArtists: () -> Unit = {},
     onOpenHistory: () -> Unit = {},
     onOpenSearch: () -> Unit = {},
+    topBarActions: @Composable RowScope.() -> Unit = {},
 ) {
     var actionsTrack by remember { mutableStateOf<Track?>(null) }
     val layoutDirection = LocalLayoutDirection.current
@@ -134,6 +139,7 @@ fun HomeScreen(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(state.greeting.labelRes())) },
+                actions = topBarActions,
                 scrollBehavior = scrollBehavior,
             )
         },

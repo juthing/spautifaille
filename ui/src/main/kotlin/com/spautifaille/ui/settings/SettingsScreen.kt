@@ -36,13 +36,15 @@ import com.spautifaille.ui.theme.SpautifailleTheme
 
 /**
  * Page d'accueil des réglages (onglet racine) : une ligne par catégorie. [onOpenCategory] reçoit les
- * catégories à sous-page, [onOpenImport] la catégorie « Importer » qui ouvre directement l'écran d'import.
+ * catégories à sous-page, [onOpenImport] la catégorie « Importer » qui ouvre directement l'écran d'import,
+ * [onOpenYouTubeAccount] la catégorie « Compte YouTube ».
  */
 @Composable
 fun SettingsRoute(
     onOpenCategory: (SettingsCategory) -> Unit,
     onOpenImport: () -> Unit,
     modifier: Modifier = Modifier,
+    onOpenYouTubeAccount: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -53,7 +55,11 @@ fun SettingsRoute(
         versionName = versionName,
         dynamicColorAvailable = dynamicColorSupported(),
         onCategoryClick = { category ->
-            if (category.opensSubpage) onOpenCategory(category) else onOpenImport()
+            when {
+                category.opensSubpage -> onOpenCategory(category)
+                category == SettingsCategory.YOUTUBE -> onOpenYouTubeAccount()
+                else -> onOpenImport()
+            }
         },
         modifier = modifier,
     )

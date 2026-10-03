@@ -10,6 +10,8 @@ import com.spautifaille.domain.player.QueueSources
 import com.spautifaille.domain.repository.DownloadRepository
 import com.spautifaille.domain.repository.OfflineAvailability
 import com.spautifaille.domain.repository.PlaylistRepository
+import com.spautifaille.domain.youtube.AccountRepository
+import com.spautifaille.domain.youtube.AccountState
 import com.spautifaille.ui.R
 import com.spautifaille.ui.common.NotificationPermissionRequester
 import com.spautifaille.ui.common.UiMessenger
@@ -40,6 +42,8 @@ data class LibraryUiState(
     val playlists: List<Playlist> = emptyList(),
     /** Aucun réseau : seuls les titres téléchargés sont disponibles. */
     val isOffline: Boolean = false,
+    /** Un compte YouTube est connecté : « Importer depuis YouTube » est proposé à la création d'une playlist. */
+    val isYouTubeSignedIn: Boolean = false,
 ) {
     /** Au moins une playlist créée par l'utilisateur (sinon : état vide). */
     val hasUserPlaylists: Boolean get() = playlists.any { !it.isPinned }
@@ -54,17 +58,20 @@ class LibraryViewModel @Inject constructor(
     private val offlineAvailability: OfflineAvailability,
     private val notificationPermission: NotificationPermissionRequester,
     private val messenger: UiMessenger,
+    accountRepository: AccountRepository,
 ) : ViewModel() {
 
     val uiState: StateFlow<LibraryUiState> = combine(
         playlistRepository.observePlaylists(),
         downloadRepository.observeDownloads().map { it.completedDownloads().size }.distinctUntilChanged(),
         networkMonitor.isOnline,
-    ) { playlists, downloadedCount, isOnline ->
+        accountRepository.accountState.map { it is AccountState.SignedIn }.distinctUntilChanged(),
+    ) { playlists, downloadedCount, isOnline, signedIn ->
         LibraryUiState(
             isLoading = false,
             playlists = orderLibraryPlaylists(playlists, downloadedCount, isOffline = !isOnline),
             isOffline = !isOnline,
+            isYouTubeSignedIn = signedIn,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MS), LibraryUiState())
 

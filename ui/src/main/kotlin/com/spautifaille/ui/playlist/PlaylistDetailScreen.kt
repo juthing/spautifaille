@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -28,6 +29,7 @@ import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.DownloadDone
@@ -35,11 +37,13 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -106,6 +110,7 @@ import com.spautifaille.ui.theme.ListBottomPadding
 import com.spautifaille.ui.theme.ScreenHorizontalPadding
 import com.spautifaille.ui.theme.Spacing
 import com.spautifaille.ui.theme.SpautifailleTheme
+import com.spautifaille.ui.youtube.PlaylistYouTubeViewModel
 import kotlinx.coroutines.launch
 import sh.calvin.reorderable.ReorderableCollectionItemScope
 import sh.calvin.reorderable.ReorderableItem
@@ -123,6 +128,10 @@ data class PlaylistDetailActions(
     val onDownloadAll: () -> Unit = {},
     val onRename: (String) -> Unit = {},
     val onDelete: () -> Unit = {},
+    /** Playlist liée à YouTube : coupe le lien (la playlist reste intacte des deux côtés). */
+    val onUnlinkFromYouTube: () -> Unit = {},
+    /** Playlist locale non liée : la crée sur le compte YouTube puis la lie. */
+    val onPublishToYouTube: () -> Unit = {},
     val onDragStart: (entryId: Long) -> Unit = {},
     val onMove: (from: Int, to: Int) -> Unit = { _, _ -> },
     val onDragEnd: () -> Unit = {},
@@ -152,8 +161,11 @@ fun PlaylistDetailRoute(
     onOpenArtist: (String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: PlaylistDetailViewModel = hiltViewModel(),
+    youTubeViewModel: PlaylistYouTubeViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val canPublishToYouTube by youTubeViewModel.canPublish.collectAsStateWithLifecycle()
+    val youTubeBusy by youTubeViewModel.busy.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val resources = LocalResources.current
@@ -199,7 +211,7 @@ fun PlaylistDetailRoute(
         }
     }
 
-    val actions = remember(viewModel, onBack, onOpenArtist) {
+    val actions = remember(viewModel, youTubeViewModel, onBack, onOpenArtist) {
         PlaylistDetailActions(
             onBack = onBack,
             onOpenArtist = onOpenArtist,
@@ -209,6 +221,8 @@ fun PlaylistDetailRoute(
             onDownloadAll = viewModel::downloadAll,
             onRename = { viewModel.rename(it) },
             onDelete = { viewModel.delete() },
+            onUnlinkFromYouTube = youTubeViewModel::unlink,
+            onPublishToYouTube = youTubeViewModel::publish,
             onDragStart = viewModel::onDragStart,
             onMove = viewModel::onMove,
             onDragEnd = viewModel::onDragEnd,
@@ -229,6 +243,8 @@ fun PlaylistDetailRoute(
         actions = actions,
         snackbarHostState = snackbarHostState,
         modifier = modifier,
+        canPublishToYouTube = canPublishToYouTube,
+        youTubeBusy = youTubeBusy,
     )
 }
 
@@ -239,8 +255,12 @@ fun PlaylistDetailScreen(
     actions: PlaylistDetailActions,
     snackbarHostState: SnackbarHostState,
     modifier: Modifier = Modifier,
+    /** Un compte YouTube est connecté : « Publier sur YouTube » est proposé pour une playlist non liée. */
+    canPublishToYouTube: Boolean = false,
+    youTubeBusy: Boolean = false,
 ) {
     val haptics = LocalAppHaptics.current
+    var showUnlink by rememberSaveable { mutableStateOf(false) }
     var showRename by rememberSaveable { mutableStateOf(false) }
     var showDelete by rememberSaveable { mutableStateOf(false) }
     // Titres figés à l'ouverture de la feuille : la sélection se vide dès l'ajout, la feuille finit son animation.
@@ -299,6 +319,26 @@ fun PlaylistDetailScreen(
                                         )
                                     }
                                     DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                                        if (playlist.isLinkedToYouTube) {
+                                            DropdownMenuItem(
+                                                text = { Text(stringResource(R.string.yt_unlink)) },
+                                                leadingIcon = { Icon(Icons.Filled.LinkOff, contentDescription = null) },
+                                                onClick = {
+                                                    menuOpen = false
+                                                    showUnlink = true
+                                                },
+                                            )
+                                        } else if (canPublishToYouTube) {
+                                            DropdownMenuItem(
+                                                text = { Text(stringResource(R.string.yt_publish)) },
+                                                leadingIcon = { Icon(Icons.Filled.CloudUpload, contentDescription = null) },
+                                                enabled = !youTubeBusy,
+                                                onClick = {
+                                                    menuOpen = false
+                                                    actions.onPublishToYouTube()
+                                                },
+                                            )
+                                        }
                                         DropdownMenuItem(
                                             text = { Text(stringResource(R.string.lib_rename)) },
                                             leadingIcon = { Icon(Icons.Filled.Edit, contentDescription = null) },
@@ -384,6 +424,19 @@ fun PlaylistDetailScreen(
                 showRemoveDownloads = false
             },
             onDismiss = { showRemoveDownloads = false },
+        )
+    }
+    if (showUnlink && playlist != null) {
+        LibraryConfirmDialog(
+            title = stringResource(R.string.yt_unlink_title),
+            text = stringResource(R.string.yt_unlink_message),
+            confirmLabel = stringResource(R.string.yt_unlink),
+            onConfirm = {
+                haptics.confirm()
+                actions.onUnlinkFromYouTube()
+                showUnlink = false
+            },
+            onDismiss = { showUnlink = false },
         )
     }
     if (showRename && playlist != null) {
@@ -631,6 +684,26 @@ private fun PlaylistContent(
     }
 }
 
+/** Badge « Synchronisée avec YouTube » des playlists liées. */
+@Composable
+private fun YouTubeLinkedBadge(modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = Spacing.m, vertical = Spacing.xs),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Spacing.xs),
+        ) {
+            Icon(Icons.Filled.Sync, contentDescription = null, modifier = Modifier.size(16.dp))
+            Text(stringResource(R.string.yt_linked_badge), style = MaterialTheme.typography.labelMedium)
+        }
+    }
+}
+
 @Composable
 private fun PlaylistHeader(
     playlist: Playlist,
@@ -676,6 +749,7 @@ private fun PlaylistHeader(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            if (playlist.isLinkedToYouTube) YouTubeLinkedBadge()
         }
         Row(
             modifier = Modifier.fillMaxWidth(),
