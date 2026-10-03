@@ -21,6 +21,13 @@ sealed interface AppError {
     data object MicrophoneUnavailable : AppError
     /** Le service de reconnaissance musicale refuse ou limite les requêtes (HTTP 429, changement d'API). Récupérable plus tard. */
     data object RecognitionUnavailable : AppError
+    /** Cookies YouTube expirés ou refusés (HTTP 401/403) : le compte doit être reconnecté. Les données locales sont conservées. */
+    data object YouTubeAuthRequired : AppError
+    /**
+     * Échec de la synchronisation du compte YouTube (réponse inattendue, API modifiée, refus). [endpoint] et
+     * [detail] alimentent le mode diagnostic des réglages.
+     */
+    data class YouTubeSyncFailed(val endpoint: String, val detail: String?) : AppError
     data class ExtractionBroken(val detail: String?) : AppError
     data class Unknown(val detail: String?) : AppError
 

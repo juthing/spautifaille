@@ -171,7 +171,7 @@ fun SettingsCategoryScreen(
                     SettingsCategory.DISCOVERY -> DiscoverySettings(state, actions)
                     SettingsCategory.ABOUT -> AboutSettings(versionName)
                     // Pas de sous-page : la navigation n'y mène jamais.
-                    SettingsCategory.IMPORT -> Unit
+                    SettingsCategory.IMPORT, SettingsCategory.YOUTUBE -> Unit
                 }
             }
         }

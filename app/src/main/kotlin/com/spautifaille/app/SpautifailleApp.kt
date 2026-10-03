@@ -14,9 +14,11 @@ import coil3.request.crossfade
 import com.spautifaille.data.newpipe.NewPipeInitializer
 import com.spautifaille.domain.di.ApplicationScope
 import com.spautifaille.domain.repository.DownloadRepository
+import com.spautifaille.domain.youtube.LibrarySync
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 import javax.inject.Provider
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -35,11 +37,25 @@ class SpautifailleApp : Application(), Configuration.Provider, SingletonImageLoa
     // réconciliation des téléchargements), sans dépendre de l'ordre d'injection des champs.
     @Inject lateinit var downloadRepository: dagger.Lazy<DownloadRepository>
 
+    // Compte YouTube : planifie la synchro périodique et, si la dernière date de plus d'une heure, en lance une.
+    // Sans effet quand aucun compte n'est connecté. Lazy : le graphe (Keystore, Room) n'est construit qu'ici.
+    @Inject lateinit var librarySync: dagger.Lazy<LibrarySync>
+
     override fun onCreate() {
         super.onCreate()
         // Initialisation de NewPipe hors du thread principal (le repository la garantit aussi paresseusement).
         appScope.launch(Dispatchers.IO) { newPipeInitializer.init() }
         downloadRepository.get()
+        appScope.launch(Dispatchers.IO) {
+            try {
+                librarySync.get().onAppStart()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                // La synchro est optionnelle : un échec au démarrage ne doit jamais empêcher l'app de fonctionner.
+                android.util.Log.w("SpautifailleApp", "Démarrage de la synchro YouTube impossible", e)
+            }
+        }
     }
 
     // WorkManager est initialisé à la demande avec la fabrique Hilt (initialiseur par défaut retiré du manifeste).

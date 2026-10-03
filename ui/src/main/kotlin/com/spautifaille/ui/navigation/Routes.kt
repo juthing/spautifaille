@@ -66,3 +66,15 @@ data object FollowedArtistsRoute
 /** Sous-page d'une catégorie de réglages ; [category] = `SettingsCategory.key` (l'onglet Réglages reste sélectionné). */
 @Serializable
 data class SettingsCategoryRoute(val category: String)
+
+/** Connexion Google / YouTube (WebView plein écran). */
+@Serializable
+data object YouTubeLoginRoute
+
+/** Réglages du compte YouTube (état, synchronisation, diagnostic, déconnexion). */
+@Serializable
+data object YouTubeAccountRoute
+
+/** Choix des playlists du compte à importer comme playlists liées. */
+@Serializable
+data object YouTubePlaylistPickerRoute

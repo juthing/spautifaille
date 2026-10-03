@@ -26,6 +26,10 @@ import com.spautifaille.ui.library.LibraryRoute as LibraryScreenRoute
 import com.spautifaille.ui.playlist.PlaylistDetailRoute
 import com.spautifaille.ui.remoteplaylist.RemotePlaylistRoute as RemotePlaylistScreenRoute
 import com.spautifaille.ui.settings.SettingsCategoryRoute as SettingsCategoryScreenRoute
+import com.spautifaille.ui.youtube.AccountAvatarAction
+import com.spautifaille.ui.youtube.YouTubeAccountScreenRoot
+import com.spautifaille.ui.youtube.YouTubeLoginScreenRoot
+import com.spautifaille.ui.youtube.YouTubePlaylistPickerScreenRoot
 import com.spautifaille.ui.settings.SettingsRoute as SettingsScreenRoute
 import com.spautifaille.ui.search.SearchScreenRoot
 
@@ -39,6 +43,12 @@ fun AppNavHost(
     navController: NavHostController,
     modifier: Modifier = Modifier,
 ) {
+    val openYouTubeLogin: () -> Unit = { navController.navigate(YouTubeLoginRoute) { launchSingleTop = true } }
+    val openYouTubeAccount: () -> Unit = { navController.navigate(YouTubeAccountRoute) { launchSingleTop = true } }
+    // Avatar du compte YouTube, commun aux barres d'application d'Accueil, de Recherche et de Bibliothèque.
+    val accountAction: @Composable () -> Unit = {
+        AccountAvatarAction(onSignIn = openYouTubeLogin, onOpenAccount = openYouTubeAccount)
+    }
     NavHost(
         navController = navController,
         startDestination = HomeRoute,
@@ -58,6 +68,7 @@ fun AppNavHost(
                 onOpenFollowedArtists = { navController.navigate(FollowedArtistsRoute) },
                 onOpenHistory = { navController.navigate(HistoryRoute) },
                 onOpenSearch = { navController.navigate(SearchRoute) { launchSingleTop = true } },
+                topBarActions = { accountAction() },
             )
         }
         composable<SearchRoute> {
@@ -65,14 +76,20 @@ fun AppNavHost(
                 onBack = { navController.navigateUp() },
                 onOpenPlaylist = { url -> navController.navigate(RemotePlaylistRoute(url)) },
                 onOpenArtist = { url -> navController.navigate(ArtistRoute(url)) },
+                accountAction = accountAction,
             )
         }
-        integrationDestinations(navController)
+        integrationDestinations(navController, accountAction, openYouTubeLogin, openYouTubeAccount)
     }
 }
 
 /** Destinations secondaires (bibliothèque, playlists, artiste, réglages…). */
-private fun androidx.navigation.NavGraphBuilder.integrationDestinations(navController: NavHostController) {
+private fun androidx.navigation.NavGraphBuilder.integrationDestinations(
+    navController: NavHostController,
+    accountAction: @Composable () -> Unit,
+    openYouTubeLogin: () -> Unit,
+    openYouTubeAccount: () -> Unit,
+) {
     val openPlaylist: (Long) -> Unit = { id -> navController.navigate(PlaylistRoute(id)) }
     val openArtist: (String) -> Unit = { url -> navController.navigate(ArtistRoute(url)) }
     val openRemotePlaylist: (String) -> Unit = { url -> navController.navigate(RemotePlaylistRoute(url)) }
@@ -82,6 +99,8 @@ private fun androidx.navigation.NavGraphBuilder.integrationDestinations(navContr
         LibraryScreenRoute(
             onOpenPlaylist = openPlaylist,
             onOpenImport = { navController.navigate(ImportRoute) },
+            onOpenYouTubeImport = { navController.navigate(YouTubePlaylistPickerRoute) },
+            topBarActions = { accountAction() },
         )
     }
     // Les ViewModels lisent les arguments de route (`id`, `url`) depuis leur SavedStateHandle.
@@ -93,6 +112,27 @@ private fun androidx.navigation.NavGraphBuilder.integrationDestinations(navContr
         SettingsScreenRoute(
             onOpenCategory = { category -> navController.navigate(SettingsCategoryRoute(category.key)) },
             onOpenImport = { navController.navigate(ImportRoute) },
+            onOpenYouTubeAccount = openYouTubeAccount,
+        )
+    }
+    composable<YouTubeAccountRoute> {
+        YouTubeAccountScreenRoot(onBack = back, onSignIn = openYouTubeLogin)
+    }
+    composable<YouTubeLoginRoute> {
+        YouTubeLoginScreenRoot(onBack = back, onSignedIn = back)
+    }
+    composable<YouTubePlaylistPickerRoute> {
+        YouTubePlaylistPickerScreenRoot(
+            onBack = back,
+            onImported = { ids ->
+                // Une seule playlist importée : on l'ouvre ; sinon retour à la Bibliothèque qui les affiche.
+                if (ids.size == 1) {
+                    navController.popBackStack()
+                    openPlaylist(ids.first())
+                } else {
+                    navController.popBackStack()
+                }
+            },
         )
     }
     composable<DiscoveryRoute> { DiscoveryScreenRoot(onBack = back, onOpenArtist = openArtist) }

@@ -22,8 +22,12 @@ import com.spautifaille.domain.model.Playlist
         ImportJobEntity::class,
         ImportItemEntity::class,
         DiscoveryTrackEntity::class,
+        YtPlaylistLinkEntity::class,
+        YtEntryLinkEntity::class,
+        YtSnapshotEntity::class,
+        YtPendingActionEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 abstract class SpautifailleDatabase : RoomDatabase() {
@@ -35,6 +39,7 @@ abstract class SpautifailleDatabase : RoomDatabase() {
     abstract fun downloadDao(): DownloadDao
     abstract fun importDao(): ImportDao
     abstract fun discoveryDao(): DiscoveryDao
+    abstract fun youTubeSyncDao(): YouTubeSyncDao
 
     companion object {
         const val NAME = "spautifaille.db"

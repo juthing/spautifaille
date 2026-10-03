@@ -104,6 +104,17 @@ class AppLaunchTest {
     }
 
     @Test
+    fun accountAvatarIsOfferedOnHomeAndLibraryWhenSignedOut() {
+        // Sans compte : l'icône de connexion est dans la barre d'application, l'app fonctionne comme avant.
+        awaitNavigationLabel("Accueil")
+        composeRule.onAllNodes(hasContentDescription("Se connecter à YouTube")).assertCountEquals(1)
+        clickNavigation("Bibliothèque")
+        composeRule.waitUntil(timeoutMillis = WAIT_MS) {
+            composeRule.onAllNodes(hasContentDescription("Se connecter à YouTube")).fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
+    @Test
     fun navigatingBetweenTabsDoesNotCrash() {
         clickNavigation("Bibliothèque")
         clickNavigation("Réglages")

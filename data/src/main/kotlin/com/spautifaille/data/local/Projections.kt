@@ -12,6 +12,7 @@ data class PlaylistRow(
     @ColumnInfo(name = "updated_at") val updatedAt: Long,
     @ColumnInfo(name = "track_count") val trackCount: Int,
     @ColumnInfo(name = "thumbnail_url") val thumbnailUrl: String?,
+    @ColumnInfo(name = "is_linked") val isLinked: Boolean = false,
 )
 
 data class EntryWithTrack(

@@ -5,6 +5,7 @@
     <string name="set_cat_playback">Lecture</string>
     <string name="set_cat_downloads">Téléchargements</string>
     <string name="set_cat_import">Importer</string>
+    <string name="set_cat_youtube">Compte YouTube</string>
     <string name="set_cat_appearance">Apparence</string>
     <string name="set_cat_storage">Stockage</string>
     <string name="set_cat_discovery">Découverte</string>
@@ -14,6 +15,7 @@
     <string name="set_summary_wifi_only">Wi-Fi uniquement</string>
     <string name="set_summary_wifi_and_mobile">Wi-Fi et données mobiles</string>
     <string name="set_summary_import">Depuis un fichier ou un lien YouTube</string>
+    <string name="set_summary_youtube">Synchronise tes likes, tes artistes et tes playlists</string>
     <string name="set_summary_theme_system">Thème du système</string>
     <string name="set_summary_theme_light">Thème clair</string>
     <string name="set_summary_theme_dark">Thème sombre</string>

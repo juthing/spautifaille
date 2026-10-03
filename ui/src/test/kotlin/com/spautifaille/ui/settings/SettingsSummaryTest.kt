@@ -50,6 +50,11 @@ class SettingsSummaryTest {
     }
 
     @Test
+    fun `youtube account category has a fixed summary`() {
+        assertEquals(listOf(SummaryPart.Text(R.string.set_summary_youtube)), summary(SettingsCategory.YOUTUBE))
+    }
+
+    @Test
     fun `playback summary names the audio quality`() {
         assertEquals(
             listOf(SummaryPart.Text(R.string.set_quality_best)),
@@ -120,6 +125,7 @@ class SettingsSummaryTest {
     @Test
     fun `import has no subpage and unknown keys are rejected`() {
         assertNull(SettingsCategory.fromKey(SettingsCategory.IMPORT.key))
+        assertNull(SettingsCategory.fromKey(SettingsCategory.YOUTUBE.key))
         assertNull(SettingsCategory.fromKey("nope"))
         assertNull(SettingsCategory.fromKey(""))
     }

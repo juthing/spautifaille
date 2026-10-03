@@ -22,6 +22,8 @@ class AppErrorMessagesTest {
         AppError.ExtractionBroken("détail"),
         AppError.MicrophoneUnavailable,
         AppError.RecognitionUnavailable,
+        AppError.YouTubeAuthRequired,
+        AppError.YouTubeSyncFailed("browse", "détail"),
         AppError.Unknown("détail"),
     )
 

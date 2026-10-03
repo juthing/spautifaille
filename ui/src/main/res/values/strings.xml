@@ -67,6 +67,8 @@
     <string name="apperror_extraction_broken">L\'extraction a échoué : YouTube a probablement changé. Mets l\'application à jour.</string>
     <string name="apperror_microphone_unavailable">Impossible d\'utiliser le micro. Vérifie qu\'une autre application ne l\'utilise pas.</string>
     <string name="apperror_recognition_unavailable">Le service de reconnaissance est indisponible pour le moment. Réessaie plus tard.</string>
+    <string name="apperror_youtube_auth_required">YouTube a refusé ta session. Reconnecte ton compte dans les réglages.</string>
+    <string name="apperror_youtube_sync_failed">La synchronisation avec YouTube a échoué. Les détails sont dans les réglages du compte.</string>
     <string name="apperror_unknown">Une erreur inattendue s\'est produite.</string>
 
     <!-- Accueil -->
